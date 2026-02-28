@@ -190,34 +190,67 @@
      </div>
     </div>
    </div><!-- Games Columns -->
-   <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6"><!-- Right Column - Upcoming Games -->
+   <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+    <!-- Right Column - Upcoming Games -->
     <div class="bg-white rounded-xl shadow-lg overflow-hidden">
      <div class="column-header p-4 text-white text-center" style="--header-from: #6366f1; --header-to: #8b5cf6;">
       <div class="flex items-center justify-center gap-2">
+        <button id="upcoming-filter-toggle" type="button" class="ml-2 bg-white bg-opacity-20 hover:bg-opacity-40 text-white rounded px-2 py-1 text-xs font-bold transition-colors" style="min-width:32px;" title="סנן"><span>🔍</span></button>
         <h2 class="text-xl font-bold m-0">המשחקים הבאים</h2>
         <span id="upcoming-count" class="text-sm opacity-80">0 משחקים</span>
+      </div>
+      <div id="upcoming-filter-panel" class="flex flex-col gap-1 items-center mt-2" style="display:none;">
+        <input id="upcoming-player-filter" type="text" placeholder="סנן לפי שחקן..." class="w-full px-2 py-1 rounded text-slate-700 text-xs text-center" style="color:#222;max-width:180px;direction:rtl;" />
+        <select id="upcoming-category-filter" class="w-full px-2 py-1 rounded text-slate-700 text-xs text-center" style="color:#222;max-width:180px;direction:rtl;">
+          <option value="">כל הקטגוריות</option>
+        </select>
+        <select id="upcoming-group-filter" class="w-full px-2 py-1 rounded text-slate-700 text-xs text-center" style="color:#222;max-width:180px;direction:rtl;">
+          <option value="">כל הבתים</option>
+        </select>
       </div>
      </div>
      <div id="upcoming-games" class="p-2 space-y-2 max-h-[85vh] overflow-y-auto">
       <p class="text-slate-400 text-center py-8">אין משחקים להצגה</p>
      </div>
-    </div><!-- Center Column - In Progress Games -->
+    </div>
+    <!-- Center Column - In Progress Games -->
     <div class="bg-white rounded-xl shadow-lg overflow-hidden">
      <div class="column-header p-4 text-white text-center" style="--header-from: #f59e0b; --header-to: #d97706;">
       <div class="flex items-center justify-center gap-2">
+        <button id="inprogress-filter-toggle" type="button" class="ml-2 bg-white bg-opacity-20 hover:bg-opacity-40 text-white rounded px-2 py-1 text-xs font-bold transition-colors" style="min-width:32px;" title="סנן"><span>🔍</span></button>
         <h2 class="text-xl font-bold m-0">משחקים עכשיו</h2>
         <span id="inprogress-count" class="text-sm opacity-80">0 משחקים</span>
+      </div>
+      <div id="inprogress-filter-panel" class="flex flex-col gap-1 items-center mt-2" style="display:none;">
+        <input id="inprogress-player-filter" type="text" placeholder="סנן לפי שחקן..." class="w-full px-2 py-1 rounded text-slate-700 text-xs text-center" style="color:#222;max-width:180px;direction:rtl;" />
+        <select id="inprogress-category-filter" class="w-full px-2 py-1 rounded text-slate-700 text-xs text-center" style="color:#222;max-width:180px;direction:rtl;">
+          <option value="">כל הקטגוריות</option>
+        </select>
+        <select id="inprogress-group-filter" class="w-full px-2 py-1 rounded text-slate-700 text-xs text-center" style="color:#222;max-width:180px;direction:rtl;">
+          <option value="">כל הבתים</option>
+        </select>
       </div>
      </div>
      <div id="inprogress-games" class="p-2 space-y-2 max-h-[85vh] overflow-y-auto">
       <p class="text-slate-400 text-center py-8">אין משחקים להצגה</p>
      </div>
-    </div><!-- Left Column - Finished Games -->
+    </div>
+    <!-- Left Column - Finished Games -->
     <div class="bg-white rounded-xl shadow-lg overflow-hidden">
      <div class="column-header p-4 text-white text-center" style="--header-from: #10b981; --header-to: #059669;">
       <div class="flex items-center justify-center gap-2">
+        <button id="finished-filter-toggle" type="button" class="ml-2 bg-white bg-opacity-20 hover:bg-opacity-40 text-white rounded px-2 py-1 text-xs font-bold transition-colors" style="min-width:32px;" title="סנן"><span>🔍</span></button>
         <h2 class="text-xl font-bold m-0">משחקים שנגמרו</h2>
         <span id="finished-count" class="text-sm opacity-80">0 משחקים</span>
+      </div>
+      <div id="finished-filter-panel" class="flex flex-col gap-1 items-center mt-2" style="display:none;">
+        <input id="finished-player-filter" type="text" placeholder="סנן לפי שחקן..." class="w-full px-2 py-1 rounded text-slate-700 text-xs text-center" style="color:#222;max-width:180px;direction:rtl;" />
+        <select id="finished-category-filter" class="w-full px-2 py-1 rounded text-slate-700 text-xs text-center" style="color:#222;max-width:180px;direction:rtl;">
+          <option value="">כל הקטגוריות</option>
+        </select>
+        <select id="finished-group-filter" class="w-full px-2 py-1 rounded text-slate-700 text-xs text-center" style="color:#222;max-width:180px;direction:rtl;">
+          <option value="">כל הבתים</option>
+        </select>
       </div>
      </div>
      <div id="finished-games" class="p-2 space-y-2 max-h-[85vh] overflow-y-auto">
@@ -380,7 +413,11 @@
               'QF': 'רבע גמר',
               '1/8': 'שמינית גמר',
               '1/16': '1/16 גמר',
-              '3-4': 'מקום 3-4'
+              '1/32': '1/32 גמר',
+              '1/64': '1/64 גמר',
+              '1/128': '1/128 גמר',
+              '1/256': '1/256 גמר',
+              '3-4': 'מקומות 3-4'
             };
       const grayClass = isGrayed ? 'grayed-out' : '';
       
@@ -628,8 +665,9 @@
       // Get previous in-progress and finished game ids
       const prevInProgressIds = (window._prevInProgressIds || []);
       const prevFinishedIds = (window._prevFinishedIds || []);
-      const inProgressGames = validGames.filter(g => g.status === 'IN_PROGRESS');
-      const finishedGames = validGames.filter(g => g.status === 'FINISHED');
+      let inProgressGames = validGames.filter(g => g.status === 'IN_PROGRESS');
+      let finishedGames = validGames.filter(g => g.status === 'FINISHED');
+      let upcomingGames = validGames.filter(g => g.status !== 'FINISHED' && g.status !== 'IN_PROGRESS');
       const inProgressIds = inProgressGames.map(g => g.id).filter(Boolean);
       const finishedIds = finishedGames.map(g => g.id).filter(Boolean);
       // For games that are now finished but were previously in progress, set finished_at
@@ -667,9 +705,63 @@
       finishedGames.forEach(game => {
         if (game.id) clearGameTimer(game.id);
       });
-      // Render upcoming games - separate grayed and non-grayed
-      let upcomingGames = validGames
-        .filter(g => g.status !== 'FINISHED' && g.status !== 'IN_PROGRESS');
+      // --- FILTERS ---
+      const upcomingPlayerFilter = (document.getElementById('upcoming-player-filter') || {}).value || '';
+      const inprogressPlayerFilter = (document.getElementById('inprogress-player-filter') || {}).value || '';
+      const finishedPlayerFilter = (document.getElementById('finished-player-filter') || {}).value || '';
+      const upcomingCategoryFilter = (document.getElementById('upcoming-category-filter') || {}).value || '';
+      const inprogressCategoryFilter = (document.getElementById('inprogress-category-filter') || {}).value || '';
+      const finishedCategoryFilter = (document.getElementById('finished-category-filter') || {}).value || '';
+      const upcomingGroupFilter = (document.getElementById('upcoming-group-filter') || {}).value || '';
+      const inprogressGroupFilter = (document.getElementById('inprogress-group-filter') || {}).value || '';
+      const finishedGroupFilter = (document.getElementById('finished-group-filter') || {}).value || '';
+      const upcomingTurnFilter = (document.getElementById('upcoming-turn-filter') || {}).value || '';
+      // Removed turn_no filter logic
+      function filterByPlayer(games, filter) {
+        if (!filter) return games;
+        const f = filter.trim().toLowerCase();
+        return games.filter(g =>
+          (g.playerA && g.playerA.toLowerCase().includes(f)) ||
+          (g.playerX && g.playerX.toLowerCase().includes(f))
+        );
+      }
+      function filterByCategory(games, filter) {
+        if (!filter) return games;
+        return games.filter(g => (g.draw && g.draw === filter));
+      }
+      function filterByGroup(games, filter) {
+        if (!filter) return games;
+        return games.filter(g => (g.groupNo && String(g.groupNo) === filter));
+      }
+      function filterByTurn(games, filter) {
+        if (!filter) return games;
+        // Use the same display label as in the dropdown
+        const roundLabels = {
+          'F': 'גמר',
+          'SF': 'חצי גמר',
+          'QF': 'רבע גמר',
+          '1/8': 'שמינית גמר',
+          '1/16': '1/16 גמר',
+          '1/32': '1/32 גמר',
+          '1/64': '1/64 גמר',
+          '1/128': '1/128 גמר',
+          '1/256': '1/256 גמר',
+          '3-4': 'מקומות 3-4'
+        };
+        return games.filter(g => {
+          let label = '';
+          if (g.groupNo) {
+            label = `בית ${g.groupNo} | סיבוב ${(g.turn_no || '|')}`;
+          } else if (roundLabels[g.turn_no]) {
+            label = roundLabels[g.turn_no];
+          } else if (g.turn_no) {
+            label = g.turn_no;
+          } else {
+            label = '|';
+          }
+          return label === filter;
+        });
+      }
       // Sort by date and startTime if both exist, otherwise fallback to turn_no
       upcomingGames = upcomingGames.sort((a, b) => {
         const hasDateA = a.date && a.startTime;
@@ -687,10 +779,21 @@
         const turnB = parseInt(b.turn_no) || 0;
         return turnA - turnB;
       });
+      // Apply filters
+      let filteredUpcoming = filterByPlayer(upcomingGames, upcomingPlayerFilter);
+      filteredUpcoming = filterByCategory(filteredUpcoming, upcomingCategoryFilter);
+      filteredUpcoming = filterByGroup(filteredUpcoming, upcomingGroupFilter);
+      let filteredInProgress = filterByPlayer(inProgressGames, inprogressPlayerFilter);
+      filteredInProgress = filterByCategory(filteredInProgress, inprogressCategoryFilter);
+      filteredInProgress = filterByGroup(filteredInProgress, inprogressGroupFilter);
+      let filteredFinished = filterByPlayer(sortedFinishedGames, finishedPlayerFilter);
+      filteredFinished = filterByCategory(filteredFinished, finishedCategoryFilter);
+      filteredFinished = filterByGroup(filteredFinished, finishedGroupFilter);
+      // Render upcoming games - separate grayed and non-grayed
       const upcomingContainer = document.getElementById('upcoming-games');
-      if (upcomingGames.length > 0) {
-        const nonGrayedUpcoming = upcomingGames.filter(game => !hasPlayerInProgress(game, playersInProgress));
-        const grayedUpcoming = upcomingGames.filter(game => hasPlayerInProgress(game, playersInProgress));
+      if (filteredUpcoming.length > 0) {
+        const nonGrayedUpcoming = filteredUpcoming.filter(game => !hasPlayerInProgress(game, playersInProgress));
+        const grayedUpcoming = filteredUpcoming.filter(game => hasPlayerInProgress(game, playersInProgress));
         const upcomingHtml = [
           ...nonGrayedUpcoming.map(game => createGameCard(game, 'upcoming', false)),
           ...grayedUpcoming.map(game => createGameCard(game, 'upcoming', true))
@@ -699,27 +802,27 @@
       } else {
         upcomingContainer.innerHTML = '<p class="text-slate-400 text-center py-8">אין משחקים להצגה</p>';
       }
-      document.getElementById('upcoming-count').textContent = `${upcomingGames.length} משחקים`;
+      document.getElementById('upcoming-count').textContent = `${filteredUpcoming.length} משחקים`;
       // Render finished games
       const finishedContainer = document.getElementById('finished-games');
-      if (sortedFinishedGames.length > 0) {
-        finishedContainer.innerHTML = sortedFinishedGames.map(game => createGameCard(game, 'finished')).join('');
+      if (filteredFinished.length > 0) {
+        finishedContainer.innerHTML = filteredFinished.map(game => createGameCard(game, 'finished')).join('');
       } else {
         finishedContainer.innerHTML = '<p class="text-slate-400 text-center py-8">אין משחקים להצגה</p>';
       }
-      document.getElementById('finished-count').textContent = `${sortedFinishedGames.length} משחקים`;
+      document.getElementById('finished-count').textContent = `${filteredFinished.length} משחקים`;
       // Render in-progress games
       const inProgressContainer = document.getElementById('inprogress-games');
-      if (inProgressGames.length > 0) {
-        inProgressContainer.innerHTML = inProgressGames.map(game => createGameCard(game, 'inprogress')).join('');
-        setupGameTimersForInProgress(inProgressGames);
+      if (filteredInProgress.length > 0) {
+        inProgressContainer.innerHTML = filteredInProgress.map(game => createGameCard(game, 'inprogress')).join('');
+        setupGameTimersForInProgress(filteredInProgress);
       } else {
         inProgressContainer.innerHTML = '<p class="text-slate-400 text-center py-8">אין משחקים להצגה</p>';
         // Clear all timers if no games in progress
         Object.values(timerIntervals).forEach(clearInterval);
         timerIntervals = {};
       }
-      document.getElementById('inprogress-count').textContent = `${inProgressGames.length} משחקים`;
+      document.getElementById('inprogress-count').textContent = `${filteredInProgress.length} משחקים`;
     }
 
     // Fetch games from API
@@ -775,6 +878,101 @@
         }
         gamesData = games;
         renderGames(games);
+        // Attach filter listeners (once)
+        setTimeout(() => {
+          // Populate category selects with unique categories from gamesData
+          function populateSelect(selectId, games, field, defaultLabel) {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+            const current = select.value;
+            let optionsHtml = `<option value="">${defaultLabel}</option>`;
+            if (field === 'turn_no') {
+              // Only show turn_no display strings that actually appear in the games
+              const roundLabels = {
+                'F': 'גמר',
+                'SF': 'חצי גמר',
+                'QF': 'רבע גמר',
+                '1/8': 'שמינית גמר',
+                '1/16': '1/16 גמר',
+                '1/32': '1/32 גמר',
+                '1/64': '1/64 גמר',
+                '1/128': '1/128 גמר',
+                '1/256': '1/256 גמר',
+                '3-4': 'מקומות 3-4'
+              };
+              // Only collect display labels that actually appear in the games
+              let displayLabels = [];
+              games.forEach(g => {
+                let label = '';
+                if (g.groupNo) {
+                  label = `בית ${g.groupNo} | סיבוב ${(g.turn_no || '|')}`;
+                } else if (roundLabels[g.turn_no]) {
+                  label = roundLabels[g.turn_no];
+                } else if (g.turn_no) {
+                  label = g.turn_no;
+                } else {
+                  label = '|';
+                }
+                if (label && !displayLabels.includes(label)) {
+                  displayLabels.push(label);
+                }
+              });
+              displayLabels = displayLabels.sort();
+              optionsHtml += displayLabels.map(label => `<option value="${label}">${label}</option>`).join('');
+              select.innerHTML = optionsHtml;
+              if (displayLabels.includes(current)) select.value = current;
+              return;
+            }
+            // For groupNo, sort numerically
+            let values = Array.from(new Set(games.map(g => g[field]).filter(v => v !== undefined && v !== null && v !== '')));
+            if (field === 'groupNo') {
+              values = values.map(String).sort((a, b) => Number(a) - Number(b));
+            } else {
+              values = values.sort();
+            }
+            optionsHtml += values.map(val => `<option value="${val}">${val}</option>`).join('');
+            select.innerHTML = optionsHtml;
+            if (values.includes(current)) select.value = current;
+          }
+          const upGames = gamesData.filter(g => g.status !== 'FINISHED' && g.status !== 'IN_PROGRESS');
+          const inGames = gamesData.filter(g => g.status === 'IN_PROGRESS');
+          const finGames = gamesData.filter(g => g.status === 'FINISHED');
+          populateSelect('upcoming-category-filter', upGames, 'draw', 'כל הקטגוריות');
+          populateSelect('inprogress-category-filter', inGames, 'draw', 'כל הקטגוריות');
+          populateSelect('finished-category-filter', finGames, 'draw', 'כל הקטגוריות');
+          populateSelect('upcoming-group-filter', upGames, 'groupNo', 'כל הבתים');
+          populateSelect('inprogress-group-filter', inGames, 'groupNo', 'כל הבתים');
+          populateSelect('finished-group-filter', finGames, 'groupNo', 'כל הבתים');
+          // Attach filter listeners
+          ['upcoming','inprogress','finished'].forEach(col => {
+            // Player filter
+            const playerInput = document.getElementById(`${col}-player-filter`);
+            if (playerInput && !playerInput._filterListenerAttached) {
+              playerInput.addEventListener('input', () => renderGames(gamesData));
+              playerInput._filterListenerAttached = true;
+            }
+            // Dropdown filters
+            ['category','group','turn'].forEach(type => {
+              // Only attach listeners for category and group filters
+              if (type === 'category' || type === 'group') {
+                const select = document.getElementById(`${col}-${type}-filter`);
+                if (select && !select._filterListenerAttached) {
+                  select.addEventListener('change', () => renderGames(gamesData));
+                  select._filterListenerAttached = true;
+                }
+              }
+            });
+            // Filter panel toggle
+            const toggleBtn = document.getElementById(`${col}-filter-toggle`);
+            const panel = document.getElementById(`${col}-filter-panel`);
+            if (toggleBtn && panel && !toggleBtn._toggleListenerAttached) {
+              toggleBtn.addEventListener('click', () => {
+                panel.style.display = (panel.style.display === 'none' || panel.style.display === '') ? 'flex' : 'none';
+              });
+              toggleBtn._toggleListenerAttached = true;
+            }
+          });
+        }, 0);
         successMsg.textContent = `נטענו ${games.length} משחקים בהצלחה`;
         successMsg.classList.remove('hidden');
       } catch (error) {
