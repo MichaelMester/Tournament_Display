@@ -46,12 +46,11 @@
  <body class="h-full bg-gradient-to-br from-slate-100 to-slate-200 overflow-auto">
   <div id="auto-reload-timer" class="fixed top-2 left-2 z-50 bg-white bg-opacity-80 rounded-lg px-4 py-2 shadow text-blue-700 font-bold text-lg hidden" style="direction:ltr;"></div>
   <div id="desktop-clock-widget" class="hidden md:flex fixed top-10 left-10 z-50 bg-white bg-opacity-90 rounded-lg px-4 py-2 shadow text-blue-700 font-bold text-lg cursor-move items-center gap-2" style="user-select:none; min-width:120px; text-align:center; resize:both; overflow:hidden;">
-    <span id="desktop-clock-label" class="hidden md:inline-block" style="white-space:nowrap;min-width:90px;">השעה עכשיו:</span>
+    <span class="inline-block text-2xl md:text-3xl mr-1" title="Clock">🕒</span>
     <span id="desktop-clock-time">--:--</span>
-    <button id="desktop-clock-close" title="סגור" style="font-size:18px;line-height:1;" class="ml-2 text-slate-500 hover:text-red-500">×</button>
     <div id="desktop-clock-resizer" style="width:16px;height:16px;position:absolute;right:2px;bottom:2px;cursor:nwse-resize;z-index:10;"></div>
   </div>
-  <button id="desktop-clock-open" class="hidden md:block fixed top-10 left-10 z-50 bg-blue-600 text-white rounded-full px-3 py-1 shadow font-bold" style="display:none;">הצג שעה</button>
+  <button id="desktop-clock-toggle" class="hidden md:block fixed top-10 left-10 z-50 bg-blue-600 text-white rounded-full px-3 py-1 shadow font-bold" style="display:none;">הצג שעה</button>
   <div id="app-container" class="h-full w-full p-4 md:p-6"><!-- Header -->
     <script>
       // --- Desktop Clock Widget ---
@@ -65,21 +64,22 @@
       }
       function showDesktopClock(show) {
         const widget = document.getElementById('desktop-clock-widget');
-        const openBtn = document.getElementById('desktop-clock-open');
+        const toggleBtn = document.getElementById('desktop-clock-toggle');
         if (show) {
           widget.style.display = 'flex';
-          openBtn.style.display = 'none';
+          toggleBtn.style.display = 'block';
+          toggleBtn.textContent = 'הסתר שעה';
           localStorage.setItem('desktopClockVisible', '1');
         } else {
           widget.style.display = 'none';
-          openBtn.style.display = 'block';
+          toggleBtn.style.display = 'block';
+          toggleBtn.textContent = 'הצג שעה';
           localStorage.setItem('desktopClockVisible', '0');
         }
       }
       function setupDesktopClock() {
         const widget = document.getElementById('desktop-clock-widget');
-        const closeBtn = document.getElementById('desktop-clock-close');
-        const openBtn = document.getElementById('desktop-clock-open');
+        const toggleBtn = document.getElementById('desktop-clock-toggle');
         const resizer = document.getElementById('desktop-clock-resizer');
         // Restore position
         const pos = JSON.parse(localStorage.getItem('desktopClockPos') || 'null');
@@ -99,7 +99,7 @@
         // Drag logic
         let isDragging = false, dragOffsetX = 0, dragOffsetY = 0;
         widget.addEventListener('mousedown', function(e) {
-          if (e.target === closeBtn || e.target === resizer) return;
+          if (e.target === resizer) return;
           isDragging = true;
           dragOffsetX = e.clientX - widget.offsetLeft;
           dragOffsetY = e.clientY - widget.offsetTop;
@@ -119,13 +119,11 @@
         });
         // Resize logic
         let isResizing = false, resizeStartW = 0, resizeStartH = 0, resizeStartX = 0, resizeStartY = 0;
-        const label = document.getElementById('desktop-clock-label');
         const time = document.getElementById('desktop-clock-time');
         function updateClockFontSize() {
           // Make font size proportional to widget height, min 16px, max 64px
           const h = widget.offsetHeight;
           const fontSize = Math.max(16, Math.min(64, Math.round(h * 0.6)));
-          if (label) label.style.fontSize = fontSize + 'px';
           if (time) time.style.fontSize = fontSize + 'px';
         }
         resizer.addEventListener('mousedown', function(e) {
@@ -158,9 +156,11 @@
         });
         // Set font size on load/restore and after restoring size
         setTimeout(updateClockFontSize, 0);
-        // Close/open logic
-        closeBtn.addEventListener('click', function() { showDesktopClock(false); });
-        openBtn.addEventListener('click', function() { showDesktopClock(true); });
+        // Toggle logic
+        toggleBtn.addEventListener('click', function() {
+          const widget = document.getElementById('desktop-clock-widget');
+          showDesktopClock(widget.style.display === 'none' || widget.style.display === '' ? true : false);
+        });
         // Initial time update
         updateDesktopClock();
         setInterval(updateDesktopClock, 1000 * 60); // update every minute
