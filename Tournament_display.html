@@ -1,5 +1,5 @@
 <!-- https://dev.tttm.co.il/api.1.0/event/1078/games -->
-<!-- https://tttm.co.il/api.1.0/event/1078/games -->
+<!-- https://tttm.co.il/api.1.0/event/1080/games -->
 <!doctype html>
 <html lang="he" dir="rtl" class="h-full">
  <head>
@@ -50,7 +50,7 @@
     <span id="desktop-clock-time">--:--</span>
     <div id="desktop-clock-resizer" style="width:16px;height:16px;position:absolute;right:2px;bottom:2px;cursor:nwse-resize;z-index:10;"></div>
   </div>
-  <button id="desktop-clock-toggle" class="hidden md:block fixed top-10 left-10 z-50 bg-blue-600 text-white rounded-full px-3 py-1 shadow font-bold" style="display:none;">הצג שעה</button>
+  <button id="desktop-clock-toggle" class="hidden md:block fixed top-10 right-10 z-50 bg-blue-600 text-white rounded-full px-3 py-1 shadow font-bold" style="display:none;">הצג שעה</button>
   <div id="app-container" class="h-full w-full p-4 md:p-6"><!-- Header -->
     <script>
       // --- Desktop Clock Widget ---
@@ -68,12 +68,12 @@
         if (show) {
           widget.style.display = 'flex';
           toggleBtn.style.display = 'block';
-          toggleBtn.textContent = 'הסתר שעה';
+          toggleBtn.textContent = 'הסתר שעון';
           localStorage.setItem('desktopClockVisible', '1');
         } else {
           widget.style.display = 'none';
           toggleBtn.style.display = 'block';
-          toggleBtn.textContent = 'הצג שעה';
+          toggleBtn.textContent = 'הצג שעון';
           localStorage.setItem('desktopClockVisible', '0');
         }
       }
@@ -175,8 +175,14 @@
       <h1 id="page-title" class="text-2xl md:text-3xl font-bold text-slate-800 text-center mb-4">לוח משחקים</h1><!-- URL Input Section - Collapsible -->
       <div class="bg-white rounded-xl shadow-lg max-w-3xl mx-auto overflow-hidden"><button id="toggle-url-section" onclick="toggleUrlSection()" class="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors border-b border-slate-200"> <span class="text-slate-700 font-semibold">⚙️ הגדרות</span> <span id="toggle-icon" class="text-slate-500">▼</span> </button>
      <div id="url-section" class="p-4">
-      <div class="flex flex-col md:flex-row gap-3"><input type="url" id="api-url" placeholder="הכנס כתובת API..." class="flex-1 px-4 py-3 border-2 border-slate-200 rounded-lg focus:border-blue-500 focus:outline-none text-right transition-colors"> <button id="reload-btn" onclick="fetchGames()" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 min-w-[120px]"> <span id="btn-text">טען מחדש</span>
-        <div id="btn-spinner" class="loading-spinner hidden"></div></button>
+      <div class="flex flex-col md:flex-row gap-3">
+        <input type="text" id="event-id-input" placeholder="הכנס מזהה אירוע..." class="flex-1 px-4 py-3 border-2 border-slate-200 rounded-lg focus:border-blue-500 focus:outline-none text-right transition-colors">
+        <select id="env-select" class="px-4 py-3 border-2 border-slate-200 rounded-lg focus:border-blue-500 focus:outline-none">
+          <option value="dev">פיתוח</option>
+          <option value="prod">פרודקשן</option>
+        </select>
+        <button id="reload-btn" onclick="fetchGames()" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 min-w-[120px]"> <span id="btn-text">טען מחדש</span>
+          <div id="btn-spinner" class="loading-spinner hidden"></div></button>
         <button id="auto-reload-btn" onclick="toggleAutoReload()" class="px-6 py-3 bg-gray-300 hover:bg-gray-400 text-slate-700 font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 min-w-[120px]">הפעל רענון אוטומטי</button>
       </div>
       <p id="error-message" class="text-red-500 text-sm mt-2 hidden"></p>
@@ -427,18 +433,63 @@
         turnBracket = ` [סיבוב ${game.turn_no}]`;
       }
 
+      // Build extra details for upcoming games
+      let extraDetails = '';
+      if ((type === 'upcoming' || type === 'inprogress') && game.startTime) {
+        // Format startTime as HH:MM (no seconds)
+        let hhmm = '';
+        if (typeof game.startTime === 'string') {
+          // If format is HH:MM:SS or HH:MM
+          const parts = game.startTime.split(':');
+          if (parts.length >= 2) {
+            hhmm = `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+          }
+        } else {
+          // fallback: try to parse as Date
+          try {
+            const d = new Date(game.startTime);
+            if (!isNaN(d)) {
+              const hh = String(d.getHours()).padStart(2, '0');
+              const mm = String(d.getMinutes()).padStart(2, '0');
+              hhmm = `${hh}:${mm}`;
+            }
+          } catch {}
+        }
+        if (hhmm) {
+          extraDetails += ` | <span title=\"שעת משחק\">שעת משחק: ${hhmm}</span>`;
+        }
+        // Add date if present
+        if (game.date) {
+          // Format date as YYYY-MM-DD or DD/MM/YYYY if needed
+          let dateStr = '';
+          try {
+            const d = new Date(game.date);
+            if (!isNaN(d)) {
+              // Format as DD/MM/YYYY
+              const day = String(d.getDate()).padStart(2, '0');
+              const month = String(d.getMonth() + 1).padStart(2, '0');
+              const year = d.getFullYear();
+              dateStr = `${day}/${month}/${year}`;
+            }
+          } catch {}
+          if (dateStr) {
+            extraDetails += ` | <span title=\"תאריך\">תאריך: ${dateStr}</span>`;
+          }
+        }
+      }
       return `
         <div class="game-card bg-slate-50 rounded-lg p-2 border border-slate-200 text-sm ${grayClass} relative">
           ${timerHtml}
           <div class="flex justify-between items-center mb-1">
             <span class="text-slate-500 text-xs w-full text-right block">
-              ${(game.draw || 'ללא קטגוריה')} - 
+              ${(game.draw || 'ללא קטגוריה')} | 
               ${
                 game.groupNo
-                  ? `בית ${game.groupNo} - סיבוב ${(game.turn_no || '-')}`
-                  : (roundLabels[game.turn] ? roundLabels[game.turn] : '-')
+                  ? `בית ${game.groupNo} | סיבוב ${(game.turn_no || '|')}`
+                  : (roundLabels[game.turn] ? roundLabels[game.turn] : '|')
               }
-              ${game.table ? `- שולחן ${game.table}` : ''}
+              ${game.table ? `| שולחן ${game.table}` : ''}
+              ${extraDetails}
             </span>
           </div>
           ${type === 'finished' ? resultHtml : `
@@ -617,13 +668,25 @@
         if (game.id) clearGameTimer(game.id);
       });
       // Render upcoming games - separate grayed and non-grayed
-      const upcomingGames = validGames
-        .filter(g => g.status !== 'FINISHED' && g.status !== 'IN_PROGRESS')
-        .sort((a, b) => {
-          const turnA = parseInt(a.turn_no) || 0;
-          const turnB = parseInt(b.turn_no) || 0;
-          return turnA - turnB;
-        });
+      let upcomingGames = validGames
+        .filter(g => g.status !== 'FINISHED' && g.status !== 'IN_PROGRESS');
+      // Sort by date and startTime if both exist, otherwise fallback to turn_no
+      upcomingGames = upcomingGames.sort((a, b) => {
+        const hasDateA = a.date && a.startTime;
+        const hasDateB = b.date && b.startTime;
+        if (hasDateA && hasDateB) {
+          // Combine date and time into a Date object for comparison
+          const dateTimeA = new Date(`${a.date}T${a.startTime.length === 5 ? a.startTime + ':00' : a.startTime}`);
+          const dateTimeB = new Date(`${b.date}T${b.startTime.length === 5 ? b.startTime + ':00' : b.startTime}`);
+          if (!isNaN(dateTimeA) && !isNaN(dateTimeB)) {
+            return dateTimeA - dateTimeB;
+          }
+        }
+        // Fallback: sort by turn_no
+        const turnA = parseInt(a.turn_no) || 0;
+        const turnB = parseInt(b.turn_no) || 0;
+        return turnA - turnB;
+      });
       const upcomingContainer = document.getElementById('upcoming-games');
       if (upcomingGames.length > 0) {
         const nonGrayedUpcoming = upcomingGames.filter(game => !hasPlayerInProgress(game, playersInProgress));
@@ -661,9 +724,10 @@
 
     // Fetch games from API
     async function fetchGames() {
-      const urlInput = document.getElementById('api-url');
-      const url = urlInput.value.trim();
-      
+      const eventIdInput = document.getElementById('event-id-input');
+      const envSelect = document.getElementById('env-select');
+      const eventId = eventIdInput.value.trim();
+      const env = envSelect.value;
       const errorMsg = document.getElementById('error-message');
       const successMsg = document.getElementById('success-message');
       const btnText = document.getElementById('btn-text');
@@ -674,10 +738,17 @@
       errorMsg.classList.add('hidden');
       successMsg.classList.add('hidden');
 
-      if (!url) {
-        errorMsg.textContent = 'נא להזין כתובת API';
+      if (!eventId) {
+        errorMsg.textContent = 'נא להזין מזהה אירוע';
         errorMsg.classList.remove('hidden');
         return;
+      }
+
+      let url = '';
+      if (env === 'dev') {
+        url = `https://dev.tttm.co.il/api.1.0/event/${eventId}/games`;
+      } else {
+        url = `https://tttm.co.il/api.1.0/event/${eventId}/games`;
       }
 
       // Show loading state
@@ -687,13 +758,10 @@
 
       try {
         const response = await fetch(url);
-        
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
         const data = await response.json();
-        
         // Handle different response structures
         let games = [];
         if (Array.isArray(data)) {
@@ -705,13 +773,10 @@
         } else if (data.games && Array.isArray(data.games)) {
           games = data.games;
         }
-
         gamesData = games;
         renderGames(games);
-
         successMsg.textContent = `נטענו ${games.length} משחקים בהצלחה`;
         successMsg.classList.remove('hidden');
-
       } catch (error) {
         console.error('Fetch error:', error);
         errorMsg.textContent = `שגיאה בטעינת הנתונים: ${error.message}`;
@@ -724,19 +789,27 @@
       }
     }
 
-    // Save and restore last API URL
-    const apiUrlInput = document.getElementById('api-url');
+    // Save and restore last event id and env
+    const eventIdInput = document.getElementById('event-id-input');
+    const envSelect = document.getElementById('env-select');
     // Restore on load
-    const lastApiUrl = localStorage.getItem('lastApiUrl');
-    if (lastApiUrl) {
-      apiUrlInput.value = lastApiUrl;
+    const lastEventId = localStorage.getItem('lastEventId');
+    if (lastEventId) {
+      eventIdInput.value = lastEventId;
+    }
+    const lastEnv = localStorage.getItem('lastEnv');
+    if (lastEnv) {
+      envSelect.value = lastEnv;
     }
     // Save on change
-    apiUrlInput.addEventListener('input', () => {
-      localStorage.setItem('lastApiUrl', apiUrlInput.value);
+    eventIdInput.addEventListener('input', () => {
+      localStorage.setItem('lastEventId', eventIdInput.value);
+    });
+    envSelect.addEventListener('change', () => {
+      localStorage.setItem('lastEnv', envSelect.value);
     });
     // Allow Enter key to trigger fetch
-    apiUrlInput.addEventListener('keypress', (e) => {
+    eventIdInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
         fetchGames();
       }
