@@ -764,7 +764,7 @@
             label = g.turn_no;
           } else if (roundLabels[g.turn]) {
             label = roundLabels[g.turn];
-          }  else {
+          } else {
             label = '|';
           }
           return label === filter;
@@ -836,6 +836,152 @@
       document.getElementById('inprogress-count').textContent = `${filteredInProgress.length} משחקים`;
     }
 
+    // --- FILTER DROPDOWNS DYNAMIC UPDATE ---
+    function updateFilterDropdowns(changedCol, changedType) {
+      // Helper to get filtered games for a column, optionally skipping a filter type
+      function getFilteredGames(col, skipType) {
+        let games;
+        if (col === 'upcoming') {
+          games = gamesData.filter(g => g.status !== 'FINISHED' && g.status !== 'IN_PROGRESS');
+        } else if (col === 'inprogress') {
+          games = gamesData.filter(g => g.status === 'IN_PROGRESS');
+        } else if (col === 'finished') {
+          games = gamesData.filter(g => g.status === 'FINISHED');
+        } else {
+          games = [];
+        }
+        // Get all filter values
+        const playerFilter = (document.getElementById(`${col}-player-filter`) || {}).value || '';
+        const categoryFilter = (document.getElementById(`${col}-category-filter`) || {}).value || '';
+        const groupFilter = (document.getElementById(`${col}-group-filter`) || {}).value || '';
+        const turnFilter = (document.getElementById(`${col}-turn-filter`) || {}).value || '';
+        function filterByPlayer(games, filter) {
+          if (!filter) return games;
+          const f = filter.trim().toLowerCase();
+          return games.filter(g =>
+            (g.playerA && g.playerA.toLowerCase().includes(f)) ||
+            (g.playerX && g.playerX.toLowerCase().includes(f))
+          );
+        }
+        function filterByCategory(games, filter) {
+          if (!filter) return games;
+          return games.filter(g => (g.draw && g.draw === filter));
+        }
+        function filterByGroup(games, filter) {
+          if (!filter) return games;
+          return games.filter(g => (g.groupNo && String(g.groupNo) === filter));
+        }
+        function filterByTurn(games, filter) {
+          if (!filter) return games;
+          const roundLabels = {
+            'F': 'גמר',
+            'SF': 'חצי גמר',
+            'QF': 'רבע גמר',
+            '1/8': 'שמינית גמר',
+            '1/16': '1/16 גמר',
+            '1/32': '1/32 גמר',
+            '1/64': '1/64 גמר',
+            '1/128': '1/128 גמר',
+            '1/256': '1/256 גמר',
+            '3-4': 'מקומות 3-4'
+          };
+          return games.filter(g => {
+            let label = '';
+            if (g.groupNo && g.turn_no) {
+              label = g.turn_no;
+            } else if (roundLabels[g.turn]) {
+              label = roundLabels[g.turn];
+            } else {
+              label = '|';
+            }
+            return label === filter;
+          });
+        }
+        let filtered = games;
+        if (skipType !== 'player') filtered = filterByPlayer(filtered, playerFilter);
+        if (skipType !== 'category') filtered = filterByCategory(filtered, categoryFilter);
+        if (skipType !== 'group') filtered = filterByGroup(filtered, groupFilter);
+        if (skipType !== 'turn') filtered = filterByTurn(filtered, turnFilter);
+        return filtered;
+      }
+      // For each column, update dropdowns based on filtered games, but for the changed filter, leave all options
+      ['upcoming','inprogress','finished'].forEach(col => {
+        ['category','group','turn'].forEach(type => {
+          const selectId = `${col}-${type}-filter`;
+          const select = document.getElementById(selectId);
+          if (!select) return;
+          // If this is the changed filter, leave all options (from all games in this column)
+          let gamesForOptions;
+          // Helper to check valid players
+          function isValidPlayer(name) {
+            return name && name.trim().length > 0;
+          }
+          function isValidGame(game) {
+            return isValidPlayer(game.playerA) && isValidPlayer(game.playerX);
+          }
+          if (col === changedCol && type === changedType) {
+            if (col === 'upcoming') {
+              gamesForOptions = gamesData.filter(g => g.status !== 'FINISHED' && g.status !== 'IN_PROGRESS' && isValidGame(g));
+            } else if (col === 'inprogress') {
+              gamesForOptions = gamesData.filter(g => g.status === 'IN_PROGRESS' && isValidGame(g));
+            } else if (col === 'finished') {
+              gamesForOptions = gamesData.filter(g => g.status === 'FINISHED' && isValidGame(g));
+            } else {
+              gamesForOptions = [];
+            }
+          } else {
+            // For other filters, use filtered games (excluding their own filter)
+            gamesForOptions = getFilteredGames(col, type).filter(isValidGame);
+          }
+          const current = select.value;
+          let optionsHtml = `<option value="">${type === 'category' ? 'כל הקטגוריות' : type === 'group' ? 'כל הבתים' : 'כל הסיבובים'}</option>`;
+          if (type === 'turn') {
+            const roundLabels = {
+              'F': 'גמר',
+              'SF': 'חצי גמר',
+              'QF': 'רבע גמר',
+              '1/8': 'שמינית גמר',
+              '1/16': '1/16 גמר',
+              '1/32': '1/32 גמר',
+              '1/64': '1/64 גמר',
+              '1/128': '1/128 גמר',
+              '1/256': '1/256 גמר',
+              '3-4': 'מקומות 3-4'
+            };
+            let displayLabels = [];
+            gamesForOptions.forEach(g => {
+              let label = '';
+              if (g.groupNo && g.turn_no) {
+                label = g.turn_no;
+              } else if (roundLabels[g.turn]) {
+                label = roundLabels[g.turn];
+              } else {
+                label = '|';
+              }
+              if (label && !displayLabels.includes(label)) {
+                displayLabels.push(label);
+              }
+            });
+            displayLabels = displayLabels.sort();
+            optionsHtml += displayLabels.map(label => `<option value="${label}">${label}</option>`).join('');
+            select.innerHTML = optionsHtml;
+            if (displayLabels.includes(current)) select.value = current;
+            return;
+          }
+          let field = type === 'category' ? 'draw' : type === 'group' ? 'groupNo' : '';
+          let values = Array.from(new Set(gamesForOptions.map(g => g[field]).filter(v => v !== undefined && v !== null && v !== '')));
+          if (type === 'group') {
+            values = values.map(String).sort((a, b) => Number(a) - Number(b));
+          } else {
+            values = values.sort();
+          }
+          optionsHtml += values.map(val => `<option value="${val}">${val}</option>`).join('');
+          select.innerHTML = optionsHtml;
+          if (values.includes(current)) select.value = current;
+        });
+      });
+    }
+
     // Fetch games from API
     async function fetchGames() {
       const eventIdInput = document.getElementById('event-id-input');
@@ -891,7 +1037,7 @@
         renderGames(games);
         // Attach filter listeners (once)
         setTimeout(() => {
-          // Populate category selects with unique categories from gamesData
+          // Populate category selects with unique categories from only the presented games in each column
           function populateSelect(selectId, games, field, defaultLabel) {
             const select = document.getElementById(selectId);
             if (!select) return;
@@ -941,9 +1087,15 @@
             select.innerHTML = optionsHtml;
             if (values.includes(current)) select.value = current;
           }
-          const upGames = gamesData.filter(g => g.status !== 'FINISHED' && g.status !== 'IN_PROGRESS');
-          const inGames = gamesData.filter(g => g.status === 'IN_PROGRESS');
-          const finGames = gamesData.filter(g => g.status === 'FINISHED');
+          function isValidPlayer(name) {
+            return name && name.trim().length > 0;
+          }
+          function isValidGame(game) {
+            return isValidPlayer(game.playerA) && isValidPlayer(game.playerX);
+          }
+          const upGames = gamesData.filter(g => g.status !== 'FINISHED' && g.status !== 'IN_PROGRESS' && isValidGame(g));
+          const inGames = gamesData.filter(g => g.status === 'IN_PROGRESS' && isValidGame(g));
+          const finGames = gamesData.filter(g => g.status === 'FINISHED' && isValidGame(g));
           populateSelect('upcoming-category-filter', upGames, 'draw', 'כל הקטגוריות');
           populateSelect('inprogress-category-filter', inGames, 'draw', 'כל הקטגוריות');
           populateSelect('finished-category-filter', finGames, 'draw', 'כל הקטגוריות');
@@ -957,21 +1109,53 @@
           ['upcoming','inprogress','finished'].forEach(col => {
             // Player filter
             const playerInput = document.getElementById(`${col}-player-filter`);
+            const categorySelect = document.getElementById(`${col}-category-filter`);
+            const groupSelect = document.getElementById(`${col}-group-filter`);
+            const turnSelect = document.getElementById(`${col}-turn-filter`);
+            const panel = document.getElementById(`${col}-filter-panel`);
+            // Always show Clear Filters button
+            if (panel) {
+              let clearBtn = panel.querySelector('.clear-filters-btn');
+              if (!clearBtn) {
+                clearBtn = document.createElement('button');
+                clearBtn.type = 'button';
+                clearBtn.className = 'clear-filters-btn ml-auto mb-1 px-2 py-1 text-xs rounded bg-gray-200 hover:bg-gray-300 text-slate-700 border border-gray-300';
+                clearBtn.textContent = 'נקה סינון';
+                clearBtn.style.order = '99'; // ensure it's last in flex row
+                clearBtn.addEventListener('click', () => {
+                  if (playerInput) playerInput.value = '';
+                  if (categorySelect) categorySelect.value = '';
+                  if (groupSelect) groupSelect.value = '';
+                  if (turnSelect) turnSelect.value = '';
+                  renderGames(gamesData);
+                  updateFilterDropdowns(col);
+                });
+                // Make panel a flex row if not already
+                panel.style.flexDirection = 'row';
+                panel.style.flexWrap = 'wrap';
+                panel.appendChild(clearBtn);
+              }
+            }
             if (playerInput && !playerInput._filterListenerAttached) {
-              playerInput.addEventListener('input', () => renderGames(gamesData));
+              playerInput.addEventListener('input', () => {
+                renderGames(gamesData);
+                updateFilterDropdowns(col, 'player');
+              });
               playerInput._filterListenerAttached = true;
             }
             // Dropdown filters
             ['category','group','turn'].forEach(type => {
               const select = document.getElementById(`${col}-${type}-filter`);
               if (select && !select._filterListenerAttached) {
-                select.addEventListener('change', () => renderGames(gamesData));
+                select.addEventListener('change', () => {
+                  renderGames(gamesData);
+                  updateFilterDropdowns(col, type);
+                });
                 select._filterListenerAttached = true;
               }
             });
             // Filter panel toggle
             const toggleBtn = document.getElementById(`${col}-filter-toggle`);
-            const panel = document.getElementById(`${col}-filter-panel`);
             if (toggleBtn && panel && !toggleBtn._toggleListenerAttached) {
               toggleBtn.addEventListener('click', () => {
                 panel.style.display = (panel.style.display === 'none' || panel.style.display === '') ? 'flex' : 'none';
