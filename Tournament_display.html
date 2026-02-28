@@ -207,6 +207,9 @@
         <select id="upcoming-group-filter" class="w-full px-2 py-1 rounded text-slate-700 text-xs text-center" style="color:#222;max-width:180px;direction:rtl;">
           <option value="">כל הבתים</option>
         </select>
+        <select id="upcoming-turn-filter" class="w-full px-2 py-1 rounded text-slate-700 text-xs text-center" style="color:#222;max-width:180px;direction:rtl;">
+          <option value="">כל הסיבובים</option>
+        </select>
       </div>
      </div>
      <div id="upcoming-games" class="p-2 space-y-2 max-h-[85vh] overflow-y-auto">
@@ -229,6 +232,9 @@
         <select id="inprogress-group-filter" class="w-full px-2 py-1 rounded text-slate-700 text-xs text-center" style="color:#222;max-width:180px;direction:rtl;">
           <option value="">כל הבתים</option>
         </select>
+        <select id="inprogress-turn-filter" class="w-full px-2 py-1 rounded text-slate-700 text-xs text-center" style="color:#222;max-width:180px;direction:rtl;">
+          <option value="">כל הסיבובים</option>
+        </select>
       </div>
      </div>
      <div id="inprogress-games" class="p-2 space-y-2 max-h-[85vh] overflow-y-auto">
@@ -250,6 +256,9 @@
         </select>
         <select id="finished-group-filter" class="w-full px-2 py-1 rounded text-slate-700 text-xs text-center" style="color:#222;max-width:180px;direction:rtl;">
           <option value="">כל הבתים</option>
+        </select>
+        <select id="finished-turn-filter" class="w-full px-2 py-1 rounded text-slate-700 text-xs text-center" style="color:#222;max-width:180px;direction:rtl;">
+          <option value="">כל הסיבובים</option>
         </select>
       </div>
      </div>
@@ -716,6 +725,8 @@
       const inprogressGroupFilter = (document.getElementById('inprogress-group-filter') || {}).value || '';
       const finishedGroupFilter = (document.getElementById('finished-group-filter') || {}).value || '';
       const upcomingTurnFilter = (document.getElementById('upcoming-turn-filter') || {}).value || '';
+      const inprogressTurnFilter = (document.getElementById('inprogress-turn-filter') || {}).value || '';
+      const finishedTurnFilter = (document.getElementById('finished-turn-filter') || {}).value || '';
       // Removed turn_no filter logic
       function filterByPlayer(games, filter) {
         if (!filter) return games;
@@ -735,7 +746,6 @@
       }
       function filterByTurn(games, filter) {
         if (!filter) return games;
-        // Use the same display label as in the dropdown
         const roundLabels = {
           'F': 'גמר',
           'SF': 'חצי גמר',
@@ -750,13 +760,11 @@
         };
         return games.filter(g => {
           let label = '';
-          if (g.groupNo) {
-            label = `בית ${g.groupNo} | סיבוב ${(g.turn_no || '|')}`;
-          } else if (roundLabels[g.turn_no]) {
-            label = roundLabels[g.turn_no];
-          } else if (g.turn_no) {
+          if (g.groupNo && g.turn_no) {
             label = g.turn_no;
-          } else {
+          } else if (roundLabels[g.turn]) {
+            label = roundLabels[g.turn];
+          }  else {
             label = '|';
           }
           return label === filter;
@@ -783,12 +791,15 @@
       let filteredUpcoming = filterByPlayer(upcomingGames, upcomingPlayerFilter);
       filteredUpcoming = filterByCategory(filteredUpcoming, upcomingCategoryFilter);
       filteredUpcoming = filterByGroup(filteredUpcoming, upcomingGroupFilter);
+      filteredUpcoming = filterByTurn(filteredUpcoming, upcomingTurnFilter);
       let filteredInProgress = filterByPlayer(inProgressGames, inprogressPlayerFilter);
       filteredInProgress = filterByCategory(filteredInProgress, inprogressCategoryFilter);
       filteredInProgress = filterByGroup(filteredInProgress, inprogressGroupFilter);
+      filteredInProgress = filterByTurn(filteredInProgress, inprogressTurnFilter);
       let filteredFinished = filterByPlayer(sortedFinishedGames, finishedPlayerFilter);
       filteredFinished = filterByCategory(filteredFinished, finishedCategoryFilter);
       filteredFinished = filterByGroup(filteredFinished, finishedGroupFilter);
+      filteredFinished = filterByTurn(filteredFinished, finishedTurnFilter);
       // Render upcoming games - separate grayed and non-grayed
       const upcomingContainer = document.getElementById('upcoming-games');
       if (filteredUpcoming.length > 0) {
@@ -887,7 +898,6 @@
             const current = select.value;
             let optionsHtml = `<option value="">${defaultLabel}</option>`;
             if (field === 'turn_no') {
-              // Only show turn_no display strings that actually appear in the games
               const roundLabels = {
                 'F': 'גמר',
                 'SF': 'חצי גמר',
@@ -900,16 +910,13 @@
                 '1/256': '1/256 גמר',
                 '3-4': 'מקומות 3-4'
               };
-              // Only collect display labels that actually appear in the games
               let displayLabels = [];
               games.forEach(g => {
                 let label = '';
-                if (g.groupNo) {
-                  label = `בית ${g.groupNo} | סיבוב ${(g.turn_no || '|')}`;
-                } else if (roundLabels[g.turn_no]) {
-                  label = roundLabels[g.turn_no];
-                } else if (g.turn_no) {
+                if (g.groupNo && g.turn_no) {
                   label = g.turn_no;
+                } else if (roundLabels[g.turn]) {
+                  label = roundLabels[g.turn];
                 } else {
                   label = '|';
                 }
@@ -943,6 +950,9 @@
           populateSelect('upcoming-group-filter', upGames, 'groupNo', 'כל הבתים');
           populateSelect('inprogress-group-filter', inGames, 'groupNo', 'כל הבתים');
           populateSelect('finished-group-filter', finGames, 'groupNo', 'כל הבתים');
+          populateSelect('upcoming-turn-filter', upGames, 'turn_no', 'כל הסיבובים');
+          populateSelect('inprogress-turn-filter', inGames, 'turn_no', 'כל הסיבובים');
+          populateSelect('finished-turn-filter', finGames, 'turn_no', 'כל הסיבובים');
           // Attach filter listeners
           ['upcoming','inprogress','finished'].forEach(col => {
             // Player filter
@@ -953,13 +963,10 @@
             }
             // Dropdown filters
             ['category','group','turn'].forEach(type => {
-              // Only attach listeners for category and group filters
-              if (type === 'category' || type === 'group') {
-                const select = document.getElementById(`${col}-${type}-filter`);
-                if (select && !select._filterListenerAttached) {
-                  select.addEventListener('change', () => renderGames(gamesData));
-                  select._filterListenerAttached = true;
-                }
+              const select = document.getElementById(`${col}-${type}-filter`);
+              if (select && !select._filterListenerAttached) {
+                select.addEventListener('change', () => renderGames(gamesData));
+                select._filterListenerAttached = true;
               }
             });
             // Filter panel toggle
