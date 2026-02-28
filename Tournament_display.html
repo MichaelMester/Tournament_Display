@@ -1,0 +1,746 @@
+<!-- https://dev.tttm.co.il/api.1.0/event/1078/games -->
+<!-- https://tttm.co.il/api.1.0/event/1078/games -->
+<!doctype html>
+<html lang="he" dir="rtl" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>לוח משחקים</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Heebo', sans-serif; }
+    .game-card {
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .game-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    .column-header {
+      background: linear-gradient(135deg, var(--header-from), var(--header-to));
+    }
+    .loading-spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #3b82f6;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .grayed-out {
+      opacity: 0.5;
+      background-color: #e5e7eb !important;
+    }
+  </style>
+  <style>body { box-sizing: border-box; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="h-full bg-gradient-to-br from-slate-100 to-slate-200 overflow-auto">
+  <div id="auto-reload-timer" class="fixed top-2 left-2 z-50 bg-white bg-opacity-80 rounded-lg px-4 py-2 shadow text-blue-700 font-bold text-lg hidden" style="direction:ltr;"></div>
+  <div id="desktop-clock-widget" class="hidden md:flex fixed top-10 left-10 z-50 bg-white bg-opacity-90 rounded-lg px-4 py-2 shadow text-blue-700 font-bold text-lg cursor-move items-center gap-2" style="user-select:none; min-width:120px; text-align:center; resize:both; overflow:hidden;">
+    <span id="desktop-clock-label" class="hidden md:inline-block" style="white-space:nowrap;min-width:90px;">השעה עכשיו:</span>
+    <span id="desktop-clock-time">--:--</span>
+    <button id="desktop-clock-close" title="סגור" style="font-size:18px;line-height:1;" class="ml-2 text-slate-500 hover:text-red-500">×</button>
+    <div id="desktop-clock-resizer" style="width:16px;height:16px;position:absolute;right:2px;bottom:2px;cursor:nwse-resize;z-index:10;"></div>
+  </div>
+  <button id="desktop-clock-open" class="hidden md:block fixed top-10 left-10 z-50 bg-blue-600 text-white rounded-full px-3 py-1 shadow font-bold" style="display:none;">הצג שעה</button>
+  <div id="app-container" class="h-full w-full p-4 md:p-6"><!-- Header -->
+    <script>
+      // --- Desktop Clock Widget ---
+      function updateDesktopClock() {
+        const el = document.getElementById('desktop-clock-time');
+        if (!el) return;
+        const now = new Date();
+        const hh = String(now.getHours()).padStart(2, '0');
+        const mm = String(now.getMinutes()).padStart(2, '0');
+        el.textContent = `${hh}:${mm}`;
+      }
+      function showDesktopClock(show) {
+        const widget = document.getElementById('desktop-clock-widget');
+        const openBtn = document.getElementById('desktop-clock-open');
+        if (show) {
+          widget.style.display = 'flex';
+          openBtn.style.display = 'none';
+          localStorage.setItem('desktopClockVisible', '1');
+        } else {
+          widget.style.display = 'none';
+          openBtn.style.display = 'block';
+          localStorage.setItem('desktopClockVisible', '0');
+        }
+      }
+      function setupDesktopClock() {
+        const widget = document.getElementById('desktop-clock-widget');
+        const closeBtn = document.getElementById('desktop-clock-close');
+        const openBtn = document.getElementById('desktop-clock-open');
+        const resizer = document.getElementById('desktop-clock-resizer');
+        // Restore position
+        const pos = JSON.parse(localStorage.getItem('desktopClockPos') || 'null');
+        if (pos && typeof pos.x === 'number' && typeof pos.y === 'number') {
+          widget.style.left = pos.x + 'px';
+          widget.style.top = pos.y + 'px';
+        }
+        // Restore size
+        const size = JSON.parse(localStorage.getItem('desktopClockSize') || 'null');
+        if (size && typeof size.w === 'number' && typeof size.h === 'number') {
+          widget.style.width = size.w + 'px';
+          widget.style.height = size.h + 'px';
+        }
+        // Restore visibility
+        const visible = localStorage.getItem('desktopClockVisible');
+        showDesktopClock(visible !== '0');
+        // Drag logic
+        let isDragging = false, dragOffsetX = 0, dragOffsetY = 0;
+        widget.addEventListener('mousedown', function(e) {
+          if (e.target === closeBtn || e.target === resizer) return;
+          isDragging = true;
+          dragOffsetX = e.clientX - widget.offsetLeft;
+          dragOffsetY = e.clientY - widget.offsetTop;
+          document.body.style.userSelect = 'none';
+        });
+        document.addEventListener('mousemove', function(e) {
+          if (!isDragging) return;
+          widget.style.left = (e.clientX - dragOffsetX) + 'px';
+          widget.style.top = (e.clientY - dragOffsetY) + 'px';
+        });
+        document.addEventListener('mouseup', function(e) {
+          if (isDragging) {
+            isDragging = false;
+            localStorage.setItem('desktopClockPos', JSON.stringify({ x: widget.offsetLeft, y: widget.offsetTop }));
+            document.body.style.userSelect = '';
+          }
+        });
+        // Resize logic
+        let isResizing = false, resizeStartW = 0, resizeStartH = 0, resizeStartX = 0, resizeStartY = 0;
+        const label = document.getElementById('desktop-clock-label');
+        const time = document.getElementById('desktop-clock-time');
+        function updateClockFontSize() {
+          // Make font size proportional to widget height, min 16px, max 64px
+          const h = widget.offsetHeight;
+          const fontSize = Math.max(16, Math.min(64, Math.round(h * 0.6)));
+          if (label) label.style.fontSize = fontSize + 'px';
+          if (time) time.style.fontSize = fontSize + 'px';
+        }
+        resizer.addEventListener('mousedown', function(e) {
+          e.stopPropagation();
+          isResizing = true;
+          resizeStartW = widget.offsetWidth;
+          resizeStartH = widget.offsetHeight;
+          resizeStartX = e.clientX;
+          resizeStartY = e.clientY;
+          document.body.style.userSelect = 'none';
+        });
+        document.addEventListener('mousemove', function(e) {
+          if (!isResizing) return;
+          let newW = Math.max(100, resizeStartW + (e.clientX - resizeStartX));
+          let newH = Math.max(36, resizeStartH + (e.clientY - resizeStartY));
+          widget.style.width = newW + 'px';
+          widget.style.height = newH + 'px';
+          updateClockFontSize();
+        });
+        // Also update font size on any resize event (native CSS resize)
+        let resizeObserver = new ResizeObserver(() => { updateClockFontSize(); });
+        resizeObserver.observe(widget);
+        document.addEventListener('mouseup', function(e) {
+          if (isResizing) {
+            isResizing = false;
+            localStorage.setItem('desktopClockSize', JSON.stringify({ w: widget.offsetWidth, h: widget.offsetHeight }));
+            document.body.style.userSelect = '';
+            updateClockFontSize(); // Ensure font size updates after resize ends
+          }
+        });
+        // Set font size on load/restore and after restoring size
+        setTimeout(updateClockFontSize, 0);
+        // Close/open logic
+        closeBtn.addEventListener('click', function() { showDesktopClock(false); });
+        openBtn.addEventListener('click', function() { showDesktopClock(true); });
+        // Initial time update
+        updateDesktopClock();
+        setInterval(updateDesktopClock, 1000 * 60); // update every minute
+        // Also update at load in case minute just changed
+        setTimeout(updateDesktopClock, 100);
+      }
+      if (window.matchMedia('(min-width: 768px)').matches) {
+        window.addEventListener('DOMContentLoaded', setupDesktopClock);
+      }
+    </script>
+   <div class="mb-6">
+      <h1 id="page-title" class="text-2xl md:text-3xl font-bold text-slate-800 text-center mb-4">לוח משחקים</h1><!-- URL Input Section - Collapsible -->
+      <div class="bg-white rounded-xl shadow-lg max-w-3xl mx-auto overflow-hidden"><button id="toggle-url-section" onclick="toggleUrlSection()" class="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors border-b border-slate-200"> <span class="text-slate-700 font-semibold">⚙️ הגדרות</span> <span id="toggle-icon" class="text-slate-500">▼</span> </button>
+     <div id="url-section" class="p-4">
+      <div class="flex flex-col md:flex-row gap-3"><input type="url" id="api-url" placeholder="הכנס כתובת API..." class="flex-1 px-4 py-3 border-2 border-slate-200 rounded-lg focus:border-blue-500 focus:outline-none text-right transition-colors"> <button id="reload-btn" onclick="fetchGames()" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 min-w-[120px]"> <span id="btn-text">טען מחדש</span>
+        <div id="btn-spinner" class="loading-spinner hidden"></div></button>
+        <button id="auto-reload-btn" onclick="toggleAutoReload()" class="px-6 py-3 bg-gray-300 hover:bg-gray-400 text-slate-700 font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 min-w-[120px]">הפעל רענון אוטומטי</button>
+      </div>
+      <p id="error-message" class="text-red-500 text-sm mt-2 hidden"></p>
+      <p id="success-message" class="text-green-600 text-sm mt-2 hidden"></p>
+     </div>
+    </div>
+   </div><!-- Games Columns -->
+   <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6"><!-- Right Column - Upcoming Games -->
+    <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+     <div class="column-header p-4 text-white text-center" style="--header-from: #6366f1; --header-to: #8b5cf6;">
+      <div class="flex items-center justify-center gap-2">
+        <h2 class="text-xl font-bold m-0">המשחקים הבאים</h2>
+        <span id="upcoming-count" class="text-sm opacity-80">0 משחקים</span>
+      </div>
+     </div>
+     <div id="upcoming-games" class="p-2 space-y-2 max-h-[85vh] overflow-y-auto">
+      <p class="text-slate-400 text-center py-8">אין משחקים להצגה</p>
+     </div>
+    </div><!-- Center Column - In Progress Games -->
+    <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+     <div class="column-header p-4 text-white text-center" style="--header-from: #f59e0b; --header-to: #d97706;">
+      <div class="flex items-center justify-center gap-2">
+        <h2 class="text-xl font-bold m-0">משחקים עכשיו</h2>
+        <span id="inprogress-count" class="text-sm opacity-80">0 משחקים</span>
+      </div>
+     </div>
+     <div id="inprogress-games" class="p-2 space-y-2 max-h-[85vh] overflow-y-auto">
+      <p class="text-slate-400 text-center py-8">אין משחקים להצגה</p>
+     </div>
+    </div><!-- Left Column - Finished Games -->
+    <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+     <div class="column-header p-4 text-white text-center" style="--header-from: #10b981; --header-to: #059669;">
+      <div class="flex items-center justify-center gap-2">
+        <h2 class="text-xl font-bold m-0">משחקים שנגמרו</h2>
+        <span id="finished-count" class="text-sm opacity-80">0 משחקים</span>
+      </div>
+     </div>
+     <div id="finished-games" class="p-2 space-y-2 max-h-[85vh] overflow-y-auto">
+      <p class="text-slate-400 text-center py-8">אין משחקים להצגה</p>
+     </div>
+    </div>
+   </div>
+  </div>
+  <script>
+        // Auto-reload logic
+        let autoReloadInterval = null;
+        let autoReloadTimerInterval = null;
+        let autoReloadSecondsLeft = 30;
+        function updateAutoReloadTimerDisplay() {
+          const timerDiv = document.getElementById('auto-reload-timer');
+          if (autoReloadInterval) {
+            timerDiv.textContent = `רענון בעוד ${autoReloadSecondsLeft} שניות`;
+            timerDiv.classList.remove('hidden');
+          } else {
+            timerDiv.classList.add('hidden');
+          }
+        }
+
+        function toggleAutoReload() {
+          const btn = document.getElementById('auto-reload-btn');
+          if (autoReloadInterval) {
+            clearInterval(autoReloadInterval);
+            autoReloadInterval = null;
+            clearInterval(autoReloadTimerInterval);
+            autoReloadTimerInterval = null;
+            autoReloadSecondsLeft = 30;
+            updateAutoReloadTimerDisplay();
+            btn.textContent = 'הפעל רענון אוטומטי';
+            btn.classList.remove('bg-red-500', 'text-white');
+            btn.classList.add('bg-gray-300', 'text-slate-700');
+          } else {
+            fetchGames(); // Run immediately
+            autoReloadSecondsLeft = 30;
+            updateAutoReloadTimerDisplay();
+            autoReloadInterval = setInterval(() => {
+              fetchGames();
+              autoReloadSecondsLeft = 30;
+              updateAutoReloadTimerDisplay();
+            }, 30000);
+            autoReloadTimerInterval = setInterval(() => {
+              if (autoReloadSecondsLeft > 0) {
+                autoReloadSecondsLeft--;
+                updateAutoReloadTimerDisplay();
+              }
+            }, 1000);
+            btn.textContent = 'עצור רענון אוטומטי';
+            btn.classList.remove('bg-gray-300', 'text-slate-700');
+            btn.classList.add('bg-red-500', 'text-white');
+          }
+        }
+    // Default configuration
+    const defaultConfig = {
+      page_title: 'לוח משחקים',
+      primary_color: '#3b82f6',
+      background_color: '#f1f5f9',
+      text_color: '#1e293b',
+      card_color: '#ffffff',
+      accent_color: '#6366f1'
+    };
+
+    let gamesData = [];
+
+    // Toggle URL section collapse/expand
+    function toggleUrlSection() {
+      const urlSection = document.getElementById('url-section');
+      const toggleIcon = document.getElementById('toggle-icon');
+      const isVisible = !urlSection.classList.contains('hidden');
+      
+      if (isVisible) {
+        urlSection.classList.add('hidden');
+        toggleIcon.textContent = '▶';
+      } else {
+        urlSection.classList.remove('hidden');
+        toggleIcon.textContent = '▼';
+      }
+    }
+
+    // Element SDK initialization
+    if (window.elementSdk) {
+      window.elementSdk.init({
+        defaultConfig,
+        onConfigChange: async (config) => {
+          document.getElementById('page-title').textContent = config.page_title || defaultConfig.page_title;
+        },
+        mapToCapabilities: (config) => ({
+          recolorables: [
+            {
+              get: () => config.background_color || defaultConfig.background_color,
+              set: (value) => window.elementSdk.setConfig({ background_color: value })
+            },
+            {
+              get: () => config.card_color || defaultConfig.card_color,
+              set: (value) => window.elementSdk.setConfig({ card_color: value })
+            },
+            {
+              get: () => config.text_color || defaultConfig.text_color,
+              set: (value) => window.elementSdk.setConfig({ text_color: value })
+            },
+            {
+              get: () => config.primary_color || defaultConfig.primary_color,
+              set: (value) => window.elementSdk.setConfig({ primary_color: value })
+            },
+            {
+              get: () => config.accent_color || defaultConfig.accent_color,
+              set: (value) => window.elementSdk.setConfig({ accent_color: value })
+            }
+          ],
+          borderables: [],
+          fontEditable: undefined,
+          fontSizeable: undefined
+        }),
+        mapToEditPanelValues: (config) => new Map([
+          ['page_title', config.page_title || defaultConfig.page_title]
+        ])
+      });
+    }
+
+    // Check if player name is valid (not empty or just spaces)
+    function isValidPlayer(name) {
+      return name && name.trim().length > 0;
+    }
+
+    // Get all players currently in progress
+    function getPlayersInProgress(games) {
+      const playersInProgress = new Set();
+      games.forEach(game => {
+        if (game.status === 'IN_PROGRESS') {
+          if (isValidPlayer(game.playerA)) playersInProgress.add(game.playerA.trim());
+          if (isValidPlayer(game.playerX)) playersInProgress.add(game.playerX.trim());
+        }
+      });
+      return playersInProgress;
+    }
+
+    // Check if a game has a player currently in progress
+    function hasPlayerInProgress(game, playersInProgress) {
+      const playerA = game.playerA ? game.playerA.trim() : '';
+      const playerX = game.playerX ? game.playerX.trim() : '';
+      return playersInProgress.has(playerA) || playersInProgress.has(playerX);
+    }
+
+    // Create game card HTML
+    function createGameCard(game, type, isGrayed = false) {
+      // Timer for in-progress games
+      let timerHtml = '';
+        if (type === 'inprogress') {
+            timerHtml = `<div class="game-timer absolute top-2 left-2 md:left-1/2 md:-translate-x-1/2 bg-white bg-opacity-80 rounded px-2 py-1 text-blue-700 font-bold text-xs shadow flex items-center gap-1" data-game-id="${game.id || ''}" style="direction:ltr; min-width:44px; text-align:center; z-index:10;">
+              <span class="timer-value">00:00</span><span class="hidden md:inline-block">:זמן משחק</span>
+            </div>`;
+        }
+            // Map for special round labels
+            const roundLabels = {
+              'F': 'גמר',
+              'SF': 'חצי גמר',
+              'QF': 'רבע גמר',
+              '1/8': 'שמינית גמר',
+              '1/16': '1/16 גמר',
+              '3-4': 'מקום 3-4'
+            };
+      const grayClass = isGrayed ? 'grayed-out' : '';
+      
+      let resultHtml = '';
+      let finishedTimeHtml = '';
+      if (type === 'finished') {
+        const scoreA = parseInt(game.setAB) || 0;
+        const scoreX = parseInt(game.setXY) || 0;
+        let playerABold = '';
+        let playerXBold = '';
+        if (scoreA > scoreX) {
+          playerABold = 'font-bold';
+        } else if (scoreX > scoreA) {
+          playerXBold = 'font-bold';
+        }
+        // Show finish time in upper center if available
+        let finishTime = '';
+        if (game.finished_at) {
+          const d = new Date(game.finished_at);
+          if (!isNaN(d)) {
+            const hh = String(d.getHours()).padStart(2, '0');
+            const mm = String(d.getMinutes()).padStart(2, '0');
+            finishTime = `${hh}:${mm}`;
+          }
+        }
+          finishedTimeHtml = finishTime ? `<div class="absolute top-2 left-2 md:left-1/2 md:-translate-x-1/2 bg-white bg-opacity-80 rounded px-2 py-1 text-green-700 font-bold text-xs shadow" style="direction:ltr; min-width:100px; text-align:center; z-index:10;">הסתיים בשעה: ${finishTime}</div>` : '';
+        // Use flex row with fixed width for sets, so sets are always aligned
+        resultHtml = `
+          ${finishedTimeHtml}
+          <div class="flex items-center justify-between mt-1 relative" style="min-height: 2.5rem;">
+            <span class="text-slate-700 text-lg ${playerABold} flex-1 text-right pr-2 truncate">${game.playerA || 'לא ידוע'}</span>
+            <span class="absolute left-1/2 -translate-x-1/2 flex items-center gap-1 min-w-[70px] justify-center">
+              <span class="text-green-600 font-bold text-xl ${playerABold}">${scoreA}</span>
+              <span class="text-slate-600 text-lg">-</span>
+              <span class="text-green-600 font-bold text-xl ${playerXBold}">${scoreX}</span>
+            </span>
+            <span class="text-slate-700 text-lg ${playerXBold} flex-1 text-left pl-2 truncate">${game.playerX || 'לא ידוע'}</span>
+          </div>
+        `;
+      }
+
+      let tableHtml = '';
+      // Do not show table number for finished games
+      if (game.table && type !== 'finished') {
+        tableHtml = '';
+      }
+
+      let turnBracket = '';
+      if ((type === 'upcoming' || type === 'inprogress') && game.turn_no) {
+        turnBracket = ` [סיבוב ${game.turn_no}]`;
+      }
+
+      return `
+        <div class="game-card bg-slate-50 rounded-lg p-2 border border-slate-200 text-sm ${grayClass} relative">
+          ${timerHtml}
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-slate-500 text-xs w-full text-right block">
+              ${(game.draw || 'ללא קטגוריה')} - 
+              ${
+                game.groupNo
+                  ? `בית ${game.groupNo} - סיבוב ${(game.turn_no || '-')}`
+                  : (roundLabels[game.turn] ? roundLabels[game.turn] : '-')
+              }
+              ${game.table ? `- שולחן ${game.table}` : ''}
+            </span>
+          </div>
+          ${type === 'finished' ? resultHtml : `
+            ${tableHtml}
+            <div class="flex items-center justify-between mt-1 relative" style="min-height: 2.5rem;">
+              <span class="font-medium text-slate-700 text-lg flex-1 text-right pr-2 truncate">${game.playerA || 'לא ידוע'}</span>
+              <span class="absolute left-1/2 -translate-x-1/2 flex items-center gap-1 min-w-[40px] justify-center">
+                <span class="text-slate-600 text-xl font-bold">VS</span>
+              </span>
+              <span class="font-medium text-slate-700 text-lg flex-1 text-left pl-2 truncate">${game.playerX || 'לא ידוע'}</span>
+            </div>
+          `}
+        </div>
+      `;
+    }
+
+    // --- TIMER & FINISHED TIME LOGIC ---
+        // Store finished times in localStorage under 'gameFinishedTimes', keyed by game.id
+        function getGameFinishedTimes() {
+          try {
+            return JSON.parse(localStorage.getItem('gameFinishedTimes') || '{}');
+          } catch { return {}; }
+        }
+        function setGameFinishedTimes(times) {
+          localStorage.setItem('gameFinishedTimes', JSON.stringify(times));
+        }
+        function setGameFinishedAt(gameId, date) {
+          const times = getGameFinishedTimes();
+          times[gameId] = date.toISOString();
+          setGameFinishedTimes(times);
+        }
+        function getGameFinishedAt(gameId) {
+          const times = getGameFinishedTimes();
+          return times[gameId] || null;
+        }
+        function clearGameFinishedAt(gameId) {
+          const times = getGameFinishedTimes();
+          delete times[gameId];
+          setGameFinishedTimes(times);
+        }
+    // Store timers in localStorage under 'gameTimers', keyed by game.id
+    let timerIntervals = {};
+    function getGameTimers() {
+      try {
+        return JSON.parse(localStorage.getItem('gameTimers') || '{}');
+      } catch { return {}; }
+    }
+    function setGameTimers(timers) {
+      localStorage.setItem('gameTimers', JSON.stringify(timers));
+    }
+    function startGameTimer(gameId) {
+      const timers = getGameTimers();
+      if (!timers[gameId]) {
+        timers[gameId] = { start: Date.now(), elapsed: 0, running: true };
+      } else if (!timers[gameId].running) {
+        timers[gameId].start = Date.now();
+        timers[gameId].running = true;
+      }
+      setGameTimers(timers);
+    }
+    function stopGameTimer(gameId) {
+      const timers = getGameTimers();
+      if (timers[gameId] && timers[gameId].running) {
+        timers[gameId].elapsed += Math.floor((Date.now() - timers[gameId].start) / 1000);
+        timers[gameId].running = false;
+        setGameTimers(timers);
+      }
+    }
+    function clearGameTimer(gameId) {
+      const timers = getGameTimers();
+      delete timers[gameId];
+      setGameTimers(timers);
+    }
+    function getGameElapsed(gameId) {
+      const timers = getGameTimers();
+      if (!timers[gameId]) return 0;
+      let elapsed = timers[gameId].elapsed || 0;
+      if (timers[gameId].running && timers[gameId].start) {
+        elapsed += Math.floor((Date.now() - timers[gameId].start) / 1000);
+      }
+      return elapsed;
+    }
+    function formatMMSS(seconds) {
+      const mm = String(Math.floor(seconds / 60)).padStart(2, '0');
+      const ss = String(seconds % 60).padStart(2, '0');
+      return `${mm}:${ss}`;
+    }
+    function updateAllGameTimers() {
+      document.querySelectorAll('.game-timer[data-game-id]').forEach(div => {
+        const gameId = div.getAttribute('data-game-id');
+        const elapsed = getGameElapsed(gameId);
+        const timerSpan = div.querySelector('.timer-value');
+        if (timerSpan) {
+          timerSpan.textContent = formatMMSS(elapsed);
+        } else {
+          div.textContent = formatMMSS(elapsed);
+        }
+      });
+    }
+    function setupGameTimersForInProgress(games) {
+      // Clear previous intervals
+      Object.values(timerIntervals).forEach(clearInterval);
+      timerIntervals = {};
+      // Start/restore timers for in-progress games
+      const timers = getGameTimers();
+      const inProgressIds = games.map(g => g.id).filter(Boolean);
+      // Remove timers for games no longer in progress
+      Object.keys(timers).forEach(id => {
+        if (!inProgressIds.includes(id)) {
+          clearGameTimer(id);
+        }
+      });
+      // Start timers for current in-progress games
+      games.forEach(game => {
+        if (!game.id) return;
+        if (!timers[game.id]) {
+          startGameTimer(game.id);
+        } else if (!timers[game.id].running) {
+          // Resume timer if not running
+          startGameTimer(game.id);
+        }
+      });
+      // Update timers every second
+      timerIntervals['main'] = setInterval(updateAllGameTimers, 1000);
+      updateAllGameTimers();
+    }
+
+    // Render games to columns
+    function renderGames(games) {
+      const playersInProgress = getPlayersInProgress(games);
+      // Filter games with valid players
+      const validGames = games.filter(game => 
+        isValidPlayer(game.playerA) && isValidPlayer(game.playerX)
+      );
+      // --- Track state transitions for finished_at ---
+      // Get previous in-progress and finished game ids
+      const prevInProgressIds = (window._prevInProgressIds || []);
+      const prevFinishedIds = (window._prevFinishedIds || []);
+      const inProgressGames = validGames.filter(g => g.status === 'IN_PROGRESS');
+      const finishedGames = validGames.filter(g => g.status === 'FINISHED');
+      const inProgressIds = inProgressGames.map(g => g.id).filter(Boolean);
+      const finishedIds = finishedGames.map(g => g.id).filter(Boolean);
+      // For games that are now finished but were previously in progress, set finished_at
+      finishedGames.forEach(game => {
+        if (game.id && prevInProgressIds.includes(game.id) && !getGameFinishedAt(game.id)) {
+          setGameFinishedAt(game.id, new Date());
+        }
+      });
+      // For games that are not finished anymore, clear finished_at
+      prevFinishedIds.forEach(id => {
+        if (!finishedIds.includes(id)) {
+          clearGameFinishedAt(id);
+        }
+      });
+      // Save current state for next render
+      window._prevInProgressIds = inProgressIds;
+      window._prevFinishedIds = finishedIds;
+      // Attach finished_at to finished games for display/sorting
+      finishedGames.forEach(game => {
+        if (game.id) {
+          const finishedAt = getGameFinishedAt(game.id);
+          if (finishedAt) game.finished_at = finishedAt;
+        }
+      });
+      // Sort finished games by finished_at descending, fallback to turn_no
+      const sortedFinishedGames = finishedGames.slice().sort((a, b) => {
+        const aTime = a.finished_at ? new Date(a.finished_at).getTime() : 0;
+        const bTime = b.finished_at ? new Date(b.finished_at).getTime() : 0;
+        if (bTime !== aTime) return bTime - aTime;
+        const turnA = parseInt(a.turn_no) || 0;
+        const turnB = parseInt(b.turn_no) || 0;
+        return turnB - turnA;
+      });
+      // Clear timers for finished games
+      finishedGames.forEach(game => {
+        if (game.id) clearGameTimer(game.id);
+      });
+      // Render upcoming games - separate grayed and non-grayed
+      const upcomingGames = validGames
+        .filter(g => g.status !== 'FINISHED' && g.status !== 'IN_PROGRESS')
+        .sort((a, b) => {
+          const turnA = parseInt(a.turn_no) || 0;
+          const turnB = parseInt(b.turn_no) || 0;
+          return turnA - turnB;
+        });
+      const upcomingContainer = document.getElementById('upcoming-games');
+      if (upcomingGames.length > 0) {
+        const nonGrayedUpcoming = upcomingGames.filter(game => !hasPlayerInProgress(game, playersInProgress));
+        const grayedUpcoming = upcomingGames.filter(game => hasPlayerInProgress(game, playersInProgress));
+        const upcomingHtml = [
+          ...nonGrayedUpcoming.map(game => createGameCard(game, 'upcoming', false)),
+          ...grayedUpcoming.map(game => createGameCard(game, 'upcoming', true))
+        ].join('');
+        upcomingContainer.innerHTML = upcomingHtml;
+      } else {
+        upcomingContainer.innerHTML = '<p class="text-slate-400 text-center py-8">אין משחקים להצגה</p>';
+      }
+      document.getElementById('upcoming-count').textContent = `${upcomingGames.length} משחקים`;
+      // Render finished games
+      const finishedContainer = document.getElementById('finished-games');
+      if (sortedFinishedGames.length > 0) {
+        finishedContainer.innerHTML = sortedFinishedGames.map(game => createGameCard(game, 'finished')).join('');
+      } else {
+        finishedContainer.innerHTML = '<p class="text-slate-400 text-center py-8">אין משחקים להצגה</p>';
+      }
+      document.getElementById('finished-count').textContent = `${sortedFinishedGames.length} משחקים`;
+      // Render in-progress games
+      const inProgressContainer = document.getElementById('inprogress-games');
+      if (inProgressGames.length > 0) {
+        inProgressContainer.innerHTML = inProgressGames.map(game => createGameCard(game, 'inprogress')).join('');
+        setupGameTimersForInProgress(inProgressGames);
+      } else {
+        inProgressContainer.innerHTML = '<p class="text-slate-400 text-center py-8">אין משחקים להצגה</p>';
+        // Clear all timers if no games in progress
+        Object.values(timerIntervals).forEach(clearInterval);
+        timerIntervals = {};
+      }
+      document.getElementById('inprogress-count').textContent = `${inProgressGames.length} משחקים`;
+    }
+
+    // Fetch games from API
+    async function fetchGames() {
+      const urlInput = document.getElementById('api-url');
+      const url = urlInput.value.trim();
+      
+      const errorMsg = document.getElementById('error-message');
+      const successMsg = document.getElementById('success-message');
+      const btnText = document.getElementById('btn-text');
+      const btnSpinner = document.getElementById('btn-spinner');
+      const reloadBtn = document.getElementById('reload-btn');
+
+      // Hide messages
+      errorMsg.classList.add('hidden');
+      successMsg.classList.add('hidden');
+
+      if (!url) {
+        errorMsg.textContent = 'נא להזין כתובת API';
+        errorMsg.classList.remove('hidden');
+        return;
+      }
+
+      // Show loading state
+      btnText.textContent = 'טוען...';
+      btnSpinner.classList.remove('hidden');
+      reloadBtn.disabled = true;
+
+      try {
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Handle different response structures
+        let games = [];
+        if (Array.isArray(data)) {
+          games = data;
+        } else if (data.resp && Array.isArray(data.resp)) {
+          games = data.resp;
+        } else if (data.data && Array.isArray(data.data)) {
+          games = data.data;
+        } else if (data.games && Array.isArray(data.games)) {
+          games = data.games;
+        }
+
+        gamesData = games;
+        renderGames(games);
+
+        successMsg.textContent = `נטענו ${games.length} משחקים בהצלחה`;
+        successMsg.classList.remove('hidden');
+
+      } catch (error) {
+        console.error('Fetch error:', error);
+        errorMsg.textContent = `שגיאה בטעינת הנתונים: ${error.message}`;
+        errorMsg.classList.remove('hidden');
+      } finally {
+        // Reset button state
+        btnText.textContent = 'טען מחדש';
+        btnSpinner.classList.add('hidden');
+        reloadBtn.disabled = false;
+      }
+    }
+
+    // Save and restore last API URL
+    const apiUrlInput = document.getElementById('api-url');
+    // Restore on load
+    const lastApiUrl = localStorage.getItem('lastApiUrl');
+    if (lastApiUrl) {
+      apiUrlInput.value = lastApiUrl;
+    }
+    // Save on change
+    apiUrlInput.addEventListener('input', () => {
+      localStorage.setItem('lastApiUrl', apiUrlInput.value);
+    });
+    // Allow Enter key to trigger fetch
+    apiUrlInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        fetchGames();
+      }
+    });
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9d4214dbe4817d9e',t:'MTc3MjEzNjU4MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
