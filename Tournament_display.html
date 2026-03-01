@@ -1195,15 +1195,20 @@
     const eventIdInput = document.getElementById('event-id-input');
     const envSelect = document.getElementById('env-select');
     const urlSection = document.getElementById('url-section');
+    function hideClockToggleIfEventId() {
+      if (eventIdFromUrl) {
+        var clockToggleBtn = document.getElementById('desktop-clock-toggle');
+        if (clockToggleBtn) clockToggleBtn.style.display = 'none';
+      }
+    }
     if (eventIdFromUrl) {
       // Hide event ID input section and settings section
       if (urlSection) urlSection.style.display = 'none';
       // Hide the settings container (the parent of urlSection)
       var urlSettingsContainer = urlSection ? urlSection.closest('.bg-white.rounded-xl.shadow-lg.max-w-3xl.mx-auto.overflow-hidden') : null;
       if (urlSettingsContainer) urlSettingsContainer.style.display = 'none';
-      // Hide the desktop clock toggle button
-      var clockToggleBtn = document.getElementById('desktop-clock-toggle');
-      if (clockToggleBtn) clockToggleBtn.style.display = 'none';
+      // Hide the desktop clock toggle button (immediate)
+      hideClockToggleIfEventId();
       // Hide the desktop clock widget itself
       var clockWidget = document.getElementById('desktop-clock-widget');
       if (clockWidget) clockWidget.style.display = 'none';
@@ -1212,6 +1217,8 @@
       if (envSelect) envSelect.value = 'prod';
       // Auto-load games from prod
       setTimeout(() => { fetchGames(); }, 0);
+      // Also ensure after DOMContentLoaded
+      window.addEventListener('DOMContentLoaded', hideClockToggleIfEventId);
     } else {
       // Restore on load
       const lastEventId = localStorage.getItem('lastEventId');
