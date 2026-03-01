@@ -670,9 +670,10 @@
     // Render games to columns
     function renderGames(games) {
       const playersInProgress = getPlayersInProgress(games);
-      // Filter games with valid players
-      const validGames = games.filter(game => 
-        isValidPlayer(game.playerA) && isValidPlayer(game.playerX)
+      // For finished/in-progress: both players must exist. For upcoming: at least one player must exist.
+      const validGames = games.filter(game => isValidPlayer(game.playerA) && isValidPlayer(game.playerX));
+      const upcomingGamesRaw = games.filter(game => 
+        game.status !== 'FINISHED' && game.status !== 'IN_PROGRESS' && (isValidPlayer(game.playerA) || isValidPlayer(game.playerX))
       );
       // --- Track state transitions for finished_at ---
       // Get previous in-progress and finished game ids
@@ -680,7 +681,7 @@
       const prevFinishedIds = (window._prevFinishedIds || []);
       let inProgressGames = validGames.filter(g => g.status === 'IN_PROGRESS');
       let finishedGames = validGames.filter(g => g.status === 'FINISHED');
-      let upcomingGames = validGames.filter(g => g.status !== 'FINISHED' && g.status !== 'IN_PROGRESS');
+      let upcomingGames = upcomingGamesRaw;
       const inProgressIds = inProgressGames.map(g => g.id).filter(Boolean);
       const finishedIds = finishedGames.map(g => g.id).filter(Boolean);
       // For games that are now finished but were previously in progress, set finished_at
@@ -807,8 +808,13 @@
       // Render upcoming games - separate grayed and non-grayed
       const upcomingContainer = document.getElementById('upcoming-games');
       if (filteredUpcoming.length > 0) {
-        const nonGrayedUpcoming = filteredUpcoming.filter(game => !hasPlayerInProgress(game, playersInProgress));
-        const grayedUpcoming = filteredUpcoming.filter(game => hasPlayerInProgress(game, playersInProgress));
+        const nonGrayedUpcoming = filteredUpcoming.filter(game => 
+          !hasPlayerInProgress(game, playersInProgress) && isValidPlayer(game.playerA) && isValidPlayer(game.playerX)
+        );
+        const grayedUpcoming = filteredUpcoming.filter(game => 
+          hasPlayerInProgress(game, playersInProgress) ||
+          (isValidPlayer(game.playerA) !== isValidPlayer(game.playerX)) // Only one player exists
+        );
         const upcomingHtml = [
           ...nonGrayedUpcoming.map(game => createGameCard(game, 'upcoming', false)),
           ...grayedUpcoming.map(game => createGameCard(game, 'upcoming', true))
