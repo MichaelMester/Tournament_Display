@@ -196,6 +196,7 @@
      <div class="column-header p-4 text-white text-center" style="--header-from: #6366f1; --header-to: #8b5cf6;">
       <div class="flex items-center justify-center gap-2">
         <button id="upcoming-filter-toggle" type="button" class="ml-2 bg-white bg-opacity-20 hover:bg-opacity-40 text-white rounded px-2 py-1 text-xs font-bold transition-colors" style="min-width:32px;" title="סנן"><span>🔍</span></button>
+        <button id="upcoming-collapse-btn" type="button" class="ml-2 bg-white bg-opacity-20 hover:bg-opacity-40 text-white rounded px-2 py-1 text-xs font-bold transition-colors" style="min-width:32px;" title="הסתר/הצג עמודה"><span id="upcoming-collapse-icon">➖</span></button>
         <h2 class="text-xl font-bold m-0">המשחקים הבאים</h2>
         <span id="upcoming-count" class="text-sm opacity-80">0 משחקים</span>
       </div>
@@ -221,6 +222,7 @@
      <div class="column-header p-4 text-white text-center" style="--header-from: #f59e0b; --header-to: #d97706;">
       <div class="flex items-center justify-center gap-2">
         <button id="inprogress-filter-toggle" type="button" class="ml-2 bg-white bg-opacity-20 hover:bg-opacity-40 text-white rounded px-2 py-1 text-xs font-bold transition-colors" style="min-width:32px;" title="סנן"><span>🔍</span></button>
+        <button id="inprogress-collapse-btn" type="button" class="ml-2 bg-white bg-opacity-20 hover:bg-opacity-40 text-white rounded px-2 py-1 text-xs font-bold transition-colors" style="min-width:32px;" title="הסתר/הצג עמודה"><span id="inprogress-collapse-icon">➖</span></button>
         <h2 class="text-xl font-bold m-0">משחקים עכשיו</h2>
         <span id="inprogress-count" class="text-sm opacity-80">0 משחקים</span>
       </div>
@@ -246,6 +248,7 @@
      <div class="column-header p-4 text-white text-center" style="--header-from: #10b981; --header-to: #059669;">
       <div class="flex items-center justify-center gap-2">
         <button id="finished-filter-toggle" type="button" class="ml-2 bg-white bg-opacity-20 hover:bg-opacity-40 text-white rounded px-2 py-1 text-xs font-bold transition-colors" style="min-width:32px;" title="סנן"><span>🔍</span></button>
+        <button id="finished-collapse-btn" type="button" class="ml-2 bg-white bg-opacity-20 hover:bg-opacity-40 text-white rounded px-2 py-1 text-xs font-bold transition-colors" style="min-width:32px;" title="הסתר/הצג עמודה"><span id="finished-collapse-icon">➖</span></button>
         <h2 class="text-xl font-bold m-0">משחקים שנגמרו</h2>
         <span id="finished-count" class="text-sm opacity-80">0 משחקים</span>
       </div>
@@ -1178,31 +1181,100 @@
       }
     }
 
-    // Save and restore last event id and env
+    // --- Support ?e=[eventId] in URL for auto-load and hiding event input ---
+    function getQueryParam(name) {
+      const url = window.location.href;
+      name = name.replace(/[\[\]]/g, '\\$&');
+      const regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)');
+      const results = regex.exec(url);
+      if (!results) return null;
+      if (!results[2]) return '';
+      return decodeURIComponent(results[2].replace(/\+/g, ' '));
+    }
+    const eventIdFromUrl = getQueryParam('e');
     const eventIdInput = document.getElementById('event-id-input');
     const envSelect = document.getElementById('env-select');
-    // Restore on load
-    const lastEventId = localStorage.getItem('lastEventId');
-    if (lastEventId) {
-      eventIdInput.value = lastEventId;
-    }
-    const lastEnv = localStorage.getItem('lastEnv');
-    if (lastEnv) {
-      envSelect.value = lastEnv;
-    }
-    // Save on change
-    eventIdInput.addEventListener('input', () => {
-      localStorage.setItem('lastEventId', eventIdInput.value);
-    });
-    envSelect.addEventListener('change', () => {
-      localStorage.setItem('lastEnv', envSelect.value);
-    });
-    // Allow Enter key to trigger fetch
-    eventIdInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        fetchGames();
+    const urlSection = document.getElementById('url-section');
+    if (eventIdFromUrl) {
+      // Hide event ID input section and settings section
+      if (urlSection) urlSection.style.display = 'none';
+      // Hide the settings container (the parent of urlSection)
+      var urlSettingsContainer = urlSection ? urlSection.closest('.bg-white.rounded-xl.shadow-lg.max-w-3xl.mx-auto.overflow-hidden') : null;
+      if (urlSettingsContainer) urlSettingsContainer.style.display = 'none';
+      // Hide the desktop clock toggle button
+      var clockToggleBtn = document.getElementById('desktop-clock-toggle');
+      if (clockToggleBtn) clockToggleBtn.style.display = 'none';
+      // Hide the desktop clock widget itself
+      var clockWidget = document.getElementById('desktop-clock-widget');
+      if (clockWidget) clockWidget.style.display = 'none';
+      // Set eventId and env to prod, then auto-load
+      if (eventIdInput) eventIdInput.value = eventIdFromUrl;
+      if (envSelect) envSelect.value = 'prod';
+      // Auto-load games from prod
+      setTimeout(() => { fetchGames(); }, 0);
+    } else {
+      // Restore on load
+      const lastEventId = localStorage.getItem('lastEventId');
+      if (lastEventId) {
+        eventIdInput.value = lastEventId;
       }
-    });
+      const lastEnv = localStorage.getItem('lastEnv');
+      if (lastEnv) {
+        envSelect.value = lastEnv;
+      }
+      // Save on change
+      eventIdInput.addEventListener('input', () => {
+        localStorage.setItem('lastEventId', eventIdInput.value);
+      });
+      envSelect.addEventListener('change', () => {
+        localStorage.setItem('lastEnv', envSelect.value);
+      });
+      // Allow Enter key to trigger fetch
+      eventIdInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          fetchGames();
+        }
+      });
+    }
+  </script>
+  <script>
+    // --- Collapse/Expand Columns Logic ---
+    function setupColumnCollapse() {
+      const columns = [
+        {
+          btnId: 'upcoming-collapse-btn',
+          iconId: 'upcoming-collapse-icon',
+          gamesId: 'upcoming-games',
+        },
+        {
+          btnId: 'inprogress-collapse-btn',
+          iconId: 'inprogress-collapse-icon',
+          gamesId: 'inprogress-games',
+        },
+        {
+          btnId: 'finished-collapse-btn',
+          iconId: 'finished-collapse-icon',
+          gamesId: 'finished-games',
+        },
+      ];
+      columns.forEach(col => {
+        const btn = document.getElementById(col.btnId);
+        const icon = document.getElementById(col.iconId);
+        const games = document.getElementById(col.gamesId);
+        if (!btn || !icon || !games) return;
+        btn.addEventListener('click', function() {
+          const isCollapsed = games.style.display === 'none';
+          if (isCollapsed) {
+            games.style.display = '';
+            icon.textContent = '➖';
+          } else {
+            games.style.display = 'none';
+            icon.textContent = '➕';
+          }
+        });
+      });
+    }
+    window.addEventListener('DOMContentLoaded', setupColumnCollapse);
   </script>
  <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9d4214dbe4817d9e',t:'MTc3MjEzNjU4MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
