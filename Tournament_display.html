@@ -54,6 +54,138 @@
   <button id="desktop-clock-toggle" class="hidden md:block fixed top-10 right-10 z-50 bg-blue-600 text-white rounded-full px-3 py-1 shadow font-bold" style="display:none;">הצג שעה</button>
   <div id="app-container" class="h-full w-full p-4 md:p-6"><!-- Header -->
     <script>
+          // --- PLAYER TIMERS LOGIC ---
+          let playerTimersInterval = null;
+          function getAllPlayersFromGames(games) {
+            const players = new Set();
+            games.forEach(game => {
+              if (game.playerA && game.playerA.trim()) players.add(game.playerA.trim());
+              if (game.playerX && game.playerX.trim()) players.add(game.playerX.trim());
+            });
+            return Array.from(players);
+          }
+
+          // Track last game end time for each player
+          function getPlayerLastGameTimes(games) {
+            const lastTimes = {};
+            games.forEach(game => {
+              if (game.status === 'FINISHED' && game.finished_at) {
+                const t = new Date(game.finished_at).getTime();
+                if (game.playerA && (!lastTimes[game.playerA] || t > lastTimes[game.playerA])) lastTimes[game.playerA] = t;
+                if (game.playerX && (!lastTimes[game.playerX] || t > lastTimes[game.playerX])) lastTimes[game.playerX] = t;
+              }
+              // If in progress, treat as timer reset (game just started)
+              if (game.status === 'IN_PROGRESS') {
+                const now = Date.now();
+                if (game.playerA) lastTimes[game.playerA] = now;
+                if (game.playerX) lastTimes[game.playerX] = now;
+              }
+            });
+            return lastTimes;
+          }
+
+          function formatHHMMSS(seconds) {
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = seconds % 60;
+            return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+          }
+
+          function updatePlayerTimersList(games) {
+            const players = getAllPlayersFromGames(games);
+            const lastTimes = getPlayerLastGameTimes(games);
+            const now = Date.now();
+            // Find players with no more games in the upcoming (right) column
+            const upcomingGames = games.filter(g => g.status !== 'FINISHED' && g.status !== 'IN_PROGRESS');
+            const playersWithUpcoming = new Set();
+            upcomingGames.forEach(g => {
+              if (g.playerA && g.playerA.trim()) playersWithUpcoming.add(g.playerA.trim());
+              if (g.playerX && g.playerX.trim()) playersWithUpcoming.add(g.playerX.trim());
+            });
+            // Find players currently playing (center column)
+            const inProgressGames = games.filter(g => g.status === 'IN_PROGRESS');
+            const playersInProgress = new Set();
+            inProgressGames.forEach(g => {
+              if (g.playerA && g.playerA.trim()) playersInProgress.add(g.playerA.trim());
+              if (g.playerX && g.playerX.trim()) playersInProgress.add(g.playerX.trim());
+            });
+            // Build array of {name, seconds, available, inProgress}
+            const timers = players.map(name => {
+              const available = playersWithUpcoming.has(name);
+              const inProgress = playersInProgress.has(name);
+              let seconds = 0;
+              if (available && !inProgress) {
+                const last = lastTimes[name] || 0;
+                seconds = last ? Math.floor((now - last) / 1000) : 0;
+              }
+              return { name, seconds, available, inProgress };
+            });
+            // Sort: running timers first, then 'במשחק', then 'לא התחיל', then 'לא זמין' last
+            timers.sort((a, b) => {
+              // 'לא זמין' (not available and not in progress) always last
+              const aUnavailable = !a.available && !a.inProgress;
+              const bUnavailable = !b.available && !b.inProgress;
+              if (aUnavailable && !bUnavailable) return 1;
+              if (!aUnavailable && bUnavailable) return -1;
+              // Running timers (not in progress, seconds > 0) first
+              const aRunning = a.available && !a.inProgress && a.seconds > 0;
+              const bRunning = b.available && !b.inProgress && b.seconds > 0;
+              if (aRunning && !bRunning) return -1;
+              if (!aRunning && bRunning) return 1;
+              // Then in progress
+              if (a.inProgress && !b.inProgress) return -1;
+              if (!a.inProgress && b.inProgress) return 1;
+              // Then not started
+              if (a.seconds === 0 && b.seconds !== 0) return -1;
+              if (a.seconds !== 0 && b.seconds === 0) return 1;
+              // Otherwise, sort by timer descending
+              return b.seconds - a.seconds;
+            });
+            // Render
+            const ul = document.getElementById('player-timers-list');
+            if (!ul) return;
+            ul.innerHTML = timers.map((t, i) => {
+              let timerText = '';
+              // Show 'לא זמין' only if not in progress and no more games left
+              if (!t.available && !t.inProgress) {
+                timerText = 'לא זמין';
+              } else if (t.inProgress) {
+                timerText = 'במשחק';
+              } else if (t.seconds === 0) {
+                timerText = 'לא התחיל';
+              } else {
+                timerText = formatHHMMSS(t.seconds);
+              }
+              return `<li class="flex justify-between items-center py-2 ${(!t.available && !t.inProgress) ? 'opacity-50' : ''}"><span class="font-medium">${i+1}. ${t.name}</span><span class="font-mono ${(t.available || t.inProgress) ? 'text-blue-700' : 'text-gray-400'}">${timerText}</span></li>`;
+            }).join('');
+          }
+
+          function setupPlayerTimers(games) {
+            if (playerTimersInterval) clearInterval(playerTimersInterval);
+            updatePlayerTimersList(games);
+            playerTimersInterval = setInterval(() => updatePlayerTimersList(gamesData), 1000);
+          }
+
+          // Collapse/expand logic for player timers
+          document.addEventListener('DOMContentLoaded', function() {
+            const toggleBtn = document.getElementById('player-timers-toggle');
+            const section = document.getElementById('player-timers-section');
+            const icon = document.getElementById('player-timers-toggle-icon');
+            if (toggleBtn && section && icon) {
+              section.classList.add('hidden');
+              icon.textContent = '▶';
+              toggleBtn.addEventListener('click', function() {
+                const isCollapsed = section.classList.contains('hidden');
+                if (isCollapsed) {
+                  section.classList.remove('hidden');
+                  icon.textContent = '▼';
+                } else {
+                  section.classList.add('hidden');
+                  icon.textContent = '▶';
+                }
+              });
+            }
+          });
       // --- Desktop Clock Widget ---
       function updateDesktopClock() {
         const el = document.getElementById('desktop-clock-time');
@@ -188,6 +320,16 @@
       </div>
       <p id="error-message" class="text-red-500 text-sm mt-2 hidden"></p>
       <p id="success-message" class="text-green-600 text-sm mt-2 hidden"></p>
+      <!-- Player Timers List (Collapsible) -->
+      <div class="mt-6">
+        <button id="player-timers-toggle" class="w-full px-4 py-2 flex items-center justify-between bg-slate-100 hover:bg-slate-200 rounded border border-slate-200 font-semibold text-slate-700 mb-2" type="button">
+          <span>⏱️ טיימר שחקנים</span>
+          <span id="player-timers-toggle-icon">▶</span>
+        </button>
+        <div id="player-timers-section" class="hidden bg-white rounded shadow p-3 max-h-96 overflow-y-auto">
+          <ul id="player-timers-list" class="divide-y divide-slate-200"></ul>
+        </div>
+      </div>
      </div>
     </div>
    </div><!-- Games Columns -->
@@ -669,6 +811,7 @@
 
     // Render games to columns
     function renderGames(games) {
+      setupPlayerTimers(games);
       const playersInProgress = getPlayersInProgress(games);
       // For finished/in-progress: both players must exist. For upcoming: at least one player must exist.
       const validGames = games.filter(game => isValidPlayer(game.playerA) && isValidPlayer(game.playerX));
