@@ -557,7 +557,7 @@
       // Timer for in-progress games
       let timerHtml = '';
         if (type === 'inprogress') {
-            timerHtml = `<div class="game-timer absolute top-2 left-2 md:left-1/2 md:-translate-x-1/2 bg-white bg-opacity-80 rounded px-2 py-1 text-blue-700 font-bold text-xs shadow flex items-center gap-1" data-game-id="${game.id || ''}" style="direction:ltr; min-width:44px; text-align:center; z-index:10;">
+            timerHtml = `<div class="game-timer absolute top-2 left-2 bg-white bg-opacity-80 rounded px-2 py-1 text-blue-700 font-bold text-xs shadow flex items-center gap-1" data-game-id="${game.id || ''}" style="direction:ltr; min-width:44px; text-align:center; z-index:10;">
               <span class="timer-value">00:00</span><span class="hidden md:inline-block">:זמן משחק</span>
             </div>`;
         }
