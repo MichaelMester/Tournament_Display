@@ -490,9 +490,20 @@
           if (autoReloadInterval) {
             timerDiv.textContent = `רענון בעוד ${autoReloadSecondsLeft} שניות`;
             timerDiv.classList.remove('hidden');
+            timerDiv.classList.add('cursor-pointer');
+            timerDiv.title = 'לחץ לרענון מיידי';
           } else {
             timerDiv.classList.add('hidden');
+            timerDiv.classList.remove('cursor-pointer');
+            timerDiv.title = '';
           }
+        }
+
+        function handleAutoReloadTimerClick() {
+          if (!autoReloadInterval) return;
+          fetchGames();
+          autoReloadSecondsLeft = 30;
+          updateAutoReloadTimerDisplay();
         }
 
         function toggleAutoReload() {
@@ -527,6 +538,13 @@
             btn.classList.add('bg-red-500', 'text-white');
           }
         }
+        document.addEventListener('DOMContentLoaded', function() {
+          const timerDiv = document.getElementById('auto-reload-timer');
+          if (timerDiv && !timerDiv._clickBound) {
+            timerDiv.addEventListener('click', handleAutoReloadTimerClick);
+            timerDiv._clickBound = true;
+          }
+        });
     // Default configuration
     const defaultConfig = {
       page_title: 'לוח משחקים',
@@ -1095,8 +1113,14 @@
           return label === filter;
         });
       }
-      // Sort by date and startTime if both exist, otherwise fallback to turn_no
+      // Sort upcoming games by round first; date/time only breaks ties within the same round.
       upcomingGames = upcomingGames.sort((a, b) => {
+        const turnA = parseInt(a.turn_no) || 0;
+        const turnB = parseInt(b.turn_no) || 0;
+        if (turnA !== turnB) {
+          return turnA - turnB;
+        }
+
         const hasDateA = a.date && a.startTime;
         const hasDateB = b.date && b.startTime;
         if (hasDateA && hasDateB) {
@@ -1107,10 +1131,7 @@
             return dateTimeA - dateTimeB;
           }
         }
-        // Fallback: sort by turn_no
-        const turnA = parseInt(a.turn_no) || 0;
-        const turnB = parseInt(b.turn_no) || 0;
-        return turnA - turnB;
+        return 0;
       });
       // Apply filters
       let filteredUpcoming = filterByPlayer(upcomingGames, upcomingPlayerFilter);
@@ -1125,20 +1146,14 @@
       filteredFinished = filterByCategory(filteredFinished, finishedCategoryFilter);
       filteredFinished = filterByGroup(filteredFinished, finishedGroupFilter);
       filteredFinished = filterByTurn(filteredFinished, finishedTurnFilter);
-      // Render upcoming games - separate grayed and non-grayed
+      // Render upcoming games while preserving the existing sorted order.
       const upcomingContainer = document.getElementById('upcoming-games');
       if (filteredUpcoming.length > 0) {
-        const nonGrayedUpcoming = filteredUpcoming.filter(game => 
-          !hasPlayerInProgress(game, playersInProgress) && isValidPlayer(game.playerFullNameA) && isValidPlayer(game.playerFullNameX)
-        );
-        const grayedUpcoming = filteredUpcoming.filter(game => 
-          hasPlayerInProgress(game, playersInProgress) ||
-          (isValidPlayer(game.playerFullNameA) !== isValidPlayer(game.playerFullNameX)) // Only one player exists
-        );
-        const upcomingHtml = [
-          ...nonGrayedUpcoming.map(game => createGameCard(game, 'upcoming', false)),
-          ...grayedUpcoming.map(game => createGameCard(game, 'upcoming', true))
-        ].join('');
+        const upcomingHtml = filteredUpcoming.map(game => {
+          const isGrayed = hasPlayerInProgress(game, playersInProgress) ||
+            (isValidPlayer(game.playerFullNameA) !== isValidPlayer(game.playerFullNameX));
+          return createGameCard(game, 'upcoming', isGrayed);
+        }).join('');
         upcomingContainer.innerHTML = upcomingHtml;
       } else {
         upcomingContainer.innerHTML = '<p class="text-slate-400 text-center py-8">אין משחקים להצגה</p>';
