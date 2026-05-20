@@ -59,8 +59,8 @@
           function getAllPlayersFromGames(games) {
             const players = new Set();
             games.forEach(game => {
-              if (game.playerA && game.playerA.trim()) players.add(game.playerA.trim());
-              if (game.playerX && game.playerX.trim()) players.add(game.playerX.trim());
+              if (game.playerFullNameA && game.playerFullNameA.trim()) players.add(game.playerFullNameA.trim());
+              if (game.playerFullNameX && game.playerFullNameX.trim()) players.add(game.playerFullNameX.trim());
             });
             return Array.from(players);
           }
@@ -71,14 +71,14 @@
             games.forEach(game => {
               if (game.status === 'FINISHED' && game.finished_at) {
                 const t = new Date(game.finished_at).getTime();
-                if (game.playerA && (!lastTimes[game.playerA] || t > lastTimes[game.playerA])) lastTimes[game.playerA] = t;
-                if (game.playerX && (!lastTimes[game.playerX] || t > lastTimes[game.playerX])) lastTimes[game.playerX] = t;
+                if (game.playerFullNameA && (!lastTimes[game.playerFullNameA] || t > lastTimes[game.playerFullNameA])) lastTimes[game.playerFullNameA] = t;
+                if (game.playerFullNameX && (!lastTimes[game.playerFullNameX] || t > lastTimes[game.playerFullNameX])) lastTimes[game.playerFullNameX] = t;
               }
               // If in progress, treat as timer reset (game just started)
               if (game.status === 'IN_PROGRESS') {
                 const now = Date.now();
-                if (game.playerA) lastTimes[game.playerA] = now;
-                if (game.playerX) lastTimes[game.playerX] = now;
+                if (game.playerFullNameA) lastTimes[game.playerFullNameA] = now;
+                if (game.playerFullNameX) lastTimes[game.playerFullNameX] = now;
               }
             });
             return lastTimes;
@@ -99,15 +99,15 @@
             const upcomingGames = games.filter(g => g.status !== 'FINISHED' && g.status !== 'IN_PROGRESS');
             const playersWithUpcoming = new Set();
             upcomingGames.forEach(g => {
-              if (g.playerA && g.playerA.trim()) playersWithUpcoming.add(g.playerA.trim());
-              if (g.playerX && g.playerX.trim()) playersWithUpcoming.add(g.playerX.trim());
+              if (g.playerFullNameA && g.playerFullNameA.trim()) playersWithUpcoming.add(g.playerFullNameA.trim());
+              if (g.playerFullNameX && g.playerFullNameX.trim()) playersWithUpcoming.add(g.playerFullNameX.trim());
             });
             // Find players currently playing (center column)
             const inProgressGames = games.filter(g => g.status === 'IN_PROGRESS');
             const playersInProgress = new Set();
             inProgressGames.forEach(g => {
-              if (g.playerA && g.playerA.trim()) playersInProgress.add(g.playerA.trim());
-              if (g.playerX && g.playerX.trim()) playersInProgress.add(g.playerX.trim());
+              if (g.playerFullNameA && g.playerFullNameA.trim()) playersInProgress.add(g.playerFullNameA.trim());
+              if (g.playerFullNameX && g.playerFullNameX.trim()) playersInProgress.add(g.playerFullNameX.trim());
             });
             // Build array of {name, seconds, available, inProgress}
             const timers = players.map(name => {
@@ -538,8 +538,8 @@
       const playersInProgress = new Set();
       games.forEach(game => {
         if (game.status === 'IN_PROGRESS') {
-          if (isValidPlayer(game.playerA)) playersInProgress.add(game.playerA.trim());
-          if (isValidPlayer(game.playerX)) playersInProgress.add(game.playerX.trim());
+          if (isValidPlayer(game.playerFullNameA)) playersInProgress.add(game.playerFullNameA.trim());
+          if (isValidPlayer(game.playerFullNameX)) playersInProgress.add(game.playerFullNameX.trim());
         }
       });
       return playersInProgress;
@@ -547,9 +547,9 @@
 
     // Check if a game has a player currently in progress
     function hasPlayerInProgress(game, playersInProgress) {
-      const playerA = game.playerA ? game.playerA.trim() : '';
-      const playerX = game.playerX ? game.playerX.trim() : '';
-      return playersInProgress.has(playerA) || playersInProgress.has(playerX);
+      const playerFullNameA = game.playerFullNameA ? game.playerFullNameA.trim() : '';
+      const playerFullNameX = game.playerFullNameX ? game.playerFullNameX.trim() : '';
+      return playersInProgress.has(playerFullNameA) || playersInProgress.has(playerFullNameX);
     }
 
     // Create game card HTML
@@ -581,12 +581,12 @@
       if (type === 'finished') {
         const scoreA = parseInt(game.setAB) || 0;
         const scoreX = parseInt(game.setXY) || 0;
-        let playerABold = '';
-        let playerXBold = '';
+        let playerFullNameABold = '';
+        let playerFullNameXBold = '';
         if (scoreA > scoreX) {
-          playerABold = 'font-bold';
+          playerFullNameABold = 'font-bold';
         } else if (scoreX > scoreA) {
-          playerXBold = 'font-bold';
+          playerFullNameXBold = 'font-bold';
         }
         // Show finish time in upper center if available
         let finishTime = '';
@@ -603,13 +603,13 @@
         resultHtml = `
           ${finishedTimeHtml}
           <div class="flex items-center justify-between mt-1 relative" style="min-height: 2.5rem;">
-            <span class="text-slate-700 text-lg ${playerABold} flex-1 text-right pr-2 truncate">${game.playerA || 'לא ידוע'}</span>
+            <span class="text-slate-700 text-lg ${playerFullNameABold} flex-1 text-right pr-2 truncate">${game.playerFullNameA || 'לא ידוע'}</span>
             <span class="absolute left-1/2 -translate-x-1/2 flex items-center gap-1 min-w-[70px] justify-center">
-              <span class="text-green-600 font-bold text-xl ${playerABold}">${scoreA}</span>
+              <span class="text-green-600 font-bold text-xl ${playerFullNameABold}">${scoreA}</span>
               <span class="text-slate-600 text-lg">-</span>
-              <span class="text-green-600 font-bold text-xl ${playerXBold}">${scoreX}</span>
+              <span class="text-green-600 font-bold text-xl ${playerFullNameXBold}">${scoreX}</span>
             </span>
-            <span class="text-slate-700 text-lg ${playerXBold} flex-1 text-left pl-2 truncate">${game.playerX || 'לא ידוע'}</span>
+            <span class="text-slate-700 text-lg ${playerFullNameXBold} flex-1 text-left pl-2 truncate">${game.playerFullNameX || 'לא ידוע'}</span>
           </div>
         `;
       }
@@ -687,11 +687,11 @@
           ${type === 'finished' ? resultHtml : `
             ${tableHtml}
             <div class="flex items-center justify-between mt-1 relative" style="min-height: 2.5rem;">
-              <span class="font-medium text-slate-700 text-lg flex-1 text-right pr-2 truncate">${game.playerA || 'לא ידוע'}</span>
+              <span class="font-medium text-slate-700 text-lg flex-1 text-right pr-2 truncate">${game.playerFullNameA || 'לא ידוע'}</span>
               <span class="absolute left-1/2 -translate-x-1/2 flex items-center gap-1 min-w-[40px] justify-center">
                 <span class="text-slate-600 text-xl font-bold">VS</span>
               </span>
-              <span class="font-medium text-slate-700 text-lg flex-1 text-left pl-2 truncate">${game.playerX || 'לא ידוע'}</span>
+              <span class="font-medium text-slate-700 text-lg flex-1 text-left pl-2 truncate">${game.playerFullNameX || 'לא ידוע'}</span>
             </div>
           `}
         </div>
@@ -814,9 +814,9 @@
       setupPlayerTimers(games);
       const playersInProgress = getPlayersInProgress(games);
       // For finished/in-progress: both players must exist. For upcoming: at least one player must exist.
-      const validGames = games.filter(game => isValidPlayer(game.playerA) && isValidPlayer(game.playerX));
+      const validGames = games.filter(game => isValidPlayer(game.playerFullNameA) && isValidPlayer(game.playerFullNameX));
       const upcomingGamesRaw = games.filter(game => 
-        game.status !== 'FINISHED' && game.status !== 'IN_PROGRESS' && (isValidPlayer(game.playerA) || isValidPlayer(game.playerX))
+        game.status !== 'FINISHED' && game.status !== 'IN_PROGRESS' && (isValidPlayer(game.playerFullNameA) || isValidPlayer(game.playerFullNameX))
       );
       // --- Track state transitions for finished_at ---
       // Get previous in-progress and finished game ids
@@ -880,8 +880,8 @@
         if (!filter) return games;
         const f = filter.trim().toLowerCase();
         return games.filter(g =>
-          (g.playerA && g.playerA.toLowerCase().includes(f)) ||
-          (g.playerX && g.playerX.toLowerCase().includes(f))
+          (g.playerFullNameA && g.playerFullNameA.toLowerCase().includes(f)) ||
+          (g.playerFullNameX && g.playerFullNameX.toLowerCase().includes(f))
         );
       }
       function filterByCategory(games, filter) {
@@ -952,11 +952,11 @@
       const upcomingContainer = document.getElementById('upcoming-games');
       if (filteredUpcoming.length > 0) {
         const nonGrayedUpcoming = filteredUpcoming.filter(game => 
-          !hasPlayerInProgress(game, playersInProgress) && isValidPlayer(game.playerA) && isValidPlayer(game.playerX)
+          !hasPlayerInProgress(game, playersInProgress) && isValidPlayer(game.playerFullNameA) && isValidPlayer(game.playerFullNameX)
         );
         const grayedUpcoming = filteredUpcoming.filter(game => 
           hasPlayerInProgress(game, playersInProgress) ||
-          (isValidPlayer(game.playerA) !== isValidPlayer(game.playerX)) // Only one player exists
+          (isValidPlayer(game.playerFullNameA) !== isValidPlayer(game.playerFullNameX)) // Only one player exists
         );
         const upcomingHtml = [
           ...nonGrayedUpcoming.map(game => createGameCard(game, 'upcoming', false)),
@@ -1012,8 +1012,8 @@
           if (!filter) return games;
           const f = filter.trim().toLowerCase();
           return games.filter(g =>
-            (g.playerA && g.playerA.toLowerCase().includes(f)) ||
-            (g.playerX && g.playerX.toLowerCase().includes(f))
+            (g.playerFullNameA && g.playerFullNameA.toLowerCase().includes(f)) ||
+            (g.playerFullNameX && g.playerFullNameX.toLowerCase().includes(f))
           );
         }
         function filterByCategory(games, filter) {
@@ -1070,7 +1070,7 @@
             return name && name.trim().length > 0;
           }
           function isValidGame(game) {
-            return isValidPlayer(game.playerA) && isValidPlayer(game.playerX);
+            return isValidPlayer(game.playerFullNameA) && isValidPlayer(game.playerFullNameX);
           }
           if (col === changedCol && type === changedType) {
             if (col === 'upcoming') {
@@ -1244,7 +1244,7 @@
             return name && name.trim().length > 0;
           }
           function isValidGame(game) {
-            return isValidPlayer(game.playerA) && isValidPlayer(game.playerX);
+            return isValidPlayer(game.playerFullNameA) && isValidPlayer(game.playerFullNameX);
           }
           const upGames = gamesData.filter(g => g.status !== 'FINISHED' && g.status !== 'IN_PROGRESS' && isValidGame(g));
           const inGames = gamesData.filter(g => g.status === 'IN_PROGRESS' && isValidGame(g));
