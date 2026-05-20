@@ -84,8 +84,29 @@
       width: 100%;
       max-width: 1600px;
     }
+    .announcement-grid {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 20px;
+    }
+    .announcement-player {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    .announcement-photo {
+      width: clamp(180px, 26vw, 420px);
+      height: clamp(180px, 26vw, 420px);
+      object-fit: cover;
+      border-radius: 20px;
+      border: 4px solid rgba(255, 255, 255, 0.75);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+      background: rgba(255, 255, 255, 0.08);
+    }
     .announcement-name {
-      font-size: clamp(56px, 10vw, 180px);
+      font-size: clamp(44px, 7vw, 140px);
       font-weight: 700;
       line-height: 1.05;
       text-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
@@ -98,6 +119,14 @@
       margin: 10px 0;
       color: #facc15;
       text-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+    }
+    @media (max-width: 900px) {
+      .announcement-grid {
+        grid-template-columns: 1fr;
+      }
+      .announcement-vs {
+        order: 2;
+      }
     }
   </style>
   <style>body { box-sizing: border-box; }</style>
@@ -113,9 +142,17 @@
   <button id="desktop-clock-toggle" class="hidden md:block fixed top-10 right-10 z-50 bg-blue-600 text-white rounded-full px-3 py-1 shadow font-bold" style="display:none;">הצג שעה</button>
     <div id="announcement-overlay" class="announcement-overlay" aria-live="polite" aria-atomic="true">
       <div class="announcement-content">
-        <div id="announcement-player-a" class="announcement-name">--</div>
-        <div class="announcement-vs">נגד</div>
-        <div id="announcement-player-x" class="announcement-name">--</div>
+        <div class="announcement-grid">
+          <div class="announcement-player">
+            <img id="announcement-photo-a" class="announcement-photo" alt="תמונת שחקן א" />
+            <div id="announcement-player-a" class="announcement-name">--</div>
+          </div>
+          <div class="announcement-vs">נגד</div>
+          <div class="announcement-player">
+            <img id="announcement-photo-x" class="announcement-photo" alt="תמונת שחקן ב" />
+            <div id="announcement-player-x" class="announcement-name">--</div>
+          </div>
+        </div>
       </div>
     </div>
   <div id="app-container" class="h-full w-full p-4 md:p-6"><!-- Header -->
@@ -622,11 +659,40 @@
     let announcementSequence = 0;
     let announcementOverlayTimer = null;
 
-    function showAnnouncementOverlay(playerA, playerX) {
+    function getPlayerPhotoUrl(playerId) {
+      const id = String(playerId || '').trim();
+      if (!id) return '';
+      return `https://www.tttm.co.il/playerPict/${id}/${id}.jpg`;
+    }
+
+    function setAnnouncementPhoto(imgEl, primaryUrl) {
+      const fallbackUrl = 'player.png';
+      if (!imgEl) return;
+
+      imgEl.style.display = '';
+      imgEl.onerror = () => {
+        if (imgEl.src && imgEl.src.includes('player.png')) {
+          imgEl.style.display = 'none';
+          return;
+        }
+        imgEl.src = fallbackUrl;
+      };
+      imgEl.src = primaryUrl || fallbackUrl;
+    }
+
+    function showAnnouncementOverlay(playerA, playerX, playerAid, playerXid) {
       const overlay = document.getElementById('announcement-overlay');
       const playerAEl = document.getElementById('announcement-player-a');
       const playerXEl = document.getElementById('announcement-player-x');
-      if (!overlay || !playerAEl || !playerXEl) return;
+      const photoAEl = document.getElementById('announcement-photo-a');
+      const photoXEl = document.getElementById('announcement-photo-x');
+      if (!overlay || !playerAEl || !playerXEl || !photoAEl || !photoXEl) return;
+
+      const photoAUrl = getPlayerPhotoUrl(playerAid);
+      const photoXUrl = getPlayerPhotoUrl(playerXid);
+
+      setAnnouncementPhoto(photoAEl, photoAUrl);
+      setAnnouncementPhoto(photoXEl, photoXUrl);
 
       playerAEl.textContent = playerA;
       playerXEl.textContent = playerX;
@@ -676,11 +742,11 @@
       });
     }
 
-    async function announceUpcomingPlayers(playerA, playerX) {
+    async function announceUpcomingPlayers(playerA, playerX, playerAid, playerXid) {
       const seq = ++announcementSequence;
       const safePlayerA = (playerA || '').trim() || 'שחקן לא ידוע';
       const safePlayerX = (playerX || '').trim() || 'שחקן לא ידוע';
-      showAnnouncementOverlay(safePlayerA, safePlayerX);
+      showAnnouncementOverlay(safePlayerA, safePlayerX, playerAid, playerXid);
 
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
@@ -707,6 +773,8 @@
       if (!cardEl) return;
       const encodedA = cardEl.getAttribute('data-player-a') || '';
       const encodedX = cardEl.getAttribute('data-player-x') || '';
+      const playerAid = cardEl.getAttribute('data-player-aid') || '';
+      const playerXid = cardEl.getAttribute('data-player-xid') || '';
       let playerA = '';
       let playerX = '';
       try {
@@ -716,7 +784,7 @@
         playerA = encodedA;
         playerX = encodedX;
       }
-      announceUpcomingPlayers(playerA, playerX);
+      announceUpcomingPlayers(playerA, playerX, playerAid, playerXid);
     }
 
     // Get all players currently in progress
@@ -766,7 +834,9 @@
       if (type === 'upcoming') {
         const playerAEncoded = encodeURIComponent(game.playerFullNameA || '');
         const playerXEncoded = encodeURIComponent(game.playerFullNameX || '');
-        upcomingDataAttrs = `data-player-a="${playerAEncoded}" data-player-x="${playerXEncoded}"`;
+        const playerAid = encodeURIComponent(game.playerAid || '');
+        const playerXid = encodeURIComponent(game.playerXid || '');
+        upcomingDataAttrs = `data-player-a="${playerAEncoded}" data-player-x="${playerXEncoded}" data-player-aid="${playerAid}" data-player-xid="${playerXid}"`;
         announceButtonHtml = `<button type="button" class="announce-btn" aria-label="הכרזת משחק" title="השמע הכרזה" onclick="event.stopPropagation(); announcePlayersFromCard(this.closest('.game-card'))">▶</button>`;
       }
       
