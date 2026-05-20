@@ -65,6 +65,40 @@
     .announce-btn:hover {
       background: #eff6ff;
     }
+    .announcement-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: rgba(2, 6, 23, 0.9);
+      color: #ffffff;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 24px;
+    }
+    .announcement-overlay.show {
+      display: flex;
+    }
+    .announcement-content {
+      width: 100%;
+      max-width: 1600px;
+    }
+    .announcement-name {
+      font-size: clamp(56px, 10vw, 180px);
+      font-weight: 700;
+      line-height: 1.05;
+      text-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+      word-break: break-word;
+    }
+    .announcement-vs {
+      font-size: clamp(40px, 6vw, 110px);
+      font-weight: 700;
+      line-height: 1.1;
+      margin: 10px 0;
+      color: #facc15;
+      text-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+    }
   </style>
   <style>body { box-sizing: border-box; }</style>
   <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
@@ -77,6 +111,13 @@
     <div id="desktop-clock-resizer" style="width:16px;height:16px;position:absolute;right:2px;bottom:2px;cursor:nwse-resize;z-index:10;"></div>
   </div>
   <button id="desktop-clock-toggle" class="hidden md:block fixed top-10 right-10 z-50 bg-blue-600 text-white rounded-full px-3 py-1 shadow font-bold" style="display:none;">הצג שעה</button>
+    <div id="announcement-overlay" class="announcement-overlay" aria-live="polite" aria-atomic="true">
+      <div class="announcement-content">
+        <div id="announcement-player-a" class="announcement-name">--</div>
+        <div class="announcement-vs">נגד</div>
+        <div id="announcement-player-x" class="announcement-name">--</div>
+      </div>
+    </div>
   <div id="app-container" class="h-full w-full p-4 md:p-6"><!-- Header -->
     <script>
           // --- PLAYER TIMERS LOGIC ---
@@ -561,6 +602,26 @@
     // Announce upcoming game players in Hebrew using an mp3 cue then speech synthesis.
     let announcementSound = null;
     let announcementSequence = 0;
+    let announcementOverlayTimer = null;
+
+    function showAnnouncementOverlay(playerA, playerX) {
+      const overlay = document.getElementById('announcement-overlay');
+      const playerAEl = document.getElementById('announcement-player-a');
+      const playerXEl = document.getElementById('announcement-player-x');
+      if (!overlay || !playerAEl || !playerXEl) return;
+
+      playerAEl.textContent = playerA;
+      playerXEl.textContent = playerX;
+      overlay.classList.add('show');
+
+      if (announcementOverlayTimer) {
+        clearTimeout(announcementOverlayTimer);
+      }
+      announcementOverlayTimer = setTimeout(() => {
+        overlay.classList.remove('show');
+        announcementOverlayTimer = null;
+      }, 10000);
+    }
 
     function playAnnouncementSound() {
       return new Promise((resolve) => {
@@ -599,6 +660,10 @@
 
     async function announceUpcomingPlayers(playerA, playerX) {
       const seq = ++announcementSequence;
+      const safePlayerA = (playerA || '').trim() || 'שחקן לא ידוע';
+      const safePlayerX = (playerX || '').trim() || 'שחקן לא ידוע';
+      showAnnouncementOverlay(safePlayerA, safePlayerX);
+
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
       }
@@ -607,8 +672,6 @@
       if (seq !== announcementSequence) return;
       if (!('speechSynthesis' in window)) return;
 
-      const safePlayerA = (playerA || '').trim() || 'שחקן לא ידוע';
-      const safePlayerX = (playerX || '').trim() || 'שחקן לא ידוע';
       const utterance = new SpeechSynthesisUtterance(`${safePlayerA} נגד ${safePlayerX}`);
       utterance.lang = 'he-IL';
       utterance.rate = 0.7;
