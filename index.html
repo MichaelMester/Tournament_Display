@@ -320,6 +320,14 @@
       height: var(--knockout-match-height);
       box-sizing: border-box;
     }
+    .knockout-match.draggable {
+      cursor: grab;
+    }
+    .knockout-match.drag-target {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 1px #2563eb inset;
+      background: #eff6ff;
+    }
     .knockout-player-row {
       font-size: 13px;
       color: #0f172a;
@@ -333,6 +341,17 @@
       margin-top: 6px;
       padding-top: 6px;
       border-top: 1px dashed #e2e8f0;
+    }
+    .knockout-debug-badge {
+      margin-top: 4px;
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      color: #1d4ed8;
+      background: #dbeafe;
+      border: 1px solid #93c5fd;
+      border-radius: 9999px;
+      padding: 1px 6px;
     }
     .knockout-match-score {
       margin-top: 8px;
@@ -1387,6 +1406,342 @@
       };
     }
 
+    function parseKnockoutPlacementSeed(placementText) {
+      const text = String(placementText || '').trim().toUpperCase();
+      if (!text) return null;
+
+      const rankMatch = text.match(/(\d+)/);
+      const groupMatch = text.match(/G\s*(\d+)/);
+      if (!rankMatch || !groupMatch) return null;
+
+      const rank = Number.parseInt(rankMatch[1], 10);
+      const groupNo = Number.parseInt(groupMatch[1], 10);
+      if (Number.isNaN(rank) || Number.isNaN(groupNo) || rank <= 0 || groupNo <= 0) return null;
+
+      return ((groupNo - 1) * 2) + rank;
+    }
+
+    function compareKnockoutMatchesByPlacement(matchA, matchB) {
+      const seedA1 = parseKnockoutPlacementSeed(matchA?.placementA);
+      const seedA2 = parseKnockoutPlacementSeed(matchA?.placementX);
+      const seedB1 = parseKnockoutPlacementSeed(matchB?.placementA);
+      const seedB2 = parseKnockoutPlacementSeed(matchB?.placementX);
+
+      const pairAMin = Math.min(seedA1 ?? Infinity, seedA2 ?? Infinity);
+      const pairAMax = Math.max(seedA1 ?? Infinity, seedA2 ?? Infinity);
+      const pairBMin = Math.min(seedB1 ?? Infinity, seedB2 ?? Infinity);
+      const pairBMax = Math.max(seedB1 ?? Infinity, seedB2 ?? Infinity);
+
+      if (pairAMin !== pairBMin) return pairAMin - pairBMin;
+      if (pairAMax !== pairBMax) return pairAMax - pairBMax;
+
+      const aPlacementA = String(matchA?.placementA || '');
+      const aPlacementX = String(matchA?.placementX || '');
+      const bPlacementA = String(matchB?.placementA || '');
+      const bPlacementX = String(matchB?.placementX || '');
+      const aKey = `${aPlacementA}|${aPlacementX}`;
+      const bKey = `${bPlacementA}|${bPlacementX}`;
+      return aKey.localeCompare(bKey, 'he');
+    }
+
+    const KNOCKOUT_FIRST_STAGE_ORDER_KEY = 'knockoutFirstStageOrder';
+    const knockoutFirstStageDragState = {
+      drawName: '',
+      fromIndex: -1
+    };
+
+    function readKnockoutFirstStageOrderStore() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(KNOCKOUT_FIRST_STAGE_ORDER_KEY) || '{}');
+        return parsed && typeof parsed === 'object' ? parsed : {};
+      } catch {
+        return {};
+      }
+    }
+
+    function writeKnockoutFirstStageOrderStore(store) {
+      localStorage.setItem(KNOCKOUT_FIRST_STAGE_ORDER_KEY, JSON.stringify(store || {}));
+    }
+
+    function normalizeKnockoutFirstStageOrder(order, stageSize) {
+      const base = Array.from({ length: stageSize }, (_, index) => index);
+      if (!Array.isArray(order) || order.length !== stageSize) return base;
+
+      const seen = new Set();
+      for (let i = 0; i < order.length; i += 1) {
+        const value = Number.parseInt(String(order[i]), 10);
+        if (Number.isNaN(value) || value < 0 || value >= stageSize || seen.has(value)) {
+          return base;
+        }
+        seen.add(value);
+      }
+      return order.map(value => Number.parseInt(String(value), 10));
+    }
+
+    function getKnockoutFirstStageOrder(drawName, stageSize) {
+      const drawKey = String(drawName || 'ללא קטגוריה').trim();
+      const store = readKnockoutFirstStageOrderStore();
+      return normalizeKnockoutFirstStageOrder(store[drawKey], stageSize);
+    }
+
+    function setKnockoutFirstStageOrder(drawName, order) {
+      const drawKey = String(drawName || 'ללא קטגוריה').trim();
+      const store = readKnockoutFirstStageOrderStore();
+      store[drawKey] = Array.isArray(order) ? order.slice() : [];
+      writeKnockoutFirstStageOrderStore(store);
+    }
+
+    function applyKnockoutFirstStageOrder(drawName, rounds) {
+      if (!Array.isArray(rounds) || rounds.length === 0 || !Array.isArray(rounds[0].matches)) return rounds;
+      const stageSize = rounds[0].matches.length;
+      if (stageSize <= 1) return rounds;
+
+      const order = getKnockoutFirstStageOrder(drawName, stageSize);
+      rounds[0].matches = order.map(index => rounds[0].matches[index]);
+      return rounds;
+    }
+
+    function normalizeKnockoutNameForLink(name) {
+      return String(name || '').trim().replace(/\s+/g, ' ').toLowerCase();
+    }
+
+    function isKnockoutPlaceholderName(name) {
+      const text = normalizeKnockoutNameForLink(name);
+      return !text || text === 'tbd' || text === 'bye';
+    }
+
+    function getKnockoutMatchParticipants(match, drawGames) {
+      const fallbackA = {
+        name: getKnockoutPlayerName(match?.playerA),
+        playerId: getKnockoutPlayerId(match?.playerA)
+      };
+      const fallbackX = {
+        name: getKnockoutPlayerName(match?.playerX),
+        playerId: getKnockoutPlayerId(match?.playerX)
+      };
+
+      const matchedGame = match?.game || findKnockoutGameForPlayers(drawGames, match?.playerA, match?.playerX);
+      if (!matchedGame) {
+        return [fallbackA, fallbackX];
+      }
+
+      return [{
+        name: String(matchedGame.playerFullNameA || matchedGame.playerA || fallbackA.name).trim(),
+        playerId: normalizePlayerId(matchedGame.playerAid || fallbackA.playerId)
+      }, {
+        name: String(matchedGame.playerFullNameX || matchedGame.playerX || fallbackX.name).trim(),
+        playerId: normalizePlayerId(matchedGame.playerXid || fallbackX.playerId)
+      }];
+    }
+
+    function getKnockoutParticipantLookupKeys(participant) {
+      const keys = [];
+      const normalizedName = normalizeKnockoutNameForLink(participant?.name || '');
+      if (normalizedName && !isKnockoutPlaceholderName(normalizedName)) {
+        keys.push(`name:${normalizedName}`);
+      }
+      return keys;
+    }
+
+    function getKnockoutLinkIndexForMatch(match, previousRoundIndexMap, drawGames) {
+      const participants = getKnockoutMatchParticipants(match, drawGames);
+      const options = [];
+
+      participants.forEach(participant => {
+        const keys = getKnockoutParticipantLookupKeys(participant);
+        keys.forEach(key => {
+          const idx = previousRoundIndexMap.get(key);
+          if (Number.isInteger(idx)) {
+            options.push(idx);
+          }
+        });
+      });
+
+      if (options.length === 0) return Number.POSITIVE_INFINITY;
+      return Math.min(...options);
+    }
+
+    function alignKnockoutRoundsByPlayerNames(rounds, drawGames) {
+      if (!Array.isArray(rounds) || rounds.length <= 1) return rounds;
+
+      rounds.forEach(round => {
+        if (!Array.isArray(round?.matches)) return;
+        round.matches.forEach(match => {
+          if (match && typeof match === 'object') {
+            delete match._debugFeederSlot;
+            delete match._debugLinkedPrevIndex;
+          }
+        });
+      });
+
+      for (let roundIndex = 1; roundIndex < rounds.length; roundIndex += 1) {
+        const previousMatches = Array.isArray(rounds[roundIndex - 1]?.matches) ? rounds[roundIndex - 1].matches : [];
+        const currentMatches = Array.isArray(rounds[roundIndex]?.matches) ? rounds[roundIndex].matches : [];
+        if (previousMatches.length === 0 || currentMatches.length === 0) continue;
+
+        const previousRoundIndexMap = new Map();
+        previousMatches.forEach((prevMatch, prevIndex) => {
+          const participants = getKnockoutMatchParticipants(prevMatch, drawGames);
+          participants.forEach(participant => {
+            const keys = getKnockoutParticipantLookupKeys(participant);
+            keys.forEach(key => {
+              if (previousRoundIndexMap.has(key)) return;
+              previousRoundIndexMap.set(key, prevIndex);
+            });
+          });
+        });
+
+        const enrichedMatches = currentMatches
+          .map((match, originalIndex) => ({
+            participants: getKnockoutMatchParticipants(match, drawGames),
+            match,
+            originalIndex,
+            linkIndex: getKnockoutLinkIndexForMatch(match, previousRoundIndexMap, drawGames)
+          }))
+          .sort((a, b) => {
+            if (a.linkIndex !== b.linkIndex) return a.linkIndex - b.linkIndex;
+            return a.originalIndex - b.originalIndex;
+          });
+
+        // Place each next-stage game into the feeder slot derived from previous stage.
+        const placed = new Array(currentMatches.length).fill(null);
+        const leftovers = [];
+
+        enrichedMatches.forEach(item => {
+          if (!Number.isFinite(item.linkIndex)) {
+            leftovers.push(item.match);
+            return;
+          }
+
+          const targetIndex = Math.floor(item.linkIndex / 2);
+          if (targetIndex < 0 || targetIndex >= placed.length || placed[targetIndex]) {
+            leftovers.push(item.match);
+            return;
+          }
+
+          item.match._debugLinkedPrevIndex = item.linkIndex;
+          item.match._debugFeederSlot = targetIndex;
+          placed[targetIndex] = item.match;
+        });
+
+        const leftoversQueue = leftovers.slice();
+        rounds[roundIndex].matches = placed.map(slot => slot || leftoversQueue.shift() || createKnockoutTbdMatch());
+      }
+
+      return rounds;
+    }
+
+    function getPreviousRoundMatchNameSet(rounds, roundIndex, matchIndex, drawGames) {
+      if (roundIndex <= 0) return new Set();
+      const previousRound = rounds[roundIndex - 1];
+      if (!previousRound || !Array.isArray(previousRound.matches)) return new Set();
+      const previousMatch = previousRound.matches[matchIndex];
+      if (!previousMatch) return new Set();
+
+      const participants = getKnockoutMatchParticipants(previousMatch, drawGames);
+      const names = participants
+        .map(participant => normalizeKnockoutNameForLink(participant?.name || ''))
+        .filter(name => !!name && !isKnockoutPlaceholderName(name));
+      return new Set(names);
+    }
+
+    function decodeKnockoutDrawToken(drawToken) {
+      try {
+        return decodeURIComponent(String(drawToken || ''));
+      } catch {
+        return String(drawToken || '');
+      }
+    }
+
+    function startKnockoutFirstStageDrag(drawToken, fromIndex, event) {
+      const drawName = decodeKnockoutDrawToken(drawToken);
+      const sourceIndex = Number.parseInt(String(fromIndex), 10);
+      if (!drawName || Number.isNaN(sourceIndex) || sourceIndex < 0) return;
+
+      knockoutFirstStageDragState.drawName = drawName;
+      knockoutFirstStageDragState.fromIndex = sourceIndex;
+      if (event && event.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', `${drawName}|${sourceIndex}`);
+      }
+    }
+
+    function allowKnockoutFirstStageDrop(event) {
+      if (!event) return;
+      event.preventDefault();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = 'move';
+      }
+    }
+
+    function setKnockoutDropTargetClass(event, addClass) {
+      const el = event?.currentTarget;
+      if (!(el instanceof Element)) return;
+      if (addClass) {
+        el.classList.add('drag-target');
+      } else {
+        el.classList.remove('drag-target');
+      }
+    }
+
+    function onKnockoutFirstStageDragEnter(event) {
+      allowKnockoutFirstStageDrop(event);
+      setKnockoutDropTargetClass(event, true);
+    }
+
+    function onKnockoutFirstStageDragLeave(event) {
+      setKnockoutDropTargetClass(event, false);
+    }
+
+    function clearKnockoutFirstStageDragState() {
+      knockoutFirstStageDragState.drawName = '';
+      knockoutFirstStageDragState.fromIndex = -1;
+    }
+
+    function endKnockoutFirstStageDrag(event) {
+      setKnockoutDropTargetClass(event, false);
+      clearKnockoutFirstStageDragState();
+    }
+
+    function dropKnockoutFirstStageSwap(drawToken, toIndex, stageSize, event) {
+      allowKnockoutFirstStageDrop(event);
+      setKnockoutDropTargetClass(event, false);
+
+      const drawName = decodeKnockoutDrawToken(drawToken);
+      const targetIndex = Number.parseInt(String(toIndex), 10);
+      const size = Number.parseInt(String(stageSize), 10);
+      if (!drawName || Number.isNaN(targetIndex) || targetIndex < 0 || Number.isNaN(size) || size <= 1) {
+        clearKnockoutFirstStageDragState();
+        return;
+      }
+
+      let sourceIndex = knockoutFirstStageDragState.drawName === drawName ? knockoutFirstStageDragState.fromIndex : -1;
+      if (sourceIndex < 0 && event?.dataTransfer) {
+        const raw = event.dataTransfer.getData('text/plain') || '';
+        const splitIndex = raw.lastIndexOf('|');
+        if (splitIndex > -1) {
+          const droppedDraw = raw.slice(0, splitIndex);
+          const droppedIndex = Number.parseInt(raw.slice(splitIndex + 1), 10);
+          if (droppedDraw === drawName && !Number.isNaN(droppedIndex)) {
+            sourceIndex = droppedIndex;
+          }
+        }
+      }
+
+      if (sourceIndex < 0 || sourceIndex >= size || targetIndex >= size || sourceIndex === targetIndex) {
+        clearKnockoutFirstStageDragState();
+        return;
+      }
+
+      const order = getKnockoutFirstStageOrder(drawName, size);
+      const tmp = order[sourceIndex];
+      order[sourceIndex] = order[targetIndex];
+      order[targetIndex] = tmp;
+      setKnockoutFirstStageOrder(drawName, order);
+      clearKnockoutFirstStageDragState();
+      openKnockoutPopup();
+    }
+
     function getNonGroupGamesByDraw(games) {
       const drawGames = new Map();
       games.forEach(game => {
@@ -1550,6 +1905,8 @@
             name: nameX || 'TBD',
             playerId: String(game.playerXid || '').trim()
           },
+          placementA: String(game.placementA || '').trim(),
+          placementX: String(game.placementX || '').trim(),
           gameId: game.id || null,
           status: game.status || '',
           game
@@ -1584,7 +1941,7 @@
         .sort((a, b) => KNOCKOUT_TURN_ORDER[a] - KNOCKOUT_TURN_ORDER[b]);
 
       return fullTurnCodes.map(turnCode => {
-        const existingMatches = turnBuckets.get(turnCode) || [];
+        const existingMatches = (turnBuckets.get(turnCode) || []).slice().sort(compareKnockoutMatchesByPlacement);
         const expectedCount = getExpectedMatchesForTurn(turnCode);
         const stageCount = expectedCount == null ? existingMatches.length : Math.max(expectedCount, existingMatches.length);
         const filledMatches = expectedCount == null
@@ -1654,7 +2011,10 @@
       const drawTrees = Array.from(nonGroupGamesByDraw.entries()).map(([drawName, drawGames]) => ({
         drawName,
         rounds: buildKnockoutTreeFromGames(drawGames)
-      })).filter(item => item.rounds.length > 0);
+      })).filter(item => item.rounds.length > 0).map(item => ({
+        ...item,
+        rounds: alignKnockoutRoundsByPlayerNames(applyKnockoutFirstStageOrder(item.drawName, item.rounds), nonGroupGamesByDraw.get(item.drawName) || [])
+      }));
 
       if (drawTrees.length === 0) {
         body.innerHTML = '<div class="knockout-draw-card"><div class="knockout-draw-title">אין עץ נוקאאוט להצגה</div><div class="p-3 text-slate-600">לא נמצאו שחקנים שעלו משלב הבתים.</div></div>';
@@ -1663,6 +2023,8 @@
           const theme = getDrawTheme(tree.drawName);
           const drawGames = nonGroupGamesByDraw.get(tree.drawName) || [];
           const totalRows = getKnockoutTotalRows(tree.rounds);
+          const drawToken = encodeURIComponent(tree.drawName);
+          const firstStageCount = Array.isArray(tree.rounds[0]?.matches) ? tree.rounds[0].matches.length : 0;
           const roundsHtml = tree.rounds.map((round, roundIndex = 0) => {
             const matchesHtml = round.matches.map((match, matchIndex) => {
               const exactRow = getKnockoutExactRow(roundIndex, matchIndex);
@@ -1677,26 +2039,92 @@
               let playerAIsWinner = false;
               let playerXIsWinner = false;
               if (matchedGame) {
-                // When a real game is found, always display names exactly as that game stores them.
-                displayPlayerAName = String(matchedGame.playerFullNameA || matchedGame.playerA || displayPlayerAName).trim();
-                displayPlayerXName = String(matchedGame.playerFullNameX || matchedGame.playerX || displayPlayerXName).trim();
+                const gamePlayerAName = String(matchedGame.playerFullNameA || matchedGame.playerA || displayPlayerAName).trim();
+                const gamePlayerXName = String(matchedGame.playerFullNameX || matchedGame.playerX || displayPlayerXName).trim();
+                if (roundIndex <= 0) {
+                  // For first stage and unresolved placeholders, follow API names.
+                  displayPlayerAName = gamePlayerAName;
+                  displayPlayerXName = gamePlayerXName;
+                } else {
+                  const feederSlotIndex = Number.isInteger(match?._debugFeederSlot) ? match._debugFeederSlot : matchIndex;
+                  const upperNames = getPreviousRoundMatchNameSet(tree.rounds, roundIndex, feederSlotIndex * 2, drawGames);
+                  const lowerNames = getPreviousRoundMatchNameSet(tree.rounds, roundIndex, (feederSlotIndex * 2) + 1, drawGames);
+                  const normalizedGameA = normalizeKnockoutNameForLink(gamePlayerAName);
+                  const normalizedGameX = normalizeKnockoutNameForLink(gamePlayerXName);
+                  const gameAInUpper = upperNames.has(normalizedGameA);
+                  const gameAInLower = lowerNames.has(normalizedGameA);
+                  const gameXInUpper = upperNames.has(normalizedGameX);
+                  const gameXInLower = lowerNames.has(normalizedGameX);
+
+                  const gameASide = gameAInUpper ? 'upper' : (gameAInLower ? 'lower' : '');
+                  const gameXSide = gameXInUpper ? 'upper' : (gameXInLower ? 'lower' : '');
+                  let upperPlayerName = '';
+                  let lowerPlayerName = '';
+
+                  if (gameASide === 'upper') upperPlayerName = gamePlayerAName;
+                  if (gameASide === 'lower') lowerPlayerName = gamePlayerAName;
+                  if (gameXSide === 'upper' && !upperPlayerName) upperPlayerName = gamePlayerXName;
+                  if (gameXSide === 'lower' && !lowerPlayerName) lowerPlayerName = gamePlayerXName;
+
+                  // If only one participant is mapped to feeders, keep the opposite side as TBD.
+                  // Do not auto-fill with the "other" player, to avoid duplicated names.
+                  const sameMappedName = upperPlayerName && lowerPlayerName
+                    && normalizeKnockoutNameForLink(upperPlayerName) === normalizeKnockoutNameForLink(lowerPlayerName);
+                  if (sameMappedName) {
+                    lowerPlayerName = '';
+                  }
+
+                  if (!upperPlayerName && !lowerPlayerName) {
+                    // No feeder-name mapping found; fall back to API order.
+                    displayPlayerAName = gamePlayerAName;
+                    displayPlayerXName = gamePlayerXName;
+                  } else {
+                    displayPlayerAName = upperPlayerName || 'TBD';
+                    displayPlayerXName = lowerPlayerName || 'TBD';
+                  }
+                }
 
                 const parsedScore = parseMatchScore(matchedGame);
-                if (parsedScore) {
-                  displayPlayerASets = parsedScore.scoreA;
-                  displayPlayerXSets = parsedScore.scoreX;
-                  playerAIsWinner = parsedScore.scoreA > parsedScore.scoreX;
-                  playerXIsWinner = parsedScore.scoreX > parsedScore.scoreA;
+                const gameFinished = isGameEnded(matchedGame);
+                if (parsedScore && gameFinished) {
+                  const normalizedGameA = normalizeKnockoutNameForLink(gamePlayerAName);
+                  const normalizedGameX = normalizeKnockoutNameForLink(gamePlayerXName);
+                  const normalizedDisplayA = normalizeKnockoutNameForLink(displayPlayerAName);
+                  const normalizedDisplayX = normalizeKnockoutNameForLink(displayPlayerXName);
+
+                  const scoreForDisplayA = normalizedDisplayA === normalizedGameA
+                    ? parsedScore.scoreA
+                    : (normalizedDisplayA === normalizedGameX ? parsedScore.scoreX : null);
+                  const scoreForDisplayX = normalizedDisplayX === normalizedGameA
+                    ? parsedScore.scoreA
+                    : (normalizedDisplayX === normalizedGameX ? parsedScore.scoreX : null);
+
+                  displayPlayerASets = scoreForDisplayA;
+                  displayPlayerXSets = scoreForDisplayX;
+
+                  if (scoreForDisplayA != null && scoreForDisplayX != null) {
+                    playerAIsWinner = scoreForDisplayA > scoreForDisplayX;
+                    playerXIsWinner = scoreForDisplayX > scoreForDisplayA;
+                  }
                 }
               }
               const playerANameHtml = playerAIsWinner ? `<strong>${escapeHtml(displayPlayerAName)}</strong>` : escapeHtml(displayPlayerAName);
               const playerXNameHtml = playerXIsWinner ? `<strong>${escapeHtml(displayPlayerXName)}</strong>` : escapeHtml(displayPlayerXName);
               const playerASetsHtml = displayPlayerASets == null ? '' : ` <span class="text-slate-600">(${displayPlayerASets})</span>`;
               const playerXSetsHtml = displayPlayerXSets == null ? '' : ` <span class="text-slate-600">(${displayPlayerXSets})</span>`;
+              const debugFeederSlot = Number.isInteger(match?._debugFeederSlot) ? match._debugFeederSlot + 1 : null;
+              const debugPrevIndex = Number.isFinite(match?._debugLinkedPrevIndex) ? (match._debugLinkedPrevIndex + 1) : null;
+              const debugBadgeHtml = roundIndex > 0 && debugFeederSlot != null
+                ? `<div class="knockout-debug-badge">feed ${debugFeederSlot} | prev ${debugPrevIndex}</div>`
+                : '';
+              const dragAttrs = roundIndex === 0 && firstStageCount > 1
+                ? ` draggable="true" ondragstart="startKnockoutFirstStageDrag('${drawToken}', ${matchIndex}, event)" ondragend="endKnockoutFirstStageDrag(event)" ondragover="allowKnockoutFirstStageDrop(event)" ondragenter="onKnockoutFirstStageDragEnter(event)" ondragleave="onKnockoutFirstStageDragLeave(event)" ondrop="dropKnockoutFirstStageSwap('${drawToken}', ${matchIndex}, ${firstStageCount}, event)" class="knockout-match draggable"`
+                : ' class="knockout-match"';
               return `
-              <div class="knockout-match" style="top:calc(${exactRow} * var(--knockout-unit));">
+              <div${dragAttrs} style="top:calc(${exactRow} * var(--knockout-unit));">
                 <div class="knockout-player-row" title="${escapeHtml(displayPlayerAName)}">${playerANameHtml}${playerASetsHtml}</div>
                 <div class="knockout-player-row" title="${escapeHtml(displayPlayerXName)}">${playerXNameHtml}${playerXSetsHtml}</div>
+                ${debugBadgeHtml}
                 ${scoreHtml}
               </div>
             `;
