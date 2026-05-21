@@ -122,14 +122,15 @@
       display: none;
       align-items: center;
       justify-content: center;
-      padding: 24px;
+      padding: 1px;
     }
     .groups-overlay.show {
       display: flex;
     }
     .groups-modal {
-      width: min(1200px, 96vw);
-      max-height: 90vh;
+      width: calc(100vw - 2px);
+      height: calc(100vh - 2px);
+      max-height: calc(100vh - 2px);
       background: #ffffff;
       border-radius: 16px;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
@@ -150,11 +151,31 @@
     .groups-modal-body {
       padding: 16px;
       overflow: auto;
-      display: grid;
+      display: flex;
+      flex-direction: column;
       gap: 14px;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      align-content: start;
+      --groups-cols: 3;
       background: #f8fafc;
+    }
+    .groups-draw-section {
+      display: grid;
+      gap: 10px;
+    }
+    .groups-draw-title {
+      margin: 0;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid #cbd5e1;
+      background: #e2e8f0;
+      color: #0f172a;
+      font-size: 16px;
+      font-weight: 800;
+    }
+    .groups-draw-grid {
+      display: grid;
+      grid-template-columns: repeat(var(--groups-cols), minmax(0, 1fr));
+      gap: 14px;
+      align-content: start;
     }
     .group-card {
       border: 1px solid #cbd5e1;
@@ -203,14 +224,14 @@
       display: none;
       align-items: center;
       justify-content: center;
-      padding: 24px;
+      padding: 4px;
     }
     .knockout-overlay.show {
       display: flex;
     }
     .knockout-modal {
-      width: min(1400px, 97vw);
-      max-height: 92vh;
+      width: calc(100vw - 8px);
+      max-height: calc(100vh - 8px);
       background: #ffffff;
       border-radius: 16px;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
@@ -437,9 +458,10 @@
     .print-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      grid-template-rows: repeat(2, 1fr);
+      grid-template-rows: repeat(3, auto);
+      align-content: start;
       gap: 4mm;
-      height: 100%;
+      height: auto;
     }
     .print-game-card {
       border: 2px solid #1e293b;
@@ -448,12 +470,9 @@
       background: #ffffff;
       color: #0f172a;
       break-inside: avoid;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      min-height: 0;
-      height: 100%;
-      overflow: hidden;
+      display: block;
+      height: auto;
+      overflow: visible;
     }
     .print-game-meta {
       font-size: 11px;
@@ -1290,35 +1309,72 @@
       const body = document.getElementById('groups-modal-body');
       if (!overlay || !body) return;
 
+      function pickGroupsColumns(totalGroups, containerWidth) {
+        const minCardWidth = 320;
+        const gap = 14;
+        const safeWidth = Math.max(320, Number(containerWidth) || 0);
+        const maxByWidth = Math.max(1, Math.floor((safeWidth + gap) / (minCardWidth + gap)));
+
+        // Keep card size no bigger than a 4-per-row layout whenever width allows it.
+        if (maxByWidth >= 4) {
+          if (totalGroups <= 8) return 4;
+          if (totalGroups <= 15) return Math.min(5, maxByWidth);
+          return Math.min(6, maxByWidth);
+        }
+
+        return maxByWidth;
+      }
+
       const standings = buildGroupStandings(gamesData || []);
+      const groupsColumns = pickGroupsColumns(standings.length, body.clientWidth || window.innerWidth);
+      body.style.setProperty('--groups-cols', String(groupsColumns));
+
       if (standings.length === 0) {
         body.innerHTML = '<div class="group-card"><div class="group-card-title">אין בתים להצגה</div><div class="p-3 text-slate-600">לא נמצאו משחקים עם בית ושחקנים.</div></div>';
       } else {
-        body.innerHTML = standings.map(group => {
-          const theme = getDrawTheme(group.draw);
-          const rows = group.players.map((player, index) => `
-            <tr>
-              <td>${index + 1}</td>
-              <td class="player-col">${escapeHtml(player.name)}</td>
-              <td>${player.gamesPlayed}</td>
-              <td class="font-bold">${player.points}</td>
-            </tr>
-          `).join('');
+        const groupsByDraw = new Map();
+        standings.forEach(group => {
+          if (!groupsByDraw.has(group.draw)) {
+            groupsByDraw.set(group.draw, []);
+          }
+          groupsByDraw.get(group.draw).push(group);
+        });
+
+        body.innerHTML = Array.from(groupsByDraw.entries()).map(([drawName, drawGroups]) => {
+          const drawTheme = getDrawTheme(drawName);
+          const cards = drawGroups.map(group => {
+            const theme = getDrawTheme(group.draw);
+            const rows = group.players.map((player, index) => `
+              <tr>
+                <td>${index + 1}</td>
+                <td class="player-col">${escapeHtml(player.name)}</td>
+                <td>${player.gamesPlayed}</td>
+                <td class="font-bold">${player.points}</td>
+              </tr>
+            `).join('');
+
+            return `
+              <section class="group-card" style="border-color:${escapeHtml(theme.borderColor)};">
+                <div class="group-card-title" style="background:${escapeHtml(theme.titleBg)}; border-bottom-color:${escapeHtml(theme.borderColor)}; color:${escapeHtml(theme.titleColor)};">בית ${escapeHtml(group.groupNo)}</div>
+                <table class="group-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th class="player-col">שחקן</th>
+                      <th>משחקים</th>
+                      <th>נקודות</th>
+                    </tr>
+                  </thead>
+                  <tbody>${rows}</tbody>
+                </table>
+              </section>
+            `;
+          }).join('');
 
           return `
-            <section class="group-card" style="border-color:${escapeHtml(theme.borderColor)};">
-              <div class="group-card-title" style="background:${escapeHtml(theme.titleBg)}; border-bottom-color:${escapeHtml(theme.borderColor)}; color:${escapeHtml(theme.titleColor)};">${escapeHtml(group.draw)} | בית ${escapeHtml(group.groupNo)}</div>
-              <table class="group-table">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th class="player-col">שחקן</th>
-                    <th>משחקים</th>
-                    <th>נקודות</th>
-                  </tr>
-                </thead>
-                <tbody>${rows}</tbody>
-              </table>
+            <section class="groups-draw-section">
+              <h3 class="groups-draw-title" style="background:${escapeHtml(drawTheme.titleBg)}; border-color:${escapeHtml(drawTheme.borderColor)}; color:${escapeHtml(drawTheme.titleColor)};">${escapeHtml(drawName)}</h3>
+              <div class="groups-draw-grid">${cards}</div>
             </section>
           `;
         }).join('');
@@ -2624,10 +2680,6 @@
           <div class="print-game-card">
             <div>
               <div class="print-game-meta">משחק ${index + 1} | ${category} | ${roundText}</div>
-              <div class="print-player-row">
-                <span class="print-player-name">${playerA}</span>
-                <span class="print-player-name" style="text-align:left;">${playerX}</span>
-              </div>
             </div>
             <table class="print-score-table">
               <thead>
@@ -2663,9 +2715,9 @@
 
       const cards = buildPrintableUpcomingGames(upcomingGames);
       const pages = [];
-      for (let index = 0; index < cards.length; index += 4) {
-        const pageCards = cards.slice(index, index + 4).join('');
-        const pageNumber = Math.floor(index / 4) + 1;
+      for (let index = 0; index < cards.length; index += 6) {
+        const pageCards = cards.slice(index, index + 6).join('');
+        const pageNumber = Math.floor(index / 6) + 1;
         pages.push(`
           <section class="print-page">
             <div class="print-page-header">
