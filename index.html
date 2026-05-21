@@ -742,6 +742,14 @@
       });
     }
 
+    function speakAnnouncement(utterance) {
+      return new Promise((resolve) => {
+        utterance.onend = () => resolve();
+        utterance.onerror = () => resolve();
+        window.speechSynthesis.speak(utterance);
+      });
+    }
+
     async function announceUpcomingPlayers(playerA, playerX, playerAid, playerXid) {
       const seq = ++announcementSequence;
       const safePlayerA = (playerA || '').trim() || 'שחקן לא ידוע';
@@ -766,7 +774,16 @@
         .find(v => v.lang && v.lang.toLowerCase().startsWith('he'));
       if (heVoice) utterance.voice = heVoice;
 
-      window.speechSynthesis.speak(utterance);
+      await speakAnnouncement(utterance);
+      if (seq !== announcementSequence) return;
+
+      const repeatedUtterance = new SpeechSynthesisUtterance(`${safePlayerA} נגד ${safePlayerX}`);
+      repeatedUtterance.lang = 'he-IL';
+      repeatedUtterance.rate = 0.7;
+      repeatedUtterance.pitch = 1;
+      if (heVoice) repeatedUtterance.voice = heVoice;
+
+      await speakAnnouncement(repeatedUtterance);
     }
 
     function announcePlayersFromCard(cardEl) {
