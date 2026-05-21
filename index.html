@@ -65,6 +65,52 @@
     .announce-btn:hover {
       background: #eff6ff;
     }
+    .selection-btn {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      z-index: 20;
+      width: 22px;
+      height: 22px;
+      border-radius: 9999px;
+      border: 1px solid #94a3b8;
+      background: #ffffff;
+      color: #0f172a;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+    }
+    .selection-btn.selected {
+      background: #2563eb;
+      border-color: #1d4ed8;
+      color: #ffffff;
+    }
+    .print-selection-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      margin-top: 12px;
+      color: #334155;
+      font-size: 14px;
+    }
+    .print-selection-bar label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+    .print-selection-tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
     .announcement-overlay {
       position: fixed;
       inset: 0;
@@ -120,12 +166,107 @@
       color: #facc15;
       text-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
     }
+    .print-container {
+      display: none;
+    }
+    .print-page {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 4mm;
+      height: calc(210mm - 24mm);
+      max-height: calc(210mm - 24mm);
+      overflow: hidden;
+      page-break-after: always;
+    }
+    .print-page:last-child {
+      page-break-after: auto;
+    }
+    .print-page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+      font-weight: 700;
+      color: #0f172a;
+      border-bottom: 2px solid #0f172a;
+      padding-bottom: 2mm;
+    }
+    .print-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: repeat(2, 1fr);
+      gap: 4mm;
+      height: 100%;
+    }
+    .print-game-card {
+      border: 2px solid #1e293b;
+      border-radius: 10px;
+      padding: 3mm;
+      background: #ffffff;
+      color: #0f172a;
+      break-inside: avoid;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+    .print-game-meta {
+      font-size: 11px;
+      font-weight: 600;
+      margin-bottom: 2mm;
+    }
+    .print-player-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 2mm;
+    }
+    .print-player-name {
+      flex: 1;
+    }
+    .print-score-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+    .print-score-table th,
+    .print-score-table td {
+      border: 1px solid #334155;
+      text-align: center;
+      padding: 1mm;
+      font-size: 11px;
+      height: 6mm;
+    }
+    .print-score-table th {
+      background: #e2e8f0;
+      font-weight: 700;
+    }
     @media (max-width: 900px) {
       .announcement-grid {
         grid-template-columns: 1fr;
       }
       .announcement-vs {
         order: 2;
+      }
+    }
+    @media print {
+      @page {
+        size: A4 landscape;
+        margin: 12mm;
+      }
+      body {
+        background: #ffffff !important;
+        overflow: visible !important;
+      }
+      body > *:not(#print-container) {
+        display: none !important;
+      }
+      .print-container {
+        display: block !important;
       }
     }
   </style>
@@ -155,6 +296,7 @@
         </div>
       </div>
     </div>
+  <div id="print-container" class="print-container"></div>
   <div id="app-container" class="h-full w-full p-4 md:p-6"><!-- Header -->
     <script>
           // --- PLAYER TIMERS LOGIC ---
@@ -409,7 +551,7 @@
     </script>
    <div class="mb-6">
       <h1 id="page-title" class="text-2xl md:text-3xl font-bold text-slate-800 text-center mb-4">לוח משחקים</h1><!-- URL Input Section - Collapsible -->
-      <div class="bg-white rounded-xl shadow-lg max-w-3xl mx-auto overflow-hidden"><button id="toggle-url-section" onclick="toggleUrlSection()" class="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors border-b border-slate-200"> <span class="text-slate-700 font-semibold">⚙️ הגדרות</span> <span id="toggle-icon" class="text-slate-500">▼</span> </button>
+      <div class="bg-white rounded-xl shadow-lg max-w-5xl mx-auto overflow-hidden"><button id="toggle-url-section" onclick="toggleUrlSection()" class="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors border-b border-slate-200"> <span class="text-slate-700 font-semibold">⚙️ הגדרות</span> <span id="toggle-icon" class="text-slate-500">▼</span> </button>
      <div id="url-section" class="p-4">
       <div class="flex flex-col md:flex-row gap-3">
         <input type="text" id="event-id-input" placeholder="הכנס מזהה אירוע..." class="flex-1 px-4 py-3 border-2 border-slate-200 rounded-lg focus:border-blue-500 focus:outline-none text-right transition-colors">
@@ -417,9 +559,24 @@
           <option value="dev">פיתוח</option>
           <option value="prod">פרודקשן</option>
         </select>
-        <button id="reload-btn" onclick="fetchGames()" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 min-w-[120px]"> <span id="btn-text">טען מחדש</span>
+        <button id="reload-btn" onclick="fetchGames()" class="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 min-w-[96px]"> <span id="btn-text">טען מחדש</span>
           <div id="btn-spinner" class="loading-spinner hidden"></div></button>
-        <button id="auto-reload-btn" onclick="toggleAutoReload()" class="px-6 py-3 bg-gray-300 hover:bg-gray-400 text-slate-700 font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 min-w-[120px]">הפעל רענון אוטומטי</button>
+        <button id="auto-reload-btn" onclick="toggleAutoReload()" class="px-4 py-3 bg-gray-300 hover:bg-gray-400 text-slate-700 font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 min-w-[96px]">הפעל רענון אוטומטי</button>
+        <button id="print-upcoming-btn" onclick="printUpcomingGames()" class="px-4 py-3 bg-slate-700 hover:bg-slate-800 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 min-w-[96px]">הדפס משחקים הבאים</button>
+      </div>
+      <div class="print-selection-bar">
+        <label for="enable-upcoming-print-selection">
+          <input id="enable-upcoming-print-selection" type="checkbox" onchange="setUpcomingPrintSelectionEnabled(this.checked)">
+          אפשר בחירת משחקים להדפסה
+        </label>
+        <div id="upcoming-print-selection-tools" class="print-selection-tools hidden">
+          <label for="select-all-upcoming-print">
+            <input id="select-all-upcoming-print" type="checkbox" onchange="toggleSelectAllUpcoming(this.checked)">
+            בחר את כל המשחקים הבאים
+          </label>
+          <button type="button" onclick="clearUpcomingSelection()" class="px-3 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded border border-slate-300">נקה בחירה</button>
+          <span id="selected-upcoming-count">0 משחקים נבחרו להדפסה</span>
+        </div>
       </div>
       <p id="error-message" class="text-red-500 text-sm mt-2 hidden"></p>
       <p id="success-message" class="text-green-600 text-sm mt-2 hidden"></p>
@@ -658,6 +815,96 @@
     let announcementSound = null;
     let announcementSequence = 0;
     let announcementOverlayTimer = null;
+    let isUpcomingPrintSelectionEnabled = false;
+    let selectedUpcomingGameKeys = new Set();
+
+    function getUpcomingGameKey(game) {
+      if (!game) return '';
+      return String(game.id || `${game.playerFullNameA || game.playerA || ''}|${game.playerFullNameX || game.playerX || ''}|${game.turn_no || ''}|${game.table || ''}|${game.date || ''}|${game.startTime || ''}`);
+    }
+
+    function updateUpcomingSelectionUI() {
+      const counter = document.getElementById('selected-upcoming-count');
+      const selectAll = document.getElementById('select-all-upcoming-print');
+      const enableSelection = document.getElementById('enable-upcoming-print-selection');
+      const selectionTools = document.getElementById('upcoming-print-selection-tools');
+      const upcomingGames = gamesData.filter(game =>
+        game.status !== 'FINISHED' && game.status !== 'IN_PROGRESS' &&
+        (isValidPlayer(game.playerFullNameA) || isValidPlayer(game.playerFullNameX))
+      );
+      const allKeys = upcomingGames.map(getUpcomingGameKey).filter(Boolean);
+      const selectedCount = allKeys.filter(key => selectedUpcomingGameKeys.has(key)).length;
+
+      if (enableSelection) {
+        enableSelection.checked = isUpcomingPrintSelectionEnabled;
+      }
+      if (selectionTools) {
+        selectionTools.classList.toggle('hidden', !isUpcomingPrintSelectionEnabled);
+      }
+      if (!isUpcomingPrintSelectionEnabled) {
+        if (selectAll) {
+          selectAll.checked = false;
+          selectAll.indeterminate = false;
+        }
+        return;
+      }
+
+      if (counter) {
+        counter.textContent = `${selectedCount} משחקים נבחרו להדפסה`;
+      }
+      if (selectAll) {
+        selectAll.checked = allKeys.length > 0 && selectedCount === allKeys.length;
+        selectAll.indeterminate = selectedCount > 0 && selectedCount < allKeys.length;
+      }
+    }
+
+    function toggleUpcomingSelection(gameKey) {
+      if (!isUpcomingPrintSelectionEnabled) return;
+      if (!gameKey) return;
+      if (selectedUpcomingGameKeys.has(gameKey)) {
+        selectedUpcomingGameKeys.delete(gameKey);
+      } else {
+        selectedUpcomingGameKeys.add(gameKey);
+      }
+      renderGames(gamesData);
+      updateUpcomingSelectionUI();
+    }
+
+    function setUpcomingPrintSelectionEnabled(enabled) {
+      isUpcomingPrintSelectionEnabled = Boolean(enabled);
+      if (!isUpcomingPrintSelectionEnabled) {
+        selectedUpcomingGameKeys.clear();
+      }
+      renderGames(gamesData);
+      updateUpcomingSelectionUI();
+    }
+
+    function toggleSelectAllUpcoming(checked) {
+      if (!isUpcomingPrintSelectionEnabled) return;
+      const upcomingGames = gamesData.filter(game =>
+        game.status !== 'FINISHED' && game.status !== 'IN_PROGRESS' &&
+        (isValidPlayer(game.playerFullNameA) || isValidPlayer(game.playerFullNameX))
+      );
+      if (checked) {
+        selectedUpcomingGameKeys = new Set(upcomingGames.map(getUpcomingGameKey).filter(Boolean));
+      } else {
+        selectedUpcomingGameKeys.clear();
+      }
+      renderGames(gamesData);
+      updateUpcomingSelectionUI();
+    }
+
+    function clearUpcomingSelection() {
+      selectedUpcomingGameKeys.clear();
+      renderGames(gamesData);
+      updateUpcomingSelectionUI();
+    }
+
+    function syncUpcomingSelection(games) {
+      const validKeys = new Set(games.map(getUpcomingGameKey).filter(Boolean));
+      selectedUpcomingGameKeys = new Set(Array.from(selectedUpcomingGameKeys).filter(key => validKeys.has(key)));
+      updateUpcomingSelectionUI();
+    }
 
     function getPlayerPhotoUrl(playerId) {
       const id = String(playerId || '').trim();
@@ -848,13 +1095,20 @@
       const grayClass = isGrayed ? 'grayed-out' : '';
       let upcomingDataAttrs = '';
       let announceButtonHtml = '';
+      let selectionButtonHtml = '';
       if (type === 'upcoming') {
+        const gameKey = getUpcomingGameKey(game);
         const playerAEncoded = encodeURIComponent(game.playerFullNameA || '');
         const playerXEncoded = encodeURIComponent(game.playerFullNameX || '');
         const playerAid = encodeURIComponent(game.playerAid || '');
         const playerXid = encodeURIComponent(game.playerXid || '');
-        upcomingDataAttrs = `data-player-a="${playerAEncoded}" data-player-x="${playerXEncoded}" data-player-aid="${playerAid}" data-player-xid="${playerXid}"`;
+        const encodedGameKey = encodeURIComponent(gameKey);
+        const isSelected = selectedUpcomingGameKeys.has(gameKey);
+        upcomingDataAttrs = `data-player-a="${playerAEncoded}" data-player-x="${playerXEncoded}" data-player-aid="${playerAid}" data-player-xid="${playerXid}" data-game-key="${encodedGameKey}"`;
         announceButtonHtml = `<button type="button" class="announce-btn" aria-label="הכרזת משחק" title="השמע הכרזה" onclick="event.stopPropagation(); announcePlayersFromCard(this.closest('.game-card'))">▶</button>`;
+        if (isUpcomingPrintSelectionEnabled) {
+          selectionButtonHtml = `<button type="button" class="selection-btn ${isSelected ? 'selected' : ''}" aria-label="בחירת משחק להדפסה" title="בחר להדפסה" onclick="event.stopPropagation(); toggleUpcomingSelection(decodeURIComponent(this.closest('.game-card').getAttribute('data-game-key') || ''))">${isSelected ? '✓' : ''}</button>`;
+        }
       }
       
       let resultHtml = '';
@@ -953,6 +1207,7 @@
       return `
         <div class="game-card bg-slate-50 rounded-lg p-2 border border-slate-200 text-sm ${grayClass} relative" ${upcomingDataAttrs}>
           ${announceButtonHtml}
+          ${selectionButtonHtml}
           ${timerHtml}
           <div class="flex justify-between items-center mb-1">
             <span class="text-slate-500 text-xs w-full text-right block">
@@ -1051,6 +1306,120 @@
       const ss = String(seconds % 60).padStart(2, '0');
       return `${mm}:${ss}`;
     }
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+    function sortUpcomingGames(games) {
+      return games.slice().sort((a, b) => {
+        const turnA = parseInt(a.turn_no) || 0;
+        const turnB = parseInt(b.turn_no) || 0;
+        if (turnA !== turnB) {
+          return turnA - turnB;
+        }
+
+        const hasDateA = a.date && a.startTime;
+        const hasDateB = b.date && b.startTime;
+        if (hasDateA && hasDateB) {
+          const dateTimeA = new Date(`${a.date}T${a.startTime.length === 5 ? a.startTime + ':00' : a.startTime}`);
+          const dateTimeB = new Date(`${b.date}T${b.startTime.length === 5 ? b.startTime + ':00' : b.startTime}`);
+          if (!isNaN(dateTimeA) && !isNaN(dateTimeB)) {
+            return dateTimeA - dateTimeB;
+          }
+        }
+        return 0;
+      });
+    }
+    function buildPrintableUpcomingGames(games) {
+      const roundLabels = {
+        'F': 'גמר',
+        'SF': 'חצי גמר',
+        'QF': 'רבע גמר',
+        '1/8': 'שמינית גמר',
+        '1/16': '1/16 גמר',
+        '1/32': '1/32 גמר',
+        '1/64': '1/64 גמר',
+        '1/128': '1/128 גמר',
+        '1/256': '1/256 גמר',
+        '3-4': 'מקומות 3-4'
+      };
+      return games.map((game, index) => {
+        const roundText = game.groupNo && game.turn_no
+          ? `בית ${escapeHtml(game.groupNo)} | סיבוב ${escapeHtml(game.turn_no)}`
+          : escapeHtml(roundLabels[game.turn] || `סיבוב ${game.turn_no || '-'}`);
+        const category = escapeHtml(game.draw || 'ללא קטגוריה');
+        const playerA = escapeHtml(game.playerFullNameA || game.playerA || 'לא ידוע');
+        const playerX = escapeHtml(game.playerFullNameX || game.playerX || 'לא ידוע');
+        const scoreRows = Array.from({ length: 5 }, (_, setIndex) => `
+          <tr>
+            <td>${setIndex + 1}</td>
+            <td></td>
+            <td></td>
+          </tr>
+        `).join('');
+        return `
+          <div class="print-game-card">
+            <div>
+              <div class="print-game-meta">משחק ${index + 1} | ${category} | ${roundText}</div>
+              <div class="print-player-row">
+                <span class="print-player-name">${playerA}</span>
+                <span class="print-player-name" style="text-align:left;">${playerX}</span>
+              </div>
+            </div>
+            <table class="print-score-table">
+              <thead>
+                <tr>
+                  <th>סט</th>
+                  <th>${playerA}</th>
+                  <th>${playerX}</th>
+                </tr>
+              </thead>
+              <tbody>${scoreRows}</tbody>
+            </table>
+          </div>
+        `;
+      });
+    }
+    function printUpcomingGames() {
+      const printContainer = document.getElementById('print-container');
+      const allUpcomingGames = sortUpcomingGames(gamesData.filter(game =>
+        game.status !== 'FINISHED' && game.status !== 'IN_PROGRESS' &&
+        (isValidPlayer(game.playerFullNameA) || isValidPlayer(game.playerFullNameX))
+      ));
+      const upcomingGames = selectedUpcomingGameKeys.size > 0
+        ? allUpcomingGames.filter(game => selectedUpcomingGameKeys.has(getUpcomingGameKey(game)))
+        : allUpcomingGames;
+      if (!printContainer || upcomingGames.length === 0) {
+        const errorMsg = document.getElementById('error-message');
+        if (errorMsg) {
+          errorMsg.textContent = selectedUpcomingGameKeys.size > 0 ? 'אין משחקים נבחרים להדפסה' : 'אין משחקים הבאים להדפסה';
+          errorMsg.classList.remove('hidden');
+        }
+        return;
+      }
+
+      const cards = buildPrintableUpcomingGames(upcomingGames);
+      const pages = [];
+      for (let index = 0; index < cards.length; index += 4) {
+        const pageCards = cards.slice(index, index + 4).join('');
+        const pageNumber = Math.floor(index / 4) + 1;
+        pages.push(`
+          <section class="print-page">
+            <div class="print-page-header">
+              <span>המשחקים הבאים להדפסה</span>
+              <span>עמוד ${pageNumber}</span>
+            </div>
+            <div class="print-grid">${pageCards}</div>
+          </section>
+        `);
+      }
+      printContainer.innerHTML = pages.join('');
+      window.print();
+    }
     function updateAllGameTimers() {
       document.querySelectorAll('.game-timer[data-game-id]').forEach(div => {
         const gameId = div.getAttribute('data-game-id');
@@ -1107,6 +1476,7 @@
       let inProgressGames = validGames.filter(g => g.status === 'IN_PROGRESS');
       let finishedGames = validGames.filter(g => g.status === 'FINISHED');
       let upcomingGames = upcomingGamesRaw;
+      syncUpcomingSelection(upcomingGames);
       const inProgressIds = inProgressGames.map(g => g.id).filter(Boolean);
       const finishedIds = finishedGames.map(g => g.id).filter(Boolean);
       // For games that are now finished but were previously in progress, set finished_at
@@ -1200,26 +1570,7 @@
           return label === filter;
         });
       }
-      // Sort upcoming games by round first; date/time only breaks ties within the same round.
-      upcomingGames = upcomingGames.sort((a, b) => {
-        const turnA = parseInt(a.turn_no) || 0;
-        const turnB = parseInt(b.turn_no) || 0;
-        if (turnA !== turnB) {
-          return turnA - turnB;
-        }
-
-        const hasDateA = a.date && a.startTime;
-        const hasDateB = b.date && b.startTime;
-        if (hasDateA && hasDateB) {
-          // Combine date and time into a Date object for comparison
-          const dateTimeA = new Date(`${a.date}T${a.startTime.length === 5 ? a.startTime + ':00' : a.startTime}`);
-          const dateTimeB = new Date(`${b.date}T${b.startTime.length === 5 ? b.startTime + ':00' : b.startTime}`);
-          if (!isNaN(dateTimeA) && !isNaN(dateTimeB)) {
-            return dateTimeA - dateTimeB;
-          }
-        }
-        return 0;
-      });
+      upcomingGames = sortUpcomingGames(upcomingGames);
       // Apply filters
       let filteredUpcoming = filterByPlayer(upcomingGames, upcomingPlayerFilter);
       filteredUpcoming = filterByCategory(filteredUpcoming, upcomingCategoryFilter);
@@ -1634,7 +1985,7 @@
       // Hide event ID input section and settings section
       if (urlSection) urlSection.style.display = 'none';
       // Hide the settings container (the parent of urlSection)
-      var urlSettingsContainer = urlSection ? urlSection.closest('.bg-white.rounded-xl.shadow-lg.max-w-3xl.mx-auto.overflow-hidden') : null;
+      var urlSettingsContainer = urlSection ? urlSection.closest('.bg-white.rounded-xl.shadow-lg.mx-auto.overflow-hidden') : null;
       if (urlSettingsContainer) urlSettingsContainer.style.display = 'none';
       // Hide the desktop clock toggle button (immediate)
       hideClockToggleIfEventId();
