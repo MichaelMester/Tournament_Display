@@ -192,6 +192,114 @@
     .group-table tbody tr:last-child td {
       border-bottom: 0;
     }
+    .knockout-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10001;
+      background: rgba(15, 23, 42, 0.84);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .knockout-overlay.show {
+      display: flex;
+    }
+    .knockout-modal {
+      width: min(1400px, 97vw);
+      max-height: 92vh;
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+    .knockout-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 18px;
+      border-bottom: 1px solid #e2e8f0;
+      background: linear-gradient(135deg, #0f172a, #1e293b);
+      color: #ffffff;
+    }
+    .knockout-modal-body {
+      padding: 16px;
+      overflow: auto;
+      display: grid;
+      gap: 14px;
+      align-content: start;
+      background: #f8fafc;
+    }
+    .knockout-draw-card {
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      background: #ffffff;
+      overflow: hidden;
+    }
+    .knockout-draw-title {
+      padding: 10px 12px;
+      font-weight: 700;
+      color: #0f172a;
+      border-bottom: 1px solid #cbd5e1;
+    }
+    .knockout-rounds {
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: minmax(220px, 1fr);
+      gap: 12px;
+      padding: 12px;
+      overflow-x: auto;
+    }
+    .knockout-round {
+      min-width: 220px;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+    .knockout-round-title {
+      text-align: center;
+      font-weight: 700;
+      color: #334155;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+    .knockout-round-track {
+      display: grid;
+      grid-template-rows: repeat(var(--knockout-rows, 1), var(--knockout-row-height, 64px));
+      row-gap: 8px;
+    }
+    .knockout-match {
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 8px;
+      background: #ffffff;
+      align-self: center;
+    }
+    .knockout-player-row {
+      font-size: 13px;
+      color: #0f172a;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      direction: rtl;
+      text-align: right;
+    }
+    .knockout-player-row + .knockout-player-row {
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px dashed #e2e8f0;
+    }
+    .knockout-match-score {
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px solid #e2e8f0;
+      font-size: 12px;
+      font-weight: 700;
+      color: #0f766e;
+      text-align: center;
+    }
     .announcement-overlay {
       position: fixed;
       inset: 0;
@@ -384,6 +492,15 @@
           <button type="button" onclick="closeGroupsPopup()" class="px-3 py-1 bg-white text-slate-800 rounded-lg font-semibold hover:bg-slate-100">סגור</button>
         </div>
         <div id="groups-modal-body" class="groups-modal-body"></div>
+      </div>
+    </div>
+    <div id="knockout-overlay" class="knockout-overlay" onclick="if (event.target === this) closeKnockoutPopup()">
+      <div class="knockout-modal" role="dialog" aria-modal="true" aria-label="עץ נוקאאוט">
+        <div class="knockout-modal-header">
+          <h2 class="text-xl font-bold m-0">עץ נוקאאוט</h2>
+          <button type="button" onclick="closeKnockoutPopup()" class="px-3 py-1 bg-white text-slate-800 rounded-lg font-semibold hover:bg-slate-100">סגור</button>
+        </div>
+        <div id="knockout-modal-body" class="knockout-modal-body"></div>
       </div>
     </div>
   <div id="print-container" class="print-container"></div>
@@ -654,6 +771,7 @@
         <button id="auto-reload-btn" onclick="toggleAutoReload()" class="px-4 py-3 bg-gray-300 hover:bg-gray-400 text-slate-700 font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 min-w-[96px]">הפעל רענון אוטומטי</button>
         <button id="print-upcoming-btn" onclick="printUpcomingGames()" class="px-4 py-3 bg-slate-700 hover:bg-slate-800 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 min-w-[96px]">הדפס משחקים הבאים</button>
         <button id="groups-standings-btn" onclick="openGroupsPopup()" class="px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 min-w-[96px]">טבלת בתים</button>
+        <button id="knockout-tree-btn" onclick="openKnockoutPopup()" class="px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 min-w-[96px]">עץ נוקאאוט</button>
       </div>
       <div class="print-selection-bar">
         <label for="enable-upcoming-print-selection">
@@ -1000,15 +1118,18 @@
     function buildGroupStandings(games) {
       const groups = new Map();
 
-      function ensurePlayer(groupEntry, playerName) {
+      function ensurePlayer(groupEntry, playerName, playerId) {
         if (!groupEntry.players.has(playerName)) {
           groupEntry.players.set(playerName, {
             name: playerName,
+            playerId: String(playerId || '').trim(),
             points: 0,
             gamesPlayed: 0,
             setsWon: 0,
             setsLost: 0
           });
+        } else if (playerId && !groupEntry.players.get(playerName).playerId) {
+          groupEntry.players.get(playerName).playerId = String(playerId).trim();
         }
         return groupEntry.players.get(playerName);
       }
@@ -1033,8 +1154,8 @@
         }
 
         const groupEntry = groups.get(groupKey);
-        const playerAEntry = ensurePlayer(groupEntry, playerA);
-        const playerXEntry = ensurePlayer(groupEntry, playerX);
+        const playerAEntry = ensurePlayer(groupEntry, playerA, game.playerAid);
+        const playerXEntry = ensurePlayer(groupEntry, playerX, game.playerXid);
 
         if (game.status !== 'FINISHED') return;
 
@@ -1154,6 +1275,352 @@
 
     function closeGroupsPopup() {
       const overlay = document.getElementById('groups-overlay');
+      if (overlay) {
+        overlay.classList.remove('show');
+      }
+    }
+
+    function nextPowerOfTwo(value) {
+      let n = 1;
+      while (n < value) n *= 2;
+      return n;
+    }
+
+    function getKnockoutRoundTitle(matchCount) {
+      if (matchCount <= 1) return 'גמר';
+      if (matchCount === 2) return 'חצי גמר';
+      if (matchCount === 4) return 'רבע גמר';
+      return `סיבוב ${matchCount * 2}`;
+    }
+
+    const KNOCKOUT_TURN_ORDER = {
+      '1/128': 1,
+      '1/64': 2,
+      '1/32': 3,
+      '1/16': 4,
+      '1/8': 5,
+      'QF': 6,
+      'SF': 7,
+      'F': 8
+    };
+
+    function normalizeKnockoutTurn(turn) {
+      const text = String(turn || '').trim().toUpperCase();
+      if (!text) return '';
+      if (text === 'FINAL') return 'F';
+      if (text === 'SEMI FINAL' || text === 'SEMIFINAL') return 'SF';
+      if (text === 'QUARTER FINAL' || text === 'QUARTERFINAL') return 'QF';
+      if (text === '1/8' || text === '1/16' || text === '1/32' || text === '1/64' || text === '1/128' || text === 'QF' || text === 'SF' || text === 'F') {
+        return text;
+      }
+      return text;
+    }
+
+    function getKnockoutTurnTitle(turnCode) {
+      if (turnCode === 'F') return 'גמר';
+      if (turnCode === 'SF') return 'חצי גמר';
+      if (turnCode === 'QF') return 'רבע גמר';
+      if (turnCode === '1/8') return 'שמינית גמר';
+      if (turnCode === '1/16') return '1/16';
+      if (turnCode === '1/32') return '1/32';
+      if (turnCode === '1/64') return '1/64';
+      if (turnCode === '1/128') return '1/128';
+      return turnCode || 'שלב לא ידוע';
+    }
+
+    function getNonGroupGamesByDraw(games) {
+      const drawGames = new Map();
+      games.forEach(game => {
+        const isGroupStage = String(game.groupNo || '').trim().length > 0;
+        if (isGroupStage) return;
+
+        const drawName = String(game.draw || 'ללא קטגוריה').trim();
+        if (!drawGames.has(drawName)) {
+          drawGames.set(drawName, []);
+        }
+        drawGames.get(drawName).push(game);
+      });
+      return drawGames;
+    }
+
+    function getNonGroupPlayersByDraw(drawGamesByDraw) {
+      const drawsPlayers = new Map();
+      drawGamesByDraw.forEach((games, drawName) => {
+        const players = new Set();
+        games.forEach(game => {
+          const playerAid = String(game.playerAid || '').trim();
+          const playerXid = String(game.playerXid || '').trim();
+          const playerA = (game.playerFullNameA || game.playerA || '').trim();
+          const playerX = (game.playerFullNameX || game.playerX || '').trim();
+          const keyA = getPlayerLookupKey(playerA, playerAid);
+          const keyX = getPlayerLookupKey(playerX, playerXid);
+          if (keyA) players.add(keyA);
+          if (keyX) players.add(keyX);
+        });
+        drawsPlayers.set(drawName, players);
+      });
+      return drawsPlayers;
+    }
+
+    function normalizePlayerId(id) {
+      return String(id || '').trim();
+    }
+
+    function normalizePlayerName(name) {
+      return String(name || '').trim().replace(/\s+/g, ' ').toLowerCase();
+    }
+
+    function getPlayerLookupKey(name, playerId) {
+      const normalizedId = normalizePlayerId(playerId);
+      if (normalizedId) return `id:${normalizedId}`;
+      const normalizedName = normalizePlayerName(name);
+      return normalizedName ? `name:${normalizedName}` : '';
+    }
+
+    function getKnockoutPlayerName(player) {
+      if (typeof player === 'string') return player;
+      return String(player?.name || '').trim();
+    }
+
+    function getKnockoutPlayerId(player) {
+      if (typeof player === 'string') return '';
+      return normalizePlayerId(player?.playerId || '');
+    }
+
+    function parseMatchScore(game) {
+      // Keep knockout score logic identical to finished games rendering.
+      const scoreA = parseInt(game?.setAB) || 0;
+      const scoreX = parseInt(game?.setXY) || 0;
+      return { scoreA, scoreX };
+    }
+
+    function isGameEnded(game) {
+      const status = String(game?.status || '').toUpperCase();
+      return status === 'FINISHED' || status === 'ENDED' || status === 'DONE';
+    }
+
+    function findKnockoutGameForPlayers(drawGames, playerA, playerX) {
+      if (!Array.isArray(drawGames) || !playerA || !playerX) return null;
+      const wantedAName = getKnockoutPlayerName(playerA);
+      const wantedXName = getKnockoutPlayerName(playerX);
+
+      console.debug('[KO MATCH] target names', {
+        wantedAName,
+        wantedXName,
+        drawGamesCount: drawGames.length
+      });
+
+      const matchedGame = drawGames.find(game => {
+        const gameAName = String(game.playerFullNameA || game.playerA || '').trim();
+        const gameXName = String(game.playerFullNameX || game.playerX || '').trim();
+        console.debug('[KO MATCH] compare', {
+          wantedAName,
+          wantedXName,
+          gameAName,
+          gameXName,
+          gameId: game.id || null
+        });
+        return (gameAName === wantedAName && gameXName === wantedXName) || (gameAName === wantedXName && gameXName === wantedAName);
+      }) || null;
+
+      if (matchedGame) {
+        console.debug('[KO MATCH] FOUND', {
+          wantedAName,
+          wantedXName,
+          matchedGameId: matchedGame.id || null,
+          matchedStatus: matchedGame.status || null,
+          matchedPlayerA: String(matchedGame.playerFullNameA || matchedGame.playerA || '').trim(),
+          matchedPlayerX: String(matchedGame.playerFullNameX || matchedGame.playerX || '').trim(),
+          setAB: matchedGame.setAB ?? null,
+          setXY: matchedGame.setXY ?? null
+        });
+      }
+
+      return matchedGame;
+    }
+
+    function buildKnockoutTreeForDraw(groupsInDraw, upcomingNonGroupPlayers) {
+      const seeds = [];
+      groupsInDraw.forEach(group => {
+        const first = group.players[0];
+        const second = group.players[1];
+
+        if (first && upcomingNonGroupPlayers.has(getPlayerLookupKey(first.name, first.playerId))) {
+          seeds.push({ name: first.name, playerId: first.playerId || '' });
+        }
+        if (second && upcomingNonGroupPlayers.has(getPlayerLookupKey(second.name, second.playerId))) {
+          seeds.push({ name: second.name, playerId: second.playerId || '' });
+        }
+      });
+
+      if (seeds.length === 0) return [];
+      const bracketSize = nextPowerOfTwo(Math.max(seeds.length, 2));
+      while (seeds.length < bracketSize) {
+        seeds.push({ name: 'BYE', playerId: '' });
+      }
+
+      const firstRoundMatches = [];
+      for (let i = 0; i < bracketSize / 2; i += 1) {
+        firstRoundMatches.push({
+          playerA: seeds[i],
+          playerX: seeds[bracketSize - 1 - i]
+        });
+      }
+
+      const rounds = [{
+        title: getKnockoutRoundTitle(firstRoundMatches.length),
+        matches: firstRoundMatches
+      }];
+
+      let currentMatchCount = firstRoundMatches.length;
+      while (currentMatchCount > 1) {
+        currentMatchCount = Math.ceil(currentMatchCount / 2);
+        rounds.push({
+          title: getKnockoutRoundTitle(currentMatchCount),
+          matches: Array.from({ length: currentMatchCount }, () => ({
+            playerA: 'TBD',
+            playerX: 'TBD'
+          }))
+        });
+      }
+
+      return rounds;
+    }
+
+    function buildKnockoutTreeFromGames(drawGames) {
+      if (!Array.isArray(drawGames)) return [];
+
+      const turnBuckets = new Map();
+      drawGames.forEach(game => {
+        const nameA = String(game.playerFullNameA || game.playerA || '').trim();
+        const nameX = String(game.playerFullNameX || game.playerX || '').trim();
+        if (!nameA || !nameX) return;
+
+        const turnCode = normalizeKnockoutTurn(game.turn);
+        if (!turnCode) return;
+
+        if (!turnBuckets.has(turnCode)) {
+          turnBuckets.set(turnCode, []);
+        }
+
+        turnBuckets.get(turnCode).push({
+          playerA: {
+            name: nameA,
+            playerId: String(game.playerAid || '').trim()
+          },
+          playerX: {
+            name: nameX,
+            playerId: String(game.playerXid || '').trim()
+          },
+          gameId: game.id || null,
+          status: game.status || '',
+          game
+        });
+      });
+
+      const orderedTurns = Array.from(turnBuckets.keys()).sort((a, b) => {
+        const orderA = KNOCKOUT_TURN_ORDER[a] || 999;
+        const orderB = KNOCKOUT_TURN_ORDER[b] || 999;
+        if (orderA !== orderB) return orderA - orderB;
+        return a.localeCompare(b, 'he');
+      });
+
+      return orderedTurns.map(turnCode => ({
+        title: getKnockoutTurnTitle(turnCode),
+        turnCode,
+        matches: turnBuckets.get(turnCode) || []
+      }));
+    }
+
+    function openKnockoutPopup() {
+      const overlay = document.getElementById('knockout-overlay');
+      const body = document.getElementById('knockout-modal-body');
+      if (!overlay || !body) return;
+
+      const nonGroupGamesByDraw = getNonGroupGamesByDraw(gamesData || []);
+      const drawTrees = Array.from(nonGroupGamesByDraw.entries()).map(([drawName, drawGames]) => ({
+        drawName,
+        rounds: buildKnockoutTreeFromGames(drawGames)
+      })).filter(item => item.rounds.length > 0);
+
+      if (drawTrees.length === 0) {
+        body.innerHTML = '<div class="knockout-draw-card"><div class="knockout-draw-title">אין עץ נוקאאוט להצגה</div><div class="p-3 text-slate-600">לא נמצאו שחקנים שעלו משלב הבתים.</div></div>';
+      } else {
+        body.innerHTML = drawTrees.map(tree => {
+          const theme = getDrawTheme(tree.drawName);
+          const drawGames = nonGroupGamesByDraw.get(tree.drawName) || [];
+          const firstRoundMatchCount = tree.rounds[0]?.matches.length || 1;
+          const totalRows = Math.max(1, (firstRoundMatchCount * 2) - 1);
+          const roundsHtml = tree.rounds.map((round, roundIndex) => {
+            const startRow = (2 ** roundIndex) - 1;
+            const rowStep = 2 ** (roundIndex + 1);
+            const matchesHtml = round.matches.map((match, matchIndex) => {
+              const row = startRow + (matchIndex * rowStep);
+              const targetAName = getKnockoutPlayerName(match.playerA);
+              const targetXName = getKnockoutPlayerName(match.playerX);
+              console.debug('[KO MATCH] target names source', {
+                roundIndex,
+                matchIndex,
+                targetAName,
+                targetXName,
+                sourcePlayerA: match.playerA,
+                sourcePlayerX: match.playerX
+              });
+              const matchedGame = match.game || findKnockoutGameForPlayers(drawGames, match.playerA, match.playerX);
+              let scoreHtml = '';
+              let displayPlayerAName = targetAName;
+              let displayPlayerXName = targetXName;
+              let displayPlayerASets = null;
+              let displayPlayerXSets = null;
+              let playerAIsWinner = false;
+              let playerXIsWinner = false;
+              if (matchedGame) {
+                // When a real game is found, always display names exactly as that game stores them.
+                displayPlayerAName = String(matchedGame.playerFullNameA || matchedGame.playerA || displayPlayerAName).trim();
+                displayPlayerXName = String(matchedGame.playerFullNameX || matchedGame.playerX || displayPlayerXName).trim();
+
+                const parsedScore = parseMatchScore(matchedGame);
+                if (parsedScore) {
+                  displayPlayerASets = parsedScore.scoreA;
+                  displayPlayerXSets = parsedScore.scoreX;
+                  playerAIsWinner = parsedScore.scoreA > parsedScore.scoreX;
+                  playerXIsWinner = parsedScore.scoreX > parsedScore.scoreA;
+                }
+              }
+              const playerANameHtml = playerAIsWinner ? `<strong>${escapeHtml(displayPlayerAName)}</strong>` : escapeHtml(displayPlayerAName);
+              const playerXNameHtml = playerXIsWinner ? `<strong>${escapeHtml(displayPlayerXName)}</strong>` : escapeHtml(displayPlayerXName);
+              const playerASetsHtml = displayPlayerASets == null ? '' : ` <span class="text-slate-600">(${displayPlayerASets})</span>`;
+              const playerXSetsHtml = displayPlayerXSets == null ? '' : ` <span class="text-slate-600">(${displayPlayerXSets})</span>`;
+              return `
+              <div class="knockout-match" style="grid-row:${row + 1};">
+                <div class="knockout-player-row" title="${escapeHtml(displayPlayerAName)}">${playerANameHtml}${playerASetsHtml}</div>
+                <div class="knockout-player-row" title="${escapeHtml(displayPlayerXName)}">${playerXNameHtml}${playerXSetsHtml}</div>
+                ${scoreHtml}
+              </div>
+            `;
+            }).join('');
+            return `
+              <div class="knockout-round">
+                <div class="knockout-round-title">${escapeHtml(round.title)}</div>
+                <div class="knockout-round-track" style="--knockout-rows:${totalRows}; --knockout-row-height:64px;">${matchesHtml}</div>
+              </div>
+            `;
+          }).join('');
+
+          return `
+            <section class="knockout-draw-card" style="border-color:${escapeHtml(theme.borderColor)};">
+              <div class="knockout-draw-title" style="background:${escapeHtml(theme.titleBg)}; border-bottom-color:${escapeHtml(theme.borderColor)}; color:${escapeHtml(theme.titleColor)};">${escapeHtml(tree.drawName)}</div>
+              <div class="knockout-rounds">${roundsHtml}</div>
+            </section>
+          `;
+        }).join('');
+      }
+
+      overlay.classList.add('show');
+    }
+
+    function closeKnockoutPopup() {
+      const overlay = document.getElementById('knockout-overlay');
       if (overlay) {
         overlay.classList.remove('show');
       }
