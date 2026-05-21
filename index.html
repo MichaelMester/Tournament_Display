@@ -111,6 +111,9 @@
       gap: 12px;
       align-items: center;
     }
+    .print-selection-tools.hidden {
+      display: none;
+    }
     .groups-overlay {
       position: fixed;
       inset: 0;
@@ -341,17 +344,6 @@
       margin-top: 6px;
       padding-top: 6px;
       border-top: 1px dashed #e2e8f0;
-    }
-    .knockout-debug-badge {
-      margin-top: 4px;
-      display: inline-block;
-      font-size: 10px;
-      font-weight: 700;
-      color: #1d4ed8;
-      background: #dbeafe;
-      border: 1px solid #93c5fd;
-      border-radius: 9999px;
-      padding: 1px 6px;
     }
     .knockout-match-score {
       margin-top: 8px;
@@ -820,20 +812,20 @@
     </script>
    <div class="mb-6">
       <h1 id="page-title" class="text-2xl md:text-3xl font-bold text-slate-800 text-center mb-4">לוח משחקים</h1><!-- URL Input Section - Collapsible -->
-      <div class="bg-white rounded-xl shadow-lg max-w-5xl mx-auto overflow-hidden"><button id="toggle-url-section" onclick="toggleUrlSection()" class="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors border-b border-slate-200"> <span class="text-slate-700 font-semibold">⚙️ הגדרות</span> <span id="toggle-icon" class="text-slate-500">▼</span> </button>
+      <div class="bg-white rounded-xl shadow-lg max-w-7xl mx-auto overflow-hidden"><button id="toggle-url-section" onclick="toggleUrlSection()" class="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors border-b border-slate-200"> <span class="text-slate-700 font-semibold">⚙️ הגדרות</span> <span id="toggle-icon" class="text-slate-500">▼</span> </button>
      <div id="url-section" class="p-4">
       <div class="flex flex-col md:flex-row gap-3">
-        <input type="text" id="event-id-input" placeholder="הכנס מזהה אירוע..." class="flex-1 px-4 py-3 border-2 border-slate-200 rounded-lg focus:border-blue-500 focus:outline-none text-right transition-colors">
+        <input type="text" id="event-id-input" placeholder="מזהה אירוע" class="w-28 md:w-32 px-3 py-2 border-2 border-slate-200 rounded-lg focus:border-blue-500 focus:outline-none text-right transition-colors">
         <select id="env-select" class="px-4 py-3 border-2 border-slate-200 rounded-lg focus:border-blue-500 focus:outline-none">
           <option value="dev">פיתוח</option>
           <option value="prod">פרודקשן</option>
         </select>
-        <button id="reload-btn" onclick="fetchGames()" class="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 min-w-[96px]"> <span id="btn-text">טען מחדש</span>
+        <button id="reload-btn" onclick="fetchGames()" class="px-3 py-2 text-sm whitespace-nowrap bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"> <span id="btn-text">טען מחדש</span>
           <div id="btn-spinner" class="loading-spinner hidden"></div></button>
-        <button id="auto-reload-btn" onclick="toggleAutoReload()" class="px-4 py-3 bg-gray-300 hover:bg-gray-400 text-slate-700 font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 min-w-[96px]">הפעל רענון אוטומטי</button>
-        <button id="print-upcoming-btn" onclick="printUpcomingGames()" class="px-4 py-3 bg-slate-700 hover:bg-slate-800 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 min-w-[96px]">הדפס משחקים הבאים</button>
-        <button id="groups-standings-btn" onclick="openGroupsPopup()" class="px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 min-w-[96px]">טבלת בתים</button>
-        <button id="knockout-tree-btn" onclick="openKnockoutPopup()" class="px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 min-w-[96px]">עץ נוקאאוט</button>
+        <button id="auto-reload-btn" onclick="toggleAutoReload()" class="px-3 py-2 text-sm whitespace-nowrap bg-gray-300 hover:bg-gray-400 text-slate-700 font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">הפעל רענון אוטומטי</button>
+        <button id="print-upcoming-btn" onclick="printUpcomingGames()" class="px-3 py-2 text-sm whitespace-nowrap bg-slate-700 hover:bg-slate-800 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">הדפס משחקים הבאים</button>
+        <button id="groups-standings-btn" onclick="openGroupsPopup()" class="px-3 py-2 text-sm whitespace-nowrap bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">טבלת בתים</button>
+        <button id="knockout-tree-btn" onclick="openKnockoutPopup()" class="px-3 py-2 text-sm whitespace-nowrap bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">עץ נוקאאוט</button>
       </div>
       <div class="print-selection-bar">
         <label for="enable-upcoming-print-selection">
@@ -1308,8 +1300,8 @@
             <tr>
               <td>${index + 1}</td>
               <td class="player-col">${escapeHtml(player.name)}</td>
-              <td>${player.points}</td>
               <td>${player.gamesPlayed}</td>
+              <td class="font-bold">${player.points}</td>
             </tr>
           `).join('');
 
@@ -1321,8 +1313,8 @@
                   <tr>
                     <th>#</th>
                     <th class="player-col">שחקן</th>
-                    <th>נקודות</th>
                     <th>משחקים</th>
+                    <th>נקודות</th>
                   </tr>
                 </thead>
                 <tbody>${rows}</tbody>
@@ -1339,6 +1331,14 @@
       const overlay = document.getElementById('groups-overlay');
       if (overlay) {
         overlay.classList.remove('show');
+      }
+    }
+
+    function refreshGroupsPopupIfOpen() {
+      const overlay = document.getElementById('groups-overlay');
+      if (!overlay) return;
+      if (overlay.classList.contains('show')) {
+        openGroupsPopup();
       }
     }
 
@@ -2112,11 +2112,6 @@
               const playerXNameHtml = playerXIsWinner ? `<strong>${escapeHtml(displayPlayerXName)}</strong>` : escapeHtml(displayPlayerXName);
               const playerASetsHtml = displayPlayerASets == null ? '' : ` <span class="text-slate-600">(${displayPlayerASets})</span>`;
               const playerXSetsHtml = displayPlayerXSets == null ? '' : ` <span class="text-slate-600">(${displayPlayerXSets})</span>`;
-              const debugFeederSlot = Number.isInteger(match?._debugFeederSlot) ? match._debugFeederSlot + 1 : null;
-              const debugPrevIndex = Number.isFinite(match?._debugLinkedPrevIndex) ? (match._debugLinkedPrevIndex + 1) : null;
-              const debugBadgeHtml = roundIndex > 0 && debugFeederSlot != null
-                ? `<div class="knockout-debug-badge">feed ${debugFeederSlot} | prev ${debugPrevIndex}</div>`
-                : '';
               const dragAttrs = roundIndex === 0 && firstStageCount > 1
                 ? ` draggable="true" ondragstart="startKnockoutFirstStageDrag('${drawToken}', ${matchIndex}, event)" ondragend="endKnockoutFirstStageDrag(event)" ondragover="allowKnockoutFirstStageDrop(event)" ondragenter="onKnockoutFirstStageDragEnter(event)" ondragleave="onKnockoutFirstStageDragLeave(event)" ondrop="dropKnockoutFirstStageSwap('${drawToken}', ${matchIndex}, ${firstStageCount}, event)" class="knockout-match draggable"`
                 : ' class="knockout-match"';
@@ -2124,7 +2119,6 @@
               <div${dragAttrs} style="top:calc(${exactRow} * var(--knockout-unit));">
                 <div class="knockout-player-row" title="${escapeHtml(displayPlayerAName)}">${playerANameHtml}${playerASetsHtml}</div>
                 <div class="knockout-player-row" title="${escapeHtml(displayPlayerXName)}">${playerXNameHtml}${playerXSetsHtml}</div>
-                ${debugBadgeHtml}
                 ${scoreHtml}
               </div>
             `;
@@ -2161,6 +2155,14 @@
         overlay.classList.remove('show');
       }
       window.removeEventListener('resize', applyKnockoutContentFit);
+    }
+
+    function refreshKnockoutPopupIfOpen() {
+      const overlay = document.getElementById('knockout-overlay');
+      if (!overlay) return;
+      if (overlay.classList.contains('show')) {
+        openKnockoutPopup();
+      }
     }
 
     function getPlayerPhotoUrl(playerId) {
@@ -3075,6 +3077,8 @@
         }
         gamesData = games;
         renderGames(games);
+        refreshGroupsPopupIfOpen();
+        refreshKnockoutPopupIfOpen();
         // Attach filter listeners (once)
         setTimeout(() => {
           // Populate category selects with unique categories from only the presented games in each column
