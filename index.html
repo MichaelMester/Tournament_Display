@@ -189,6 +189,22 @@
       color: #0f172a;
       background: #e2e8f0;
       border-bottom: 1px solid #cbd5e1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .group-finished-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      background: #16a34a;
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1.4;
+      white-space: nowrap;
     }
     .group-table {
       width: 100%;
@@ -215,6 +231,26 @@
     }
     .group-table tbody tr:last-child td {
       border-bottom: 0;
+    }
+    .group-row-draggable {
+      cursor: grab;
+      user-select: none;
+    }
+    .group-row-draggable td:first-child::before {
+      content: '↕';
+      display: inline-block;
+      margin-left: 6px;
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .group-row-drag-source {
+      background: #eff6ff;
+    }
+    .group-row-drop-target {
+      outline: 2px dashed #2563eb;
+      outline-offset: -2px;
+      background: #e0f2fe;
     }
     .knockout-overlay {
       position: fixed;
@@ -1099,6 +1135,155 @@
     let announcementOverlayTimer = null;
     let isUpcomingPrintSelectionEnabled = false;
     let selectedUpcomingGameKeys = new Set();
+    let groupsPopupWindow = null;
+    let groupsPopupResizeTimer = null;
+    let knockoutPopupWindow = null;
+    let knockoutPopupResizeTimer = null;
+    let groupsRowDragState = { groupKey: '', playerKey: '' };
+    let groupsRowOrderOverrides = (() => {
+      try {
+        return JSON.parse(localStorage.getItem('groupsRowOrderOverrides') || '{}') || {};
+      } catch {
+        return {};
+      }
+    })();
+
+    function saveGroupsRowOrderOverrides() {
+      try {
+        localStorage.setItem('groupsRowOrderOverrides', JSON.stringify(groupsRowOrderOverrides));
+      } catch {}
+    }
+
+    function getGroupPlayerKey(player) {
+      const playerId = String(player?.playerId || '').trim();
+      if (playerId) return `id:${playerId}`;
+      return `name:${normalizePlayerName(player?.name || '')}`;
+    }
+
+    function getOrderedZeroPointKeys(groupKey, zeroPointKeys) {
+      const current = Array.isArray(groupsRowOrderOverrides[groupKey]) ? groupsRowOrderOverrides[groupKey] : [];
+      const existing = new Set(zeroPointKeys);
+      const ordered = current.filter(key => existing.has(key));
+      zeroPointKeys.forEach(key => {
+        if (!ordered.includes(key)) ordered.push(key);
+      });
+      return ordered;
+    }
+
+    function applyGroupRowOverride(groupKey, players) {
+      const zeroPointPlayers = players.filter(player => Number(player.points) === 0);
+      const zeroPointKeys = zeroPointPlayers.map(getGroupPlayerKey);
+      if (zeroPointKeys.length <= 1) return players;
+
+      const orderedKeys = getOrderedZeroPointKeys(groupKey, zeroPointKeys);
+      const byKey = new Map(zeroPointPlayers.map(player => [getGroupPlayerKey(player), player]));
+      const orderedZeroPlayers = orderedKeys.map(key => byKey.get(key)).filter(Boolean);
+      if (orderedZeroPlayers.length !== zeroPointPlayers.length) return players;
+
+      let zeroIndex = 0;
+      return players.map(player => {
+        if (Number(player.points) !== 0) return player;
+        const replacement = orderedZeroPlayers[zeroIndex];
+        zeroIndex += 1;
+        return replacement || player;
+      });
+    }
+
+    function swapGroupZeroPointRows(groupKey, fromPlayerKey, toPlayerKey) {
+      const standings = buildGroupStandings(gamesData || []);
+      const group = standings.find(item => item.groupKey === groupKey);
+      if (!group) return false;
+
+      const zeroPointKeys = group.players
+        .filter(player => Number(player.points) === 0)
+        .map(getGroupPlayerKey);
+      if (!zeroPointKeys.includes(fromPlayerKey) || !zeroPointKeys.includes(toPlayerKey)) {
+        return false;
+      }
+
+      const orderedKeys = getOrderedZeroPointKeys(groupKey, zeroPointKeys);
+      const fromIndex = orderedKeys.indexOf(fromPlayerKey);
+      const toIndex = orderedKeys.indexOf(toPlayerKey);
+      if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return false;
+
+      const temp = orderedKeys[fromIndex];
+      orderedKeys[fromIndex] = orderedKeys[toIndex];
+      orderedKeys[toIndex] = temp;
+
+      groupsRowOrderOverrides[groupKey] = orderedKeys;
+      saveGroupsRowOrderOverrides();
+      return true;
+    }
+
+    function clearGroupRowDragHighlights(rootDocument = document) {
+      rootDocument.querySelectorAll('.group-row-drag-source, .group-row-drop-target').forEach(row => {
+        row.classList.remove('group-row-drag-source', 'group-row-drop-target');
+      });
+    }
+
+    function bindGroupRowDragAndDrop(container, rootDocument = document) {
+      const rows = container.querySelectorAll('tr[data-group-key][data-player-key][data-points]');
+      rows.forEach(row => {
+        const points = Number(row.getAttribute('data-points') || 0);
+        const canDrag = points === 0;
+        row.setAttribute('draggable', canDrag ? 'true' : 'false');
+        row.classList.toggle('group-row-draggable', canDrag);
+
+        row.addEventListener('dragstart', event => {
+          if (!canDrag) {
+            event.preventDefault();
+            return;
+          }
+
+          const groupKey = row.getAttribute('data-group-key') || '';
+          const playerKey = row.getAttribute('data-player-key') || '';
+          groupsRowDragState.groupKey = groupKey;
+          groupsRowDragState.playerKey = playerKey;
+          row.classList.add('group-row-drag-source');
+          if (event.dataTransfer) {
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', `${groupKey}|||${playerKey}`);
+          }
+        });
+
+        row.addEventListener('dragover', event => {
+          const targetPoints = Number(row.getAttribute('data-points') || 0);
+          const targetGroup = row.getAttribute('data-group-key') || '';
+          const canDrop = targetPoints === 0 && targetGroup && targetGroup === groupsRowDragState.groupKey;
+          if (!canDrop) return;
+          event.preventDefault();
+          row.classList.add('group-row-drop-target');
+        });
+
+        row.addEventListener('dragleave', () => {
+          row.classList.remove('group-row-drop-target');
+        });
+
+        row.addEventListener('drop', event => {
+          event.preventDefault();
+          const targetPoints = Number(row.getAttribute('data-points') || 0);
+          const targetGroup = row.getAttribute('data-group-key') || '';
+          const targetPlayerKey = row.getAttribute('data-player-key') || '';
+          if (targetPoints !== 0 || !targetGroup || targetGroup !== groupsRowDragState.groupKey) {
+            clearGroupRowDragHighlights(rootDocument);
+            groupsRowDragState = { groupKey: '', playerKey: '' };
+            return;
+          }
+
+          const didSwap = swapGroupZeroPointRows(targetGroup, groupsRowDragState.playerKey, targetPlayerKey);
+          clearGroupRowDragHighlights(rootDocument);
+          groupsRowDragState = { groupKey: '', playerKey: '' };
+          if (didSwap) {
+            openGroupsPopup();
+          }
+        });
+
+        row.addEventListener('dragend', () => {
+          clearGroupRowDragHighlights(rootDocument);
+          groupsRowDragState = { groupKey: '', playerKey: '' };
+        });
+      });
+    }
 
     function getUpcomingGameKey(game) {
       if (!game) return '';
@@ -1258,6 +1443,9 @@
           ...player,
           setDiff: player.setsWon - player.setsLost
         }));
+        const playersCount = players.length;
+        const expectedGamesPerPlayer = Math.max(playersCount - 1, 0);
+        const isFinishedGroup = playersCount > 1 && players.every(player => player.gamesPlayed === expectedGamesPerPlayer);
 
         players.sort((a, b) => {
           if (b.points !== a.points) return b.points - a.points;
@@ -1267,8 +1455,10 @@
         });
 
         return {
+          groupKey: `${group.draw}|||${group.groupNo}`,
           draw: group.draw,
           groupNo: group.groupNo,
+          isFinishedGroup,
           players
         };
       });
@@ -1304,97 +1494,277 @@
       };
     }
 
-    function openGroupsPopup() {
-      const overlay = document.getElementById('groups-overlay');
-      const body = document.getElementById('groups-modal-body');
-      if (!overlay || !body) return;
+    function pickGroupsColumns(totalGroups, containerWidth) {
+      const minCardWidth = 320;
+      const gap = 14;
+      const safeWidth = Math.max(320, Number(containerWidth) || 0);
+      const maxByWidth = Math.max(1, Math.floor((safeWidth + gap) / (minCardWidth + gap)));
 
-      function pickGroupsColumns(totalGroups, containerWidth) {
-        const minCardWidth = 320;
-        const gap = 14;
-        const safeWidth = Math.max(320, Number(containerWidth) || 0);
-        const maxByWidth = Math.max(1, Math.floor((safeWidth + gap) / (minCardWidth + gap)));
-
-        // Keep card size no bigger than a 4-per-row layout whenever width allows it.
-        if (maxByWidth >= 4) {
-          if (totalGroups <= 8) return 4;
-          if (totalGroups <= 15) return Math.min(5, maxByWidth);
-          return Math.min(6, maxByWidth);
-        }
-
-        return maxByWidth;
+      // Keep card size no bigger than a 4-per-row layout whenever width allows it.
+      if (maxByWidth >= 4) {
+        if (totalGroups <= 8) return 4;
+        if (totalGroups <= 15) return Math.min(5, maxByWidth);
+        return Math.min(6, maxByWidth);
       }
 
-      const standings = buildGroupStandings(gamesData || []);
-      const groupsColumns = pickGroupsColumns(standings.length, body.clientWidth || window.innerWidth);
-      body.style.setProperty('--groups-cols', String(groupsColumns));
+      return maxByWidth;
+    }
 
+    function getGroupsPopupBodyHtml(standings) {
       if (standings.length === 0) {
-        body.innerHTML = '<div class="group-card"><div class="group-card-title">אין בתים להצגה</div><div class="p-3 text-slate-600">לא נמצאו משחקים עם בית ושחקנים.</div></div>';
-      } else {
-        const groupsByDraw = new Map();
-        standings.forEach(group => {
-          if (!groupsByDraw.has(group.draw)) {
-            groupsByDraw.set(group.draw, []);
-          }
-          groupsByDraw.get(group.draw).push(group);
-        });
+        return '<div class="group-card"><div class="group-card-title">אין בתים להצגה</div><div class="p-3 text-slate-600">לא נמצאו משחקים עם בית ושחקנים.</div></div>';
+      }
 
-        body.innerHTML = Array.from(groupsByDraw.entries()).map(([drawName, drawGroups]) => {
-          const drawTheme = getDrawTheme(drawName);
-          const cards = drawGroups.map(group => {
-            const theme = getDrawTheme(group.draw);
-            const rows = group.players.map((player, index) => `
-              <tr>
+      const groupsByDraw = new Map();
+      standings.forEach(group => {
+        if (!groupsByDraw.has(group.draw)) {
+          groupsByDraw.set(group.draw, []);
+        }
+        groupsByDraw.get(group.draw).push(group);
+      });
+
+      return Array.from(groupsByDraw.entries()).map(([drawName, drawGroups]) => {
+        const drawTheme = getDrawTheme(drawName);
+        const cards = drawGroups.map(group => {
+          const theme = getDrawTheme(group.draw);
+          const orderedPlayers = applyGroupRowOverride(group.groupKey, group.players);
+          const rowsWithDrag = orderedPlayers.map((player, index) => {
+            const playerKey = getGroupPlayerKey(player);
+            return `
+              <tr data-group-key="${escapeHtml(group.groupKey)}" data-player-key="${escapeHtml(playerKey)}" data-points="${Number(player.points) || 0}">
                 <td>${index + 1}</td>
                 <td class="player-col">${escapeHtml(player.name)}</td>
                 <td>${player.gamesPlayed}</td>
                 <td class="font-bold">${player.points}</td>
               </tr>
-            `).join('');
-
-            return `
-              <section class="group-card" style="border-color:${escapeHtml(theme.borderColor)};">
-                <div class="group-card-title" style="background:${escapeHtml(theme.titleBg)}; border-bottom-color:${escapeHtml(theme.borderColor)}; color:${escapeHtml(theme.titleColor)};">בית ${escapeHtml(group.groupNo)}</div>
-                <table class="group-table">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th class="player-col">שחקן</th>
-                      <th>משחקים</th>
-                      <th>נקודות</th>
-                    </tr>
-                  </thead>
-                  <tbody>${rows}</tbody>
-                </table>
-              </section>
             `;
           }).join('');
 
           return `
-            <section class="groups-draw-section">
-              <h3 class="groups-draw-title" style="background:${escapeHtml(drawTheme.titleBg)}; border-color:${escapeHtml(drawTheme.borderColor)}; color:${escapeHtml(drawTheme.titleColor)};">${escapeHtml(drawName)}</h3>
-              <div class="groups-draw-grid">${cards}</div>
+            <section class="group-card" style="border-color:${escapeHtml(theme.borderColor)};">
+              <div class="group-card-title" style="background:${escapeHtml(theme.titleBg)}; border-bottom-color:${escapeHtml(theme.borderColor)}; color:${escapeHtml(theme.titleColor)};">
+                <span>בית ${escapeHtml(group.groupNo)}</span>
+                ${group.isFinishedGroup ? '<span class="group-finished-badge">הבית הסתיים</span>' : ''}
+              </div>
+              <table class="group-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th class="player-col">שחקן</th>
+                    <th>משחקים</th>
+                    <th>נקודות</th>
+                  </tr>
+                </thead>
+                <tbody>${rowsWithDrag}</tbody>
+              </table>
             </section>
           `;
         }).join('');
+
+        return `
+          <section class="groups-draw-section">
+            <h3 class="groups-draw-title" style="background:${escapeHtml(drawTheme.titleBg)}; border-color:${escapeHtml(drawTheme.borderColor)}; color:${escapeHtml(drawTheme.titleColor)};">${escapeHtml(drawName)}</h3>
+            <div class="groups-draw-grid">${cards}</div>
+          </section>
+        `;
+      }).join('');
+    }
+
+    function renderGroupsPopupWindow() {
+      if (!groupsPopupWindow || groupsPopupWindow.closed) {
+        groupsPopupWindow = null;
+        return;
       }
 
-      overlay.classList.add('show');
+      const standings = buildGroupStandings(gamesData || []);
+      const containerWidth = Math.max(320, (groupsPopupWindow.innerWidth || 1200) - 40);
+      const groupsColumns = pickGroupsColumns(standings.length, containerWidth);
+      const bodyHtml = getGroupsPopupBodyHtml(standings);
+      const popupDoc = groupsPopupWindow.document;
+
+      popupDoc.open();
+      popupDoc.write(`<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>טבלת בתים</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; font-family: 'Heebo', sans-serif; }
+    html, body { margin: 0; width: 100%; height: 100%; background: #f8fafc; color: #0f172a; }
+    .groups-popup-shell { display: grid; grid-template-rows: auto 1fr; width: 100%; height: 100%; }
+    .groups-popup-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid #cbd5e1;
+      background: linear-gradient(135deg, #0f172a, #1e293b);
+      color: #ffffff;
+    }
+    .groups-popup-header h2 { margin: 0; font-size: 22px; }
+    .groups-close-btn {
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      color: #0f172a;
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .groups-modal-body {
+      padding: 16px;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      --groups-cols: ${groupsColumns};
+      background: #f8fafc;
+    }
+    .groups-draw-section { display: grid; gap: 10px; }
+    .groups-draw-title {
+      margin: 0;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid #cbd5e1;
+      background: #e2e8f0;
+      color: #0f172a;
+      font-size: 16px;
+      font-weight: 800;
+    }
+    .groups-draw-grid {
+      display: grid;
+      grid-template-columns: repeat(var(--groups-cols), minmax(0, 1fr));
+      gap: 14px;
+      align-content: start;
+    }
+    .group-card {
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      background: #ffffff;
+      overflow: hidden;
+    }
+    .group-card-title {
+      padding: 10px 12px;
+      font-weight: 700;
+      color: #0f172a;
+      background: #e2e8f0;
+      border-bottom: 1px solid #cbd5e1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .group-finished-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      background: #16a34a;
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1.4;
+      white-space: nowrap;
+    }
+    .group-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    .group-table th,
+    .group-table td {
+      border-bottom: 1px solid #e2e8f0;
+      padding: 7px 8px;
+      font-size: 13px;
+      color: #0f172a;
+      text-align: center;
+    }
+    .group-table th.player-col,
+    .group-table td.player-col { text-align: right; }
+    .group-table td.player-col {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 0;
+    }
+    .group-table tbody tr:last-child td { border-bottom: 0; }
+    .group-row-draggable { cursor: grab; user-select: none; }
+    .group-row-draggable td:first-child::before {
+      content: '↕';
+      display: inline-block;
+      margin-left: 6px;
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .group-row-drag-source { background: #eff6ff; }
+    .group-row-drop-target {
+      outline: 2px dashed #2563eb;
+      outline-offset: -2px;
+      background: #e0f2fe;
+    }
+  </style>
+</head>
+<body>
+  <div class="groups-popup-shell">
+    <div class="groups-popup-header">
+      <h2>טבלת בתים</h2>
+      <button type="button" class="groups-close-btn" onclick="window.close()">סגור</button>
+    </div>
+    <div id="groups-modal-body" class="groups-modal-body">${bodyHtml}</div>
+  </div>
+</body>
+</html>`);
+      popupDoc.close();
+
+      const popupBody = popupDoc.getElementById('groups-modal-body');
+      if (popupBody) {
+        bindGroupRowDragAndDrop(popupBody, popupDoc);
+      }
+    }
+
+    function openGroupsPopup() {
+      if (!groupsPopupWindow || groupsPopupWindow.closed) {
+        const width = Math.max(1000, Math.floor(window.screen.availWidth * 0.55));
+        const height = Math.max(700, Math.floor(window.screen.availHeight * 0.9));
+        const left = Math.max(0, window.screenX + 40);
+        const top = Math.max(0, window.screenY + 40);
+        const features = `popup=yes,resizable=yes,scrollbars=yes,width=${width},height=${height},left=${left},top=${top}`;
+        groupsPopupWindow = window.open('', 'groupsStandingsWindow', features);
+        if (!groupsPopupWindow) {
+          const errorMsg = document.getElementById('error-message');
+          if (errorMsg) {
+            errorMsg.textContent = 'הדפדפן חסם פתיחת חלון בתים. אפשר חלונות קופצים ונסה שוב.';
+            errorMsg.classList.remove('hidden');
+          }
+          return;
+        }
+
+        groupsPopupWindow.addEventListener('beforeunload', () => {
+          groupsPopupWindow = null;
+        });
+        groupsPopupWindow.addEventListener('resize', () => {
+          if (groupsPopupResizeTimer) clearTimeout(groupsPopupResizeTimer);
+          groupsPopupResizeTimer = setTimeout(() => {
+            renderGroupsPopupWindow();
+          }, 120);
+        });
+      }
+      renderGroupsPopupWindow();
+      try { groupsPopupWindow.focus(); } catch {}
     }
 
     function closeGroupsPopup() {
-      const overlay = document.getElementById('groups-overlay');
-      if (overlay) {
-        overlay.classList.remove('show');
+      if (groupsPopupWindow && !groupsPopupWindow.closed) {
+        groupsPopupWindow.close();
       }
+      groupsPopupWindow = null;
     }
 
     function refreshGroupsPopupIfOpen() {
-      const overlay = document.getElementById('groups-overlay');
-      if (!overlay) return;
-      if (overlay.classList.contains('show')) {
-        openGroupsPopup();
+      if (groupsPopupWindow && !groupsPopupWindow.closed) {
+        renderGroupsPopupWindow();
       }
     }
 
@@ -1582,10 +1952,10 @@
       }
 
       return [{
-        name: String(matchedGame.playerFullNameA || matchedGame.playerA || fallbackA.name).trim(),
+        name: getKnockoutDisplayName(matchedGame.playerFullNameA || matchedGame.playerA || fallbackA.name),
         playerId: normalizePlayerId(matchedGame.playerAid || fallbackA.playerId)
       }, {
-        name: String(matchedGame.playerFullNameX || matchedGame.playerX || fallbackX.name).trim(),
+        name: getKnockoutDisplayName(matchedGame.playerFullNameX || matchedGame.playerX || fallbackX.name),
         playerId: normalizePlayerId(matchedGame.playerXid || fallbackX.playerId)
       }];
     }
@@ -1732,7 +2102,7 @@
 
     function setKnockoutDropTargetClass(event, addClass) {
       const el = event?.currentTarget;
-      if (!(el instanceof Element)) return;
+      if (!el || !el.classList) return;
       if (addClass) {
         el.classList.add('drag-target');
       } else {
@@ -1847,9 +2217,14 @@
       return normalizedName ? `name:${normalizedName}` : '';
     }
 
+    function getKnockoutDisplayName(name) {
+      const text = String(name || '').trim();
+      return text || 'TBD';
+    }
+
     function getKnockoutPlayerName(player) {
-      if (typeof player === 'string') return player;
-      return String(player?.name || '').trim();
+      if (typeof player === 'string') return getKnockoutDisplayName(player);
+      return getKnockoutDisplayName(player?.name || '');
     }
 
     function getKnockoutPlayerId(player) {
@@ -1943,7 +2318,6 @@
       drawGames.forEach(game => {
         const nameA = String(game.playerFullNameA || game.playerA || '').trim();
         const nameX = String(game.playerFullNameX || game.playerX || '').trim();
-        if (!nameA && !nameX) return;
 
         const turnCode = normalizeKnockoutTurn(game.turn);
         if (!turnCode) return;
@@ -2012,9 +2386,9 @@
       });
     }
 
-    function applyKnockoutContentFit() {
-      const body = document.getElementById('knockout-modal-body');
-      const fit = document.getElementById('knockout-content-fit');
+    function applyKnockoutContentFit(rootDocument = document) {
+      const body = rootDocument.getElementById('knockout-modal-body');
+      const fit = rootDocument.getElementById('knockout-content-fit');
       if (!body || !fit) return;
 
       const minReadableScale = 0.75;
@@ -2045,6 +2419,338 @@
       fit.style.transform = `scale(${scale})`;
     }
 
+    function getKnockoutRoundPalette(roundIndex) {
+      const palettes = [
+        { from: '#eef2ff', to: '#e0e7ff', border: '#a5b4fc', titleBg: '#c7d2fe', titleColor: '#312e81' },
+        { from: '#ecfeff', to: '#cffafe', border: '#67e8f9', titleBg: '#a5f3fc', titleColor: '#155e75' },
+        { from: '#ecfdf5', to: '#d1fae5', border: '#6ee7b7', titleBg: '#a7f3d0', titleColor: '#065f46' },
+        { from: '#fff7ed', to: '#ffedd5', border: '#fdba74', titleBg: '#fed7aa', titleColor: '#9a3412' },
+        { from: '#fef2f2', to: '#fee2e2', border: '#fca5a5', titleBg: '#fecaca', titleColor: '#991b1b' },
+        { from: '#faf5ff', to: '#f3e8ff', border: '#d8b4fe', titleBg: '#e9d5ff', titleColor: '#6b21a8' }
+      ];
+      return palettes[roundIndex % palettes.length];
+    }
+
+    function getKnockoutPopupBodyHtml(drawTrees, nonGroupGamesByDraw) {
+      if (drawTrees.length === 0) {
+        return '<div class="knockout-draw-card"><div class="knockout-draw-title">אין עץ נוקאאוט להצגה</div><div class="p-3 text-slate-600">לא נמצאו שחקנים שעלו משלב הבתים.</div></div>';
+      }
+
+      const drawCardsHtml = drawTrees.map(tree => {
+        const theme = getDrawTheme(tree.drawName);
+        const drawGames = nonGroupGamesByDraw.get(tree.drawName) || [];
+        const totalRows = getKnockoutTotalRows(tree.rounds);
+        const drawToken = encodeURIComponent(tree.drawName);
+        const firstStageCount = Array.isArray(tree.rounds[0]?.matches) ? tree.rounds[0].matches.length : 0;
+        const roundsHtml = tree.rounds.map((round, roundIndex = 0) => {
+          const roundPalette = getKnockoutRoundPalette(roundIndex);
+          const matchesHtml = round.matches.map((match, matchIndex) => {
+            const exactRow = getKnockoutExactRow(roundIndex, matchIndex);
+            const targetAName = getKnockoutPlayerName(match.playerA);
+            const targetXName = getKnockoutPlayerName(match.playerX);
+            const matchedGame = match.game || findKnockoutGameForPlayers(drawGames, match.playerA, match.playerX);
+            let scoreHtml = '';
+            let displayPlayerAName = targetAName;
+            let displayPlayerXName = targetXName;
+            let displayPlayerASets = null;
+            let displayPlayerXSets = null;
+            let playerAIsWinner = false;
+            let playerXIsWinner = false;
+            if (matchedGame) {
+              const gamePlayerAName = getKnockoutDisplayName(matchedGame.playerFullNameA || matchedGame.playerA || displayPlayerAName);
+              const gamePlayerXName = getKnockoutDisplayName(matchedGame.playerFullNameX || matchedGame.playerX || displayPlayerXName);
+              if (roundIndex <= 0) {
+                displayPlayerAName = gamePlayerAName;
+                displayPlayerXName = gamePlayerXName;
+              } else {
+                const feederSlotIndex = Number.isInteger(match?._debugFeederSlot) ? match._debugFeederSlot : matchIndex;
+                const upperNames = getPreviousRoundMatchNameSet(tree.rounds, roundIndex, feederSlotIndex * 2, drawGames);
+                const lowerNames = getPreviousRoundMatchNameSet(tree.rounds, roundIndex, (feederSlotIndex * 2) + 1, drawGames);
+                const normalizedGameA = normalizeKnockoutNameForLink(gamePlayerAName);
+                const normalizedGameX = normalizeKnockoutNameForLink(gamePlayerXName);
+                const gameAInUpper = upperNames.has(normalizedGameA);
+                const gameAInLower = lowerNames.has(normalizedGameA);
+                const gameXInUpper = upperNames.has(normalizedGameX);
+                const gameXInLower = lowerNames.has(normalizedGameX);
+
+                const gameASide = gameAInUpper ? 'upper' : (gameAInLower ? 'lower' : '');
+                const gameXSide = gameXInUpper ? 'upper' : (gameXInLower ? 'lower' : '');
+                let upperPlayerName = '';
+                let lowerPlayerName = '';
+
+                if (gameASide === 'upper') upperPlayerName = gamePlayerAName;
+                if (gameASide === 'lower') lowerPlayerName = gamePlayerAName;
+                if (gameXSide === 'upper' && !upperPlayerName) upperPlayerName = gamePlayerXName;
+                if (gameXSide === 'lower' && !lowerPlayerName) lowerPlayerName = gamePlayerXName;
+
+                const sameMappedName = upperPlayerName && lowerPlayerName
+                  && normalizeKnockoutNameForLink(upperPlayerName) === normalizeKnockoutNameForLink(lowerPlayerName);
+                if (sameMappedName) {
+                  lowerPlayerName = '';
+                }
+
+                if (!upperPlayerName && !lowerPlayerName) {
+                  displayPlayerAName = gamePlayerAName;
+                  displayPlayerXName = gamePlayerXName;
+                } else {
+                  displayPlayerAName = upperPlayerName || 'TBD';
+                  displayPlayerXName = lowerPlayerName || 'TBD';
+                }
+              }
+
+              const parsedScore = parseMatchScore(matchedGame);
+              const gameFinished = isGameEnded(matchedGame);
+              if (parsedScore && gameFinished) {
+                const normalizedGameA = normalizeKnockoutNameForLink(gamePlayerAName);
+                const normalizedGameX = normalizeKnockoutNameForLink(gamePlayerXName);
+                const normalizedDisplayA = normalizeKnockoutNameForLink(displayPlayerAName);
+                const normalizedDisplayX = normalizeKnockoutNameForLink(displayPlayerXName);
+
+                const scoreForDisplayA = normalizedDisplayA === normalizedGameA
+                  ? parsedScore.scoreA
+                  : (normalizedDisplayA === normalizedGameX ? parsedScore.scoreX : null);
+                const scoreForDisplayX = normalizedDisplayX === normalizedGameA
+                  ? parsedScore.scoreA
+                  : (normalizedDisplayX === normalizedGameX ? parsedScore.scoreX : null);
+
+                displayPlayerASets = scoreForDisplayA;
+                displayPlayerXSets = scoreForDisplayX;
+
+                if (scoreForDisplayA != null && scoreForDisplayX != null) {
+                  playerAIsWinner = scoreForDisplayA > scoreForDisplayX;
+                  playerXIsWinner = scoreForDisplayX > scoreForDisplayA;
+                }
+              }
+            }
+            const playerANameHtml = playerAIsWinner ? `<strong>${escapeHtml(displayPlayerAName)}</strong>` : escapeHtml(displayPlayerAName);
+            const playerXNameHtml = playerXIsWinner ? `<strong>${escapeHtml(displayPlayerXName)}</strong>` : escapeHtml(displayPlayerXName);
+            const playerASetsHtml = displayPlayerASets == null ? '' : ` <span class="text-slate-600">(${displayPlayerASets})</span>`;
+            const playerXSetsHtml = displayPlayerXSets == null ? '' : ` <span class="text-slate-600">(${displayPlayerXSets})</span>`;
+            const dragAttrs = roundIndex === 0 && firstStageCount > 1
+              ? ` draggable="true" ondragstart="startKnockoutFirstStageDrag('${drawToken}', ${matchIndex}, event)" ondragend="endKnockoutFirstStageDrag(event)" ondragover="allowKnockoutFirstStageDrop(event)" ondragenter="onKnockoutFirstStageDragEnter(event)" ondragleave="onKnockoutFirstStageDragLeave(event)" ondrop="dropKnockoutFirstStageSwap('${drawToken}', ${matchIndex}, ${firstStageCount}, event)" class="knockout-match draggable"`
+              : ' class="knockout-match"';
+            return `
+            <div${dragAttrs} style="top:calc(${exactRow} * var(--knockout-unit)); --km-from:${roundPalette.from}; --km-to:${roundPalette.to}; --km-border:${roundPalette.border};">
+              <div class="knockout-player-row" title="${escapeHtml(displayPlayerAName)}">${playerANameHtml}${playerASetsHtml}</div>
+              <div class="knockout-player-row" title="${escapeHtml(displayPlayerXName)}">${playerXNameHtml}${playerXSetsHtml}</div>
+              ${scoreHtml}
+            </div>
+          `;
+          }).join('');
+          return `
+            <div class="knockout-round">
+              <div class="knockout-round-title" style="background:${roundPalette.titleBg}; color:${roundPalette.titleColor}; border-color:${roundPalette.border};">${escapeHtml(round.title)}</div>
+              <div class="knockout-round-track" style="--knockout-rows:${totalRows};">${matchesHtml}</div>
+            </div>
+          `;
+        }).join('');
+
+        return `
+          <section class="knockout-draw-card" style="--round-count:${tree.rounds.length}; border-color:${escapeHtml(theme.borderColor)};">
+            <div class="knockout-draw-title" style="background:${escapeHtml(theme.titleBg)}; border-bottom-color:${escapeHtml(theme.borderColor)}; color:${escapeHtml(theme.titleColor)};">${escapeHtml(tree.drawName)}</div>
+            <div class="knockout-rounds">${roundsHtml}</div>
+          </section>
+        `;
+      }).join('');
+
+      return `<div id="knockout-content-fit" class="knockout-content-fit">${drawCardsHtml}</div>`;
+    }
+
+    function renderKnockoutPopupWindow() {
+      if (!knockoutPopupWindow || knockoutPopupWindow.closed) {
+        knockoutPopupWindow = null;
+        return;
+      }
+
+      const nonGroupGamesByDraw = getNonGroupGamesByDraw(gamesData || []);
+      const drawTrees = Array.from(nonGroupGamesByDraw.entries()).map(([drawName, drawGames]) => ({
+        drawName,
+        rounds: buildKnockoutTreeFromGames(drawGames)
+      })).filter(item => item.rounds.length > 0).map(item => ({
+        ...item,
+        rounds: alignKnockoutRoundsByPlayerNames(applyKnockoutFirstStageOrder(item.drawName, item.rounds), nonGroupGamesByDraw.get(item.drawName) || [])
+      }));
+
+      const bodyHtml = getKnockoutPopupBodyHtml(drawTrees, nonGroupGamesByDraw);
+      const popupDoc = knockoutPopupWindow.document;
+      popupDoc.open();
+      popupDoc.write(`<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>עץ נוקאאוט</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; font-family: 'Heebo', sans-serif; }
+    html, body { margin: 0; width: 100%; height: 100%; background: #f8fafc; color: #0f172a; }
+    .knockout-popup-shell { display: grid; grid-template-rows: auto 1fr; width: 100%; height: 100%; }
+    .knockout-popup-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid #cbd5e1;
+      background: linear-gradient(135deg, #0f172a, #1e293b);
+      color: #ffffff;
+    }
+    .knockout-popup-header h2 { margin: 0; font-size: 22px; }
+    .knockout-close-btn {
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      color: #0f172a;
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .knockout-modal-body {
+      padding: 16px;
+      overflow: hidden;
+      display: grid;
+      gap: 14px;
+      align-content: start;
+      background: #f8fafc;
+    }
+    .knockout-content-fit {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      gap: 12px;
+      align-items: start;
+      transform-origin: top right;
+      will-change: transform;
+      --knockout-gap: 2px;
+      --knockout-match-height: 64px;
+      --knockout-round-width: 190px;
+      --knockout-unit: calc(var(--knockout-match-height) + var(--knockout-gap));
+    }
+    .knockout-content-fit.knockout-compact {
+      --knockout-gap: 1px;
+      --knockout-match-height: 52px;
+      --knockout-round-width: 150px;
+    }
+    .knockout-content-fit.knockout-compact .knockout-draw-title {
+      padding: 6px 8px;
+      font-size: 12px;
+    }
+    .knockout-content-fit.knockout-compact .knockout-rounds {
+      grid-auto-columns: minmax(170px, 1fr);
+      gap: 8px;
+      padding: 8px;
+    }
+    .knockout-content-fit.knockout-compact .knockout-round-title {
+      font-size: 11px;
+      margin-bottom: 6px;
+    }
+    .knockout-content-fit.knockout-compact .knockout-match {
+      padding: 6px;
+      border-radius: 8px;
+    }
+    .knockout-content-fit.knockout-compact .knockout-player-row {
+      font-size: 11px;
+    }
+    .knockout-draw-card {
+      flex: 0 0 auto;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      background: #ffffff;
+      overflow: hidden;
+      min-width: calc((var(--round-count, 1) * var(--knockout-round-width)) + 24px);
+    }
+    .knockout-draw-title {
+      padding: 10px 12px;
+      font-weight: 700;
+      color: #0f172a;
+      border-bottom: 1px solid #cbd5e1;
+    }
+    .knockout-rounds {
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: minmax(var(--knockout-round-width), 1fr);
+      gap: 12px;
+      padding: 12px;
+      overflow: visible;
+    }
+    .knockout-round {
+      min-width: var(--knockout-round-width);
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+    .knockout-round-title {
+      text-align: center;
+      font-weight: 700;
+      color: #334155;
+      font-size: 13px;
+      margin-bottom: 8px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 4px 8px;
+    }
+    .knockout-round-track {
+      position: relative;
+      min-height: calc(var(--knockout-rows, 1) * var(--knockout-unit));
+    }
+    .knockout-match {
+      border: 1px solid var(--km-border, #cbd5e1);
+      border-radius: 10px;
+      padding: 8px;
+      background: linear-gradient(145deg, var(--km-from, #ffffff), var(--km-to, #f8fafc));
+      position: absolute;
+      right: 0;
+      left: 0;
+      display: grid;
+      gap: 2px;
+      cursor: default;
+      box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04), 0 4px 10px rgba(15, 23, 42, 0.08);
+    }
+    .knockout-match.draggable { cursor: grab; }
+    .knockout-match.draggable:hover {
+      filter: brightness(0.98);
+      box-shadow: 0 2px 0 rgba(15, 23, 42, 0.06), 0 6px 14px rgba(15, 23, 42, 0.12);
+    }
+    .knockout-match.drag-target {
+      outline: 2px dashed #2563eb;
+      outline-offset: -2px;
+      background: #eff6ff;
+    }
+    .knockout-player-row {
+      font-size: 12px;
+      color: #0f172a;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .p-3 { padding: 12px; }
+    .text-slate-600 { color: #475569; }
+  </style>
+  <script>
+    function startKnockoutFirstStageDrag(drawToken, fromIndex, event) { if (window.opener?.startKnockoutFirstStageDrag) window.opener.startKnockoutFirstStageDrag(drawToken, fromIndex, event); }
+    function endKnockoutFirstStageDrag(event) { if (window.opener?.endKnockoutFirstStageDrag) window.opener.endKnockoutFirstStageDrag(event); }
+    function allowKnockoutFirstStageDrop(event) { if (window.opener?.allowKnockoutFirstStageDrop) window.opener.allowKnockoutFirstStageDrop(event); }
+    function onKnockoutFirstStageDragEnter(event) { if (window.opener?.onKnockoutFirstStageDragEnter) window.opener.onKnockoutFirstStageDragEnter(event); }
+    function onKnockoutFirstStageDragLeave(event) { if (window.opener?.onKnockoutFirstStageDragLeave) window.opener.onKnockoutFirstStageDragLeave(event); }
+    function dropKnockoutFirstStageSwap(drawToken, toIndex, stageSize, event) { if (window.opener?.dropKnockoutFirstStageSwap) window.opener.dropKnockoutFirstStageSwap(drawToken, toIndex, stageSize, event); }
+  <\/script>
+</head>
+<body>
+  <div class="knockout-popup-shell">
+    <div class="knockout-popup-header">
+      <h2>עץ נוקאאוט</h2>
+      <button type="button" class="knockout-close-btn" onclick="window.close()">סגור</button>
+    </div>
+    <div id="knockout-modal-body" class="knockout-modal-body">${bodyHtml}</div>
+  </div>
+</body>
+</html>`);
+      popupDoc.close();
+
+      knockoutPopupWindow.requestAnimationFrame(() => applyKnockoutContentFit(popupDoc));
+    }
+
     function getKnockoutTotalRows(rounds) {
       if (!Array.isArray(rounds) || rounds.length === 0) return 1;
       const firstRoundCount = Array.isArray(rounds[0]?.matches) ? rounds[0].matches.length : 0;
@@ -2059,165 +2765,47 @@
     }
 
     function openKnockoutPopup() {
-      const overlay = document.getElementById('knockout-overlay');
-      const body = document.getElementById('knockout-modal-body');
-      if (!overlay || !body) return;
+      if (!knockoutPopupWindow || knockoutPopupWindow.closed) {
+        const width = Math.max(1100, Math.floor(window.screen.availWidth * 0.65));
+        const height = Math.max(760, Math.floor(window.screen.availHeight * 0.9));
+        const left = Math.max(0, window.screenX + 70);
+        const top = Math.max(0, window.screenY + 50);
+        const features = `popup=yes,resizable=yes,scrollbars=yes,width=${width},height=${height},left=${left},top=${top}`;
+        knockoutPopupWindow = window.open('', 'knockoutTreeWindow', features);
+        if (!knockoutPopupWindow) {
+          const errorMsg = document.getElementById('error-message');
+          if (errorMsg) {
+            errorMsg.textContent = 'הדפדפן חסם פתיחת חלון נוקאאוט. אפשר חלונות קופצים ונסה שוב.';
+            errorMsg.classList.remove('hidden');
+          }
+          return;
+        }
 
-      const nonGroupGamesByDraw = getNonGroupGamesByDraw(gamesData || []);
-      const drawTrees = Array.from(nonGroupGamesByDraw.entries()).map(([drawName, drawGames]) => ({
-        drawName,
-        rounds: buildKnockoutTreeFromGames(drawGames)
-      })).filter(item => item.rounds.length > 0).map(item => ({
-        ...item,
-        rounds: alignKnockoutRoundsByPlayerNames(applyKnockoutFirstStageOrder(item.drawName, item.rounds), nonGroupGamesByDraw.get(item.drawName) || [])
-      }));
-
-      if (drawTrees.length === 0) {
-        body.innerHTML = '<div class="knockout-draw-card"><div class="knockout-draw-title">אין עץ נוקאאוט להצגה</div><div class="p-3 text-slate-600">לא נמצאו שחקנים שעלו משלב הבתים.</div></div>';
-      } else {
-        const drawCardsHtml = drawTrees.map(tree => {
-          const theme = getDrawTheme(tree.drawName);
-          const drawGames = nonGroupGamesByDraw.get(tree.drawName) || [];
-          const totalRows = getKnockoutTotalRows(tree.rounds);
-          const drawToken = encodeURIComponent(tree.drawName);
-          const firstStageCount = Array.isArray(tree.rounds[0]?.matches) ? tree.rounds[0].matches.length : 0;
-          const roundsHtml = tree.rounds.map((round, roundIndex = 0) => {
-            const matchesHtml = round.matches.map((match, matchIndex) => {
-              const exactRow = getKnockoutExactRow(roundIndex, matchIndex);
-              const targetAName = getKnockoutPlayerName(match.playerA);
-              const targetXName = getKnockoutPlayerName(match.playerX);
-              const matchedGame = match.game || findKnockoutGameForPlayers(drawGames, match.playerA, match.playerX);
-              let scoreHtml = '';
-              let displayPlayerAName = targetAName;
-              let displayPlayerXName = targetXName;
-              let displayPlayerASets = null;
-              let displayPlayerXSets = null;
-              let playerAIsWinner = false;
-              let playerXIsWinner = false;
-              if (matchedGame) {
-                const gamePlayerAName = String(matchedGame.playerFullNameA || matchedGame.playerA || displayPlayerAName).trim();
-                const gamePlayerXName = String(matchedGame.playerFullNameX || matchedGame.playerX || displayPlayerXName).trim();
-                if (roundIndex <= 0) {
-                  // For first stage and unresolved placeholders, follow API names.
-                  displayPlayerAName = gamePlayerAName;
-                  displayPlayerXName = gamePlayerXName;
-                } else {
-                  const feederSlotIndex = Number.isInteger(match?._debugFeederSlot) ? match._debugFeederSlot : matchIndex;
-                  const upperNames = getPreviousRoundMatchNameSet(tree.rounds, roundIndex, feederSlotIndex * 2, drawGames);
-                  const lowerNames = getPreviousRoundMatchNameSet(tree.rounds, roundIndex, (feederSlotIndex * 2) + 1, drawGames);
-                  const normalizedGameA = normalizeKnockoutNameForLink(gamePlayerAName);
-                  const normalizedGameX = normalizeKnockoutNameForLink(gamePlayerXName);
-                  const gameAInUpper = upperNames.has(normalizedGameA);
-                  const gameAInLower = lowerNames.has(normalizedGameA);
-                  const gameXInUpper = upperNames.has(normalizedGameX);
-                  const gameXInLower = lowerNames.has(normalizedGameX);
-
-                  const gameASide = gameAInUpper ? 'upper' : (gameAInLower ? 'lower' : '');
-                  const gameXSide = gameXInUpper ? 'upper' : (gameXInLower ? 'lower' : '');
-                  let upperPlayerName = '';
-                  let lowerPlayerName = '';
-
-                  if (gameASide === 'upper') upperPlayerName = gamePlayerAName;
-                  if (gameASide === 'lower') lowerPlayerName = gamePlayerAName;
-                  if (gameXSide === 'upper' && !upperPlayerName) upperPlayerName = gamePlayerXName;
-                  if (gameXSide === 'lower' && !lowerPlayerName) lowerPlayerName = gamePlayerXName;
-
-                  // If only one participant is mapped to feeders, keep the opposite side as TBD.
-                  // Do not auto-fill with the "other" player, to avoid duplicated names.
-                  const sameMappedName = upperPlayerName && lowerPlayerName
-                    && normalizeKnockoutNameForLink(upperPlayerName) === normalizeKnockoutNameForLink(lowerPlayerName);
-                  if (sameMappedName) {
-                    lowerPlayerName = '';
-                  }
-
-                  if (!upperPlayerName && !lowerPlayerName) {
-                    // No feeder-name mapping found; fall back to API order.
-                    displayPlayerAName = gamePlayerAName;
-                    displayPlayerXName = gamePlayerXName;
-                  } else {
-                    displayPlayerAName = upperPlayerName || 'TBD';
-                    displayPlayerXName = lowerPlayerName || 'TBD';
-                  }
-                }
-
-                const parsedScore = parseMatchScore(matchedGame);
-                const gameFinished = isGameEnded(matchedGame);
-                if (parsedScore && gameFinished) {
-                  const normalizedGameA = normalizeKnockoutNameForLink(gamePlayerAName);
-                  const normalizedGameX = normalizeKnockoutNameForLink(gamePlayerXName);
-                  const normalizedDisplayA = normalizeKnockoutNameForLink(displayPlayerAName);
-                  const normalizedDisplayX = normalizeKnockoutNameForLink(displayPlayerXName);
-
-                  const scoreForDisplayA = normalizedDisplayA === normalizedGameA
-                    ? parsedScore.scoreA
-                    : (normalizedDisplayA === normalizedGameX ? parsedScore.scoreX : null);
-                  const scoreForDisplayX = normalizedDisplayX === normalizedGameA
-                    ? parsedScore.scoreA
-                    : (normalizedDisplayX === normalizedGameX ? parsedScore.scoreX : null);
-
-                  displayPlayerASets = scoreForDisplayA;
-                  displayPlayerXSets = scoreForDisplayX;
-
-                  if (scoreForDisplayA != null && scoreForDisplayX != null) {
-                    playerAIsWinner = scoreForDisplayA > scoreForDisplayX;
-                    playerXIsWinner = scoreForDisplayX > scoreForDisplayA;
-                  }
-                }
-              }
-              const playerANameHtml = playerAIsWinner ? `<strong>${escapeHtml(displayPlayerAName)}</strong>` : escapeHtml(displayPlayerAName);
-              const playerXNameHtml = playerXIsWinner ? `<strong>${escapeHtml(displayPlayerXName)}</strong>` : escapeHtml(displayPlayerXName);
-              const playerASetsHtml = displayPlayerASets == null ? '' : ` <span class="text-slate-600">(${displayPlayerASets})</span>`;
-              const playerXSetsHtml = displayPlayerXSets == null ? '' : ` <span class="text-slate-600">(${displayPlayerXSets})</span>`;
-              const dragAttrs = roundIndex === 0 && firstStageCount > 1
-                ? ` draggable="true" ondragstart="startKnockoutFirstStageDrag('${drawToken}', ${matchIndex}, event)" ondragend="endKnockoutFirstStageDrag(event)" ondragover="allowKnockoutFirstStageDrop(event)" ondragenter="onKnockoutFirstStageDragEnter(event)" ondragleave="onKnockoutFirstStageDragLeave(event)" ondrop="dropKnockoutFirstStageSwap('${drawToken}', ${matchIndex}, ${firstStageCount}, event)" class="knockout-match draggable"`
-                : ' class="knockout-match"';
-              return `
-              <div${dragAttrs} style="top:calc(${exactRow} * var(--knockout-unit));">
-                <div class="knockout-player-row" title="${escapeHtml(displayPlayerAName)}">${playerANameHtml}${playerASetsHtml}</div>
-                <div class="knockout-player-row" title="${escapeHtml(displayPlayerXName)}">${playerXNameHtml}${playerXSetsHtml}</div>
-                ${scoreHtml}
-              </div>
-            `;
-            }).join('');
-            return `
-              <div class="knockout-round">
-                <div class="knockout-round-title">${escapeHtml(round.title)}</div>
-                <div class="knockout-round-track" style="--knockout-rows:${totalRows};">${matchesHtml}</div>
-              </div>
-            `;
-          }).join('');
-
-          return `
-            <section class="knockout-draw-card" style="--round-count:${tree.rounds.length}; border-color:${escapeHtml(theme.borderColor)};">
-              <div class="knockout-draw-title" style="background:${escapeHtml(theme.titleBg)}; border-bottom-color:${escapeHtml(theme.borderColor)}; color:${escapeHtml(theme.titleColor)};">${escapeHtml(tree.drawName)}</div>
-              <div class="knockout-rounds">${roundsHtml}</div>
-            </section>
-          `;
-        }).join('');
-
-        body.innerHTML = `<div id="knockout-content-fit" class="knockout-content-fit">${drawCardsHtml}</div>`;
-        requestAnimationFrame(applyKnockoutContentFit);
+        knockoutPopupWindow.addEventListener('beforeunload', () => {
+          knockoutPopupWindow = null;
+        });
+        knockoutPopupWindow.addEventListener('resize', () => {
+          if (knockoutPopupResizeTimer) clearTimeout(knockoutPopupResizeTimer);
+          knockoutPopupResizeTimer = setTimeout(() => {
+            renderKnockoutPopupWindow();
+          }, 120);
+        });
       }
 
-      overlay.classList.add('show');
-      requestAnimationFrame(applyKnockoutContentFit);
-      window.removeEventListener('resize', applyKnockoutContentFit);
-      window.addEventListener('resize', applyKnockoutContentFit);
+      renderKnockoutPopupWindow();
+      try { knockoutPopupWindow.focus(); } catch {}
     }
 
     function closeKnockoutPopup() {
-      const overlay = document.getElementById('knockout-overlay');
-      if (overlay) {
-        overlay.classList.remove('show');
+      if (knockoutPopupWindow && !knockoutPopupWindow.closed) {
+        knockoutPopupWindow.close();
       }
-      window.removeEventListener('resize', applyKnockoutContentFit);
+      knockoutPopupWindow = null;
     }
 
     function refreshKnockoutPopupIfOpen() {
-      const overlay = document.getElementById('knockout-overlay');
-      if (!overlay) return;
-      if (overlay.classList.contains('show')) {
-        openKnockoutPopup();
+      if (knockoutPopupWindow && !knockoutPopupWindow.closed) {
+        renderKnockoutPopupWindow();
       }
     }
 
