@@ -2568,7 +2568,60 @@
       return palettes[roundIndex % palettes.length];
     }
 
-    function getKnockoutPopupBodyHtml(drawTrees, nonGroupGamesByDraw) {
+    function estimateKnockoutDrawSize(tree) {
+      const roundCount = Math.max(1, Array.isArray(tree?.rounds) ? tree.rounds.length : 1);
+      const firstRoundCount = Math.max(1, Array.isArray(tree?.rounds?.[0]?.matches) ? tree.rounds[0].matches.length : 1);
+      const roundWidth = 190;
+      const roundGap = 12;
+      const roundPadding = 24;
+      const titleHeight = 44;
+      const roundTitleHeight = 29;
+      const matchUnit = 66;
+
+      return {
+        width: (roundCount * roundWidth) + (Math.max(0, roundCount - 1) * roundGap) + roundPadding,
+        height: titleHeight + roundTitleHeight + (firstRoundCount * matchUnit) + 24
+      };
+    }
+
+    function chooseKnockoutDrawColumns(drawTrees, availableWidth, availableHeight) {
+      const count = Math.max(1, Array.isArray(drawTrees) ? drawTrees.length : 0);
+      if (count <= 1) return 1;
+
+      const sizes = drawTrees.map(estimateKnockoutDrawSize);
+      const gap = 12;
+      let bestCols = 1;
+      let bestScale = 0;
+
+      for (let cols = 1; cols <= count; cols += 1) {
+        const colWidths = new Array(cols).fill(0);
+        const rowHeights = [];
+
+        sizes.forEach((size, index) => {
+          const col = index % cols;
+          const row = Math.floor(index / cols);
+          colWidths[col] = Math.max(colWidths[col], size.width);
+          rowHeights[row] = Math.max(rowHeights[row] || 0, size.height);
+        });
+
+        const totalWidth = colWidths.reduce((sum, width) => sum + width, 0) + (Math.max(0, colWidths.length - 1) * gap);
+        const totalHeight = rowHeights.reduce((sum, height) => sum + height, 0) + (Math.max(0, rowHeights.length - 1) * gap);
+        const scale = Math.min(
+          1,
+          (Math.max(320, availableWidth) / Math.max(1, totalWidth)),
+          (Math.max(240, availableHeight) / Math.max(1, totalHeight))
+        );
+
+        if (scale > bestScale + 0.0001) {
+          bestScale = scale;
+          bestCols = cols;
+        }
+      }
+
+      return bestCols;
+    }
+
+    function getKnockoutPopupBodyHtml(drawTrees, nonGroupGamesByDraw, drawColumns = 1) {
       if (drawTrees.length === 0) {
         return '<div class="knockout-draw-card"><div class="knockout-draw-title">אין עץ נוקאאוט להצגה</div><div class="p-3 text-slate-600">לא נמצאו שחקנים שעלו משלב הבתים.</div></div>';
       }
@@ -2690,7 +2743,7 @@
         `;
       }).join('');
 
-      return `<div id="knockout-content-fit" class="knockout-content-fit">${drawCardsHtml}</div>`;
+      return `<div id="knockout-content-fit" class="knockout-content-fit" style="--knockout-draw-cols:${drawColumns};">${drawCardsHtml}</div>`;
     }
 
     function getLiveKnockoutPopupWindows() {
@@ -2795,7 +2848,10 @@
         rounds: alignKnockoutRoundsByPlayerNames(applyKnockoutFirstStageOrder(item.drawName, item.rounds), filteredDrawMap.get(item.drawName) || [])
       }));
 
-      const bodyHtml = getKnockoutPopupBodyHtml(drawTrees, filteredDrawMap);
+      const estimatedBodyWidth = Math.max(600, (entry.win.innerWidth || 1200) - 48);
+      const estimatedBodyHeight = Math.max(400, (entry.win.innerHeight || 900) - 110);
+      const drawColumns = chooseKnockoutDrawColumns(drawTrees, estimatedBodyWidth, estimatedBodyHeight);
+      const bodyHtml = getKnockoutPopupBodyHtml(drawTrees, filteredDrawMap, drawColumns);
       const popupDoc = entry.win.document;
       const windowTitle = getKnockoutWindowTitle(visibleDrawNames);
       popupDoc.open();
@@ -2847,11 +2903,11 @@
       background: #f8fafc;
     }
     .knockout-content-fit {
-      display: flex;
-      flex-direction: row;
-      flex-wrap: nowrap;
+      display: grid;
+      grid-template-columns: repeat(var(--knockout-draw-cols, 1), max-content);
       gap: 12px;
       align-items: start;
+      align-content: start;
       transform-origin: top right;
       will-change: transform;
       --knockout-gap: 2px;
@@ -2872,6 +2928,9 @@
       grid-auto-columns: minmax(170px, 1fr);
       gap: 8px;
       padding: 8px;
+    }
+    .knockout-content-fit.knockout-compact {
+      gap: 8px;
     }
     .knockout-content-fit.knockout-compact .knockout-round-title {
       font-size: 11px;
