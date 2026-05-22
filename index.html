@@ -2590,6 +2590,21 @@
       updateKnockoutPopupZoom(windowId, 100);
     }
 
+    function setKnockoutPopupToolbarCollapsed(windowId, collapsed) {
+      const parsedWindowId = Number.parseInt(String(windowId), 10);
+      if (Number.isNaN(parsedWindowId)) return;
+
+      const entry = getLiveKnockoutPopupWindows().find(item => item.id === parsedWindowId);
+      if (!entry || !entry.win || entry.win.closed) return;
+
+      entry.zoomToolbarCollapsed = Boolean(collapsed);
+      const popupDoc = entry.win.document;
+      const toolbar = popupDoc.querySelector('.knockout-zoom-tools');
+      const openButton = popupDoc.getElementById('knockout-zoom-open');
+      if (toolbar) toolbar.classList.toggle('is-hidden', entry.zoomToolbarCollapsed);
+      if (openButton) openButton.classList.toggle('is-visible', entry.zoomToolbarCollapsed);
+    }
+
     function getKnockoutRoundPalette(roundIndex) {
       const palettes = [
         { from: '#eef2ff', to: '#e0e7ff', border: '#a5b4fc', titleBg: '#c7d2fe', titleColor: '#312e81' },
@@ -2901,7 +2916,7 @@
   <style>
     * { box-sizing: border-box; font-family: 'Heebo', sans-serif; }
     html, body { margin: 0; width: 100%; height: 100%; background: #f8fafc; color: #0f172a; }
-    .knockout-popup-shell { display: grid; grid-template-rows: auto 1fr; width: 100%; height: 100%; }
+    .knockout-popup-shell { position: relative; display: grid; width: 100%; height: 100%; }
     .knockout-zoom-tools {
       position: fixed;
       top: 10px;
@@ -2917,8 +2932,11 @@
       box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
       direction: ltr;
     }
-    .knockout-zoom-tools button {
-      width: 28px;
+    .knockout-zoom-tools.is-hidden {
+      display: none;
+    }
+    .knockout-zoom-tools button,
+    .knockout-zoom-toggle {
       height: 28px;
       border: 1px solid #cbd5e1;
       border-radius: 8px;
@@ -2926,6 +2944,24 @@
       color: #0f172a;
       font-weight: 800;
       cursor: pointer;
+    }
+    .knockout-zoom-tools button {
+      width: 28px;
+    }
+    .knockout-zoom-toggle {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      z-index: 20;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      min-width: 60px;
+      padding: 0 12px;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+    }
+    .knockout-zoom-toggle.is-visible {
+      display: inline-flex;
     }
     .knockout-zoom-tools input[type="range"] {
       width: 120px;
@@ -3097,17 +3133,19 @@
     function updateKnockoutPopupZoom(windowId, value) { if (window.opener?.updateKnockoutPopupZoom) window.opener.updateKnockoutPopupZoom(windowId, value); }
     function adjustKnockoutPopupZoom(windowId, delta) { if (window.opener?.adjustKnockoutPopupZoom) window.opener.adjustKnockoutPopupZoom(windowId, delta); }
     function resetKnockoutPopupZoom(windowId) { if (window.opener?.resetKnockoutPopupZoom) window.opener.resetKnockoutPopupZoom(windowId); }
+    function setKnockoutPopupToolbarCollapsed(windowId, collapsed) { if (window.opener?.setKnockoutPopupToolbarCollapsed) window.opener.setKnockoutPopupToolbarCollapsed(windowId, collapsed); }
   <\/script>
 </head>
 <body>
   <div class="knockout-popup-shell">
-    <div class="knockout-zoom-tools">
+    <button id="knockout-zoom-open" class="knockout-zoom-toggle${entry.zoomToolbarCollapsed ? ' is-visible' : ''}" type="button" onclick="setKnockoutPopupToolbarCollapsed(${entry.id}, false)">Zoom</button>
+    <div class="knockout-zoom-tools${entry.zoomToolbarCollapsed ? ' is-hidden' : ''}">
       <button type="button" onclick="adjustKnockoutPopupZoom(${entry.id}, -5)">-</button>
       <input id="knockout-zoom-slider" type="range" min="25" max="300" step="1" value="${clampKnockoutZoomPercent(entry.zoomPercent || 100)}" oninput="updateKnockoutPopupZoom(${entry.id}, this.value)">
       <button type="button" onclick="adjustKnockoutPopupZoom(${entry.id}, 5)">+</button>
       <button type="button" onclick="resetKnockoutPopupZoom(${entry.id})">Fit</button>
       <span id="knockout-zoom-value" class="knockout-zoom-value">${clampKnockoutZoomPercent(entry.zoomPercent || 100)}%</span>
-      <button type="button" onclick="window.close()">X</button>
+      <button type="button" onclick="setKnockoutPopupToolbarCollapsed(${entry.id}, true)">Hide</button>
     </div>
     <div id="knockout-modal-body" class="knockout-modal-body">${bodyHtml}</div>
   </div>
@@ -3147,6 +3185,7 @@
         id: nextKnockoutPopupWindowId,
         drawNames: selectedDrawNames.slice(),
         zoomPercent: 100,
+        zoomToolbarCollapsed: false,
         resizeTimer: null,
         win: window.open('', `knockoutTreeWindow_${nextKnockoutPopupWindowId}`, features)
       };
