@@ -114,6 +114,123 @@
     .print-selection-tools.hidden {
       display: none;
     }
+    .draw-selector-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10002;
+      background: rgba(15, 23, 42, 0.74);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .draw-selector-overlay.show {
+      display: flex;
+    }
+    .draw-selector-modal {
+      width: min(560px, 96vw);
+      max-height: min(80vh, 720px);
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+    .draw-selector-header {
+      padding: 14px 18px;
+      background: linear-gradient(135deg, #312e81, #4338ca);
+      color: #ffffff;
+    }
+    .draw-selector-header h3 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 800;
+    }
+    .draw-selector-header p {
+      margin: 6px 0 0;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.86);
+    }
+    .draw-selector-body {
+      padding: 16px 18px;
+      overflow: auto;
+      display: grid;
+      gap: 10px;
+      background: #f8fafc;
+    }
+    .draw-selector-tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+    .draw-selector-tools button {
+      border: 1px solid #cbd5e1;
+      border-radius: 9999px;
+      background: #ffffff;
+      color: #334155;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .draw-selector-list {
+      display: grid;
+      gap: 10px;
+    }
+    .draw-selector-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 12px 14px;
+      background: #ffffff;
+      cursor: pointer;
+      transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+    }
+    .draw-selector-item:hover {
+      border-color: #818cf8;
+      background: #eef2ff;
+      transform: translateY(-1px);
+    }
+    .draw-selector-item input {
+      width: 18px;
+      height: 18px;
+      accent-color: #4f46e5;
+      flex: 0 0 auto;
+    }
+    .draw-selector-item span {
+      font-size: 15px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .draw-selector-footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 18px;
+      border-top: 1px solid #e2e8f0;
+      background: #ffffff;
+    }
+    .draw-selector-footer button {
+      border-radius: 10px;
+      padding: 9px 14px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      border: 1px solid transparent;
+    }
+    .draw-selector-cancel {
+      background: #e2e8f0;
+      color: #0f172a;
+      border-color: #cbd5e1;
+    }
+    .draw-selector-confirm {
+      background: #4f46e5;
+      color: #ffffff;
+    }
     .groups-overlay {
       position: fixed;
       inset: 0;
@@ -610,6 +727,25 @@
           <button type="button" onclick="closeKnockoutPopup()" class="px-3 py-1 bg-white text-slate-800 rounded-lg font-semibold hover:bg-slate-100">סגור</button>
         </div>
         <div id="knockout-modal-body" class="knockout-modal-body"></div>
+      </div>
+    </div>
+    <div id="knockout-draw-selector" class="draw-selector-overlay" onclick="if (event.target === this) cancelKnockoutDrawSelection()">
+      <div class="draw-selector-modal" role="dialog" aria-modal="true" aria-label="בחירת קטגוריות לנוקאאוט">
+        <div class="draw-selector-header">
+          <h3>בחירת קטגוריות לנוקאאוט</h3>
+          <p>בחר את הקטגוריות שייפתחו בחלון הנוקאאוט החדש.</p>
+        </div>
+        <div class="draw-selector-body">
+          <div class="draw-selector-tools">
+            <button type="button" onclick="setAllKnockoutDrawSelections(true)">בחר הכל</button>
+            <button type="button" onclick="setAllKnockoutDrawSelections(false)">נקה הכל</button>
+          </div>
+          <div id="knockout-draw-selector-list" class="draw-selector-list"></div>
+        </div>
+        <div class="draw-selector-footer">
+          <button type="button" class="draw-selector-cancel" onclick="cancelKnockoutDrawSelection()">ביטול</button>
+          <button type="button" class="draw-selector-confirm" onclick="confirmKnockoutDrawSelection()">פתח חלון</button>
+        </div>
       </div>
     </div>
   <div id="print-container" class="print-container"></div>
@@ -1137,8 +1273,9 @@
     let selectedUpcomingGameKeys = new Set();
     let groupsPopupWindow = null;
     let groupsPopupResizeTimer = null;
-    let knockoutPopupWindow = null;
-    let knockoutPopupResizeTimer = null;
+    let knockoutPopupWindows = [];
+    let nextKnockoutPopupWindowId = 1;
+    let knockoutDrawSelectionState = null;
     let groupsRowDragState = { groupKey: '', playerKey: '' };
     let groupsRowOrderOverrides = (() => {
       try {
@@ -2165,7 +2302,7 @@
       order[targetIndex] = tmp;
       setKnockoutFirstStageOrder(drawName, order);
       clearKnockoutFirstStageDragState();
-      openKnockoutPopup();
+      refreshKnockoutPopupIfOpen();
     }
 
     function getNonGroupGamesByDraw(games) {
@@ -2556,30 +2693,118 @@
       return `<div id="knockout-content-fit" class="knockout-content-fit">${drawCardsHtml}</div>`;
     }
 
-    function renderKnockoutPopupWindow() {
-      if (!knockoutPopupWindow || knockoutPopupWindow.closed) {
-        knockoutPopupWindow = null;
+    function getLiveKnockoutPopupWindows() {
+      knockoutPopupWindows = knockoutPopupWindows.filter(entry => entry && entry.win && !entry.win.closed);
+      return knockoutPopupWindows;
+    }
+
+    function getKnockoutWindowTitle(drawNames) {
+      const names = Array.isArray(drawNames) ? drawNames.filter(Boolean) : [];
+      if (names.length === 0) return 'כל הקטגוריות';
+      if (names.length === 1) return names[0];
+      if (names.length === 2) return names.join(' | ');
+      return `${names.length} קטגוריות`;
+    }
+
+    function openKnockoutDrawSelector(drawNames) {
+      const names = Array.isArray(drawNames) ? drawNames.slice() : [];
+      if (names.length === 0) return Promise.resolve([]);
+      if (names.length === 1) return Promise.resolve(names);
+
+      const overlay = document.getElementById('knockout-draw-selector');
+      const list = document.getElementById('knockout-draw-selector-list');
+      if (!overlay || !list) return Promise.resolve(names);
+
+      return new Promise(resolve => {
+        knockoutDrawSelectionState = {
+          names,
+          resolve
+        };
+
+        list.innerHTML = names.map((drawName, index) => `
+          <label class="draw-selector-item">
+            <input type="checkbox" class="knockout-draw-option" value="${escapeHtml(drawName)}" ${index === 0 ? 'checked' : ''}>
+            <span>${escapeHtml(drawName)}</span>
+          </label>
+        `).join('');
+
+        overlay.classList.add('show');
+      });
+    }
+
+    function closeKnockoutDrawSelector() {
+      const overlay = document.getElementById('knockout-draw-selector');
+      if (overlay) {
+        overlay.classList.remove('show');
+      }
+    }
+
+    function setAllKnockoutDrawSelections(checked) {
+      document.querySelectorAll('#knockout-draw-selector .knockout-draw-option').forEach(input => {
+        input.checked = Boolean(checked);
+      });
+    }
+
+    function cancelKnockoutDrawSelection() {
+      if (!knockoutDrawSelectionState) return;
+      const { resolve } = knockoutDrawSelectionState;
+      knockoutDrawSelectionState = null;
+      closeKnockoutDrawSelector();
+      resolve(null);
+    }
+
+    function confirmKnockoutDrawSelection() {
+      if (!knockoutDrawSelectionState) return;
+
+      const selected = Array.from(document.querySelectorAll('#knockout-draw-selector .knockout-draw-option:checked'))
+        .map(input => input.value)
+        .filter(Boolean);
+
+      if (selected.length === 0) {
+        const errorMsg = document.getElementById('error-message');
+        if (errorMsg) {
+          errorMsg.textContent = 'בחר לפחות קטגוריית נוקאאוט אחת.';
+          errorMsg.classList.remove('hidden');
+        }
+        return;
+      }
+
+      const { resolve } = knockoutDrawSelectionState;
+      knockoutDrawSelectionState = null;
+      closeKnockoutDrawSelector();
+      resolve(selected);
+    }
+
+    function renderKnockoutPopupWindow(entry) {
+      if (!entry || !entry.win || entry.win.closed) {
+        knockoutPopupWindows = knockoutPopupWindows.filter(item => item !== entry && item?.win && !item.win.closed);
         return;
       }
 
       const nonGroupGamesByDraw = getNonGroupGamesByDraw(gamesData || []);
-      const drawTrees = Array.from(nonGroupGamesByDraw.entries()).map(([drawName, drawGames]) => ({
+      const visibleDrawNames = (Array.isArray(entry.drawNames) && entry.drawNames.length > 0
+        ? entry.drawNames.filter(drawName => nonGroupGamesByDraw.has(drawName))
+        : Array.from(nonGroupGamesByDraw.keys())
+      );
+      const filteredDrawMap = new Map(visibleDrawNames.map(drawName => [drawName, nonGroupGamesByDraw.get(drawName) || []]));
+      const drawTrees = Array.from(filteredDrawMap.entries()).map(([drawName, drawGames]) => ({
         drawName,
         rounds: buildKnockoutTreeFromGames(drawGames)
       })).filter(item => item.rounds.length > 0).map(item => ({
         ...item,
-        rounds: alignKnockoutRoundsByPlayerNames(applyKnockoutFirstStageOrder(item.drawName, item.rounds), nonGroupGamesByDraw.get(item.drawName) || [])
+        rounds: alignKnockoutRoundsByPlayerNames(applyKnockoutFirstStageOrder(item.drawName, item.rounds), filteredDrawMap.get(item.drawName) || [])
       }));
 
-      const bodyHtml = getKnockoutPopupBodyHtml(drawTrees, nonGroupGamesByDraw);
-      const popupDoc = knockoutPopupWindow.document;
+      const bodyHtml = getKnockoutPopupBodyHtml(drawTrees, filteredDrawMap);
+      const popupDoc = entry.win.document;
+      const windowTitle = getKnockoutWindowTitle(visibleDrawNames);
       popupDoc.open();
       popupDoc.write(`<!doctype html>
 <html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>עץ נוקאאוט</title>
+  <title>עץ נוקאאוט - ${escapeHtml(windowTitle)}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -2598,6 +2823,12 @@
       color: #ffffff;
     }
     .knockout-popup-header h2 { margin: 0; font-size: 22px; }
+    .knockout-popup-subtitle {
+      margin: 4px 0 0;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.82);
+      font-weight: 500;
+    }
     .knockout-close-btn {
       border: 1px solid #cbd5e1;
       background: #ffffff;
@@ -2739,7 +2970,10 @@
 <body>
   <div class="knockout-popup-shell">
     <div class="knockout-popup-header">
-      <h2>עץ נוקאאוט</h2>
+      <div>
+        <h2>עץ נוקאאוט</h2>
+        <div class="knockout-popup-subtitle">${escapeHtml(windowTitle)}</div>
+      </div>
       <button type="button" class="knockout-close-btn" onclick="window.close()">סגור</button>
     </div>
     <div id="knockout-modal-body" class="knockout-modal-body">${bodyHtml}</div>
@@ -2748,7 +2982,7 @@
 </html>`);
       popupDoc.close();
 
-      knockoutPopupWindow.requestAnimationFrame(() => applyKnockoutContentFit(popupDoc));
+      entry.win.requestAnimationFrame(() => applyKnockoutContentFit(popupDoc));
     }
 
     function getKnockoutTotalRows(rounds) {
@@ -2764,49 +2998,59 @@
       return ((2 ** (roundIndex - 1)) - 0.5) + (matchIndex * (2 ** roundIndex));
     }
 
-    function openKnockoutPopup() {
-      if (!knockoutPopupWindow || knockoutPopupWindow.closed) {
-        const width = Math.max(1100, Math.floor(window.screen.availWidth * 0.65));
-        const height = Math.max(760, Math.floor(window.screen.availHeight * 0.9));
-        const left = Math.max(0, window.screenX + 70);
-        const top = Math.max(0, window.screenY + 50);
-        const features = `popup=yes,resizable=yes,scrollbars=yes,width=${width},height=${height},left=${left},top=${top}`;
-        knockoutPopupWindow = window.open('', 'knockoutTreeWindow', features);
-        if (!knockoutPopupWindow) {
-          const errorMsg = document.getElementById('error-message');
-          if (errorMsg) {
-            errorMsg.textContent = 'הדפדפן חסם פתיחת חלון נוקאאוט. אפשר חלונות קופצים ונסה שוב.';
-            errorMsg.classList.remove('hidden');
-          }
-          return;
-        }
+    async function openKnockoutPopup() {
+      const nonGroupGamesByDraw = getNonGroupGamesByDraw(gamesData || []);
+      const availableDrawNames = Array.from(nonGroupGamesByDraw.keys()).sort((a, b) => a.localeCompare(b, 'he'));
+      const selectedDrawNames = await openKnockoutDrawSelector(availableDrawNames);
+      if (selectedDrawNames == null) return;
 
-        knockoutPopupWindow.addEventListener('beforeunload', () => {
-          knockoutPopupWindow = null;
-        });
-        knockoutPopupWindow.addEventListener('resize', () => {
-          if (knockoutPopupResizeTimer) clearTimeout(knockoutPopupResizeTimer);
-          knockoutPopupResizeTimer = setTimeout(() => {
-            renderKnockoutPopupWindow();
-          }, 120);
-        });
+      const width = Math.max(1100, Math.floor(window.screen.availWidth * 0.65));
+      const height = Math.max(760, Math.floor(window.screen.availHeight * 0.9));
+      const offsetIndex = getLiveKnockoutPopupWindows().length;
+      const left = Math.max(0, window.screenX + 70 + (offsetIndex * 24));
+      const top = Math.max(0, window.screenY + 50 + (offsetIndex * 24));
+      const features = `popup=yes,resizable=yes,scrollbars=yes,width=${width},height=${height},left=${left},top=${top}`;
+      const entry = {
+        id: nextKnockoutPopupWindowId,
+        drawNames: selectedDrawNames.slice(),
+        resizeTimer: null,
+        win: window.open('', `knockoutTreeWindow_${nextKnockoutPopupWindowId}`, features)
+      };
+      nextKnockoutPopupWindowId += 1;
+
+      if (!entry.win) {
+        const errorMsg = document.getElementById('error-message');
+        if (errorMsg) {
+          errorMsg.textContent = 'הדפדפן חסם פתיחת חלון נוקאאוט. אפשר חלונות קופצים ונסה שוב.';
+          errorMsg.classList.remove('hidden');
+        }
+        return;
       }
 
-      renderKnockoutPopupWindow();
-      try { knockoutPopupWindow.focus(); } catch {}
+      knockoutPopupWindows.push(entry);
+      entry.win.addEventListener('beforeunload', () => {
+        knockoutPopupWindows = knockoutPopupWindows.filter(item => item !== entry);
+      });
+      entry.win.addEventListener('resize', () => {
+        if (entry.resizeTimer) clearTimeout(entry.resizeTimer);
+        entry.resizeTimer = setTimeout(() => {
+          renderKnockoutPopupWindow(entry);
+        }, 120);
+      });
+
+      renderKnockoutPopupWindow(entry);
+      try { entry.win.focus(); } catch {}
     }
 
     function closeKnockoutPopup() {
-      if (knockoutPopupWindow && !knockoutPopupWindow.closed) {
-        knockoutPopupWindow.close();
-      }
-      knockoutPopupWindow = null;
+      getLiveKnockoutPopupWindows().forEach(entry => {
+        try { entry.win.close(); } catch {}
+      });
+      knockoutPopupWindows = [];
     }
 
     function refreshKnockoutPopupIfOpen() {
-      if (knockoutPopupWindow && !knockoutPopupWindow.closed) {
-        renderKnockoutPopupWindow();
-      }
+      getLiveKnockoutPopupWindows().forEach(entry => renderKnockoutPopupWindow(entry));
     }
 
     function getPlayerPhotoUrl(playerId) {
