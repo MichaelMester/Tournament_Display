@@ -2523,7 +2523,7 @@
       });
     }
 
-    function applyKnockoutContentFit(rootDocument = document) {
+    function applyKnockoutContentFit(rootDocument = document, zoomPercent = 100) {
       const body = rootDocument.getElementById('knockout-modal-body');
       const fit = rootDocument.getElementById('knockout-content-fit');
       if (!body || !fit) return;
@@ -2553,7 +2553,41 @@
         }
       }
 
-      fit.style.transform = `scale(${scale})`;
+      const manualZoom = Math.max(25, Math.min(300, Number(zoomPercent) || 100)) / 100;
+      fit.style.transform = `scale(${scale * manualZoom})`;
+    }
+
+    function clampKnockoutZoomPercent(value) {
+      return Math.max(25, Math.min(300, Math.round(Number(value) || 100)));
+    }
+
+    function updateKnockoutPopupZoom(windowId, zoomPercent) {
+      const parsedWindowId = Number.parseInt(String(windowId), 10);
+      if (Number.isNaN(parsedWindowId)) return;
+
+      const entry = getLiveKnockoutPopupWindows().find(item => item.id === parsedWindowId);
+      if (!entry || !entry.win || entry.win.closed) return;
+
+      entry.zoomPercent = clampKnockoutZoomPercent(zoomPercent);
+      const popupDoc = entry.win.document;
+      const slider = popupDoc.getElementById('knockout-zoom-slider');
+      const label = popupDoc.getElementById('knockout-zoom-value');
+      if (slider) slider.value = String(entry.zoomPercent);
+      if (label) label.textContent = `${entry.zoomPercent}%`;
+      applyKnockoutContentFit(popupDoc, entry.zoomPercent);
+    }
+
+    function adjustKnockoutPopupZoom(windowId, delta) {
+      const parsedWindowId = Number.parseInt(String(windowId), 10);
+      if (Number.isNaN(parsedWindowId)) return;
+
+      const entry = getLiveKnockoutPopupWindows().find(item => item.id === parsedWindowId);
+      if (!entry) return;
+      updateKnockoutPopupZoom(parsedWindowId, (entry.zoomPercent || 100) + (Number(delta) || 0));
+    }
+
+    function resetKnockoutPopupZoom(windowId) {
+      updateKnockoutPopupZoom(windowId, 100);
     }
 
     function getKnockoutRoundPalette(roundIndex) {
@@ -2868,6 +2902,42 @@
     * { box-sizing: border-box; font-family: 'Heebo', sans-serif; }
     html, body { margin: 0; width: 100%; height: 100%; background: #f8fafc; color: #0f172a; }
     .knockout-popup-shell { display: grid; grid-template-rows: auto 1fr; width: 100%; height: 100%; }
+    .knockout-zoom-tools {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.94);
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+      direction: ltr;
+    }
+    .knockout-zoom-tools button {
+      width: 28px;
+      height: 28px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #ffffff;
+      color: #0f172a;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .knockout-zoom-tools input[type="range"] {
+      width: 120px;
+      accent-color: #4f46e5;
+    }
+    .knockout-zoom-value {
+      min-width: 48px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 700;
+      color: #0f172a;
+    }
     .knockout-popup-header {
       display: flex;
       align-items: center;
@@ -3024,16 +3094,20 @@
     function onKnockoutFirstStageDragEnter(event) { if (window.opener?.onKnockoutFirstStageDragEnter) window.opener.onKnockoutFirstStageDragEnter(event); }
     function onKnockoutFirstStageDragLeave(event) { if (window.opener?.onKnockoutFirstStageDragLeave) window.opener.onKnockoutFirstStageDragLeave(event); }
     function dropKnockoutFirstStageSwap(drawToken, toIndex, stageSize, event) { if (window.opener?.dropKnockoutFirstStageSwap) window.opener.dropKnockoutFirstStageSwap(drawToken, toIndex, stageSize, event); }
+    function updateKnockoutPopupZoom(windowId, value) { if (window.opener?.updateKnockoutPopupZoom) window.opener.updateKnockoutPopupZoom(windowId, value); }
+    function adjustKnockoutPopupZoom(windowId, delta) { if (window.opener?.adjustKnockoutPopupZoom) window.opener.adjustKnockoutPopupZoom(windowId, delta); }
+    function resetKnockoutPopupZoom(windowId) { if (window.opener?.resetKnockoutPopupZoom) window.opener.resetKnockoutPopupZoom(windowId); }
   <\/script>
 </head>
 <body>
   <div class="knockout-popup-shell">
-    <div class="knockout-popup-header">
-      <div>
-        <h2>עץ נוקאאוט</h2>
-        <div class="knockout-popup-subtitle">${escapeHtml(windowTitle)}</div>
-      </div>
-      <button type="button" class="knockout-close-btn" onclick="window.close()">סגור</button>
+    <div class="knockout-zoom-tools">
+      <button type="button" onclick="adjustKnockoutPopupZoom(${entry.id}, -5)">-</button>
+      <input id="knockout-zoom-slider" type="range" min="25" max="300" step="1" value="${clampKnockoutZoomPercent(entry.zoomPercent || 100)}" oninput="updateKnockoutPopupZoom(${entry.id}, this.value)">
+      <button type="button" onclick="adjustKnockoutPopupZoom(${entry.id}, 5)">+</button>
+      <button type="button" onclick="resetKnockoutPopupZoom(${entry.id})">Fit</button>
+      <span id="knockout-zoom-value" class="knockout-zoom-value">${clampKnockoutZoomPercent(entry.zoomPercent || 100)}%</span>
+      <button type="button" onclick="window.close()">X</button>
     </div>
     <div id="knockout-modal-body" class="knockout-modal-body">${bodyHtml}</div>
   </div>
@@ -3041,7 +3115,7 @@
 </html>`);
       popupDoc.close();
 
-      entry.win.requestAnimationFrame(() => applyKnockoutContentFit(popupDoc));
+      entry.win.requestAnimationFrame(() => applyKnockoutContentFit(popupDoc, entry.zoomPercent || 100));
     }
 
     function getKnockoutTotalRows(rounds) {
@@ -3072,6 +3146,7 @@
       const entry = {
         id: nextKnockoutPopupWindowId,
         drawNames: selectedDrawNames.slice(),
+        zoomPercent: 100,
         resizeTimer: null,
         win: window.open('', `knockoutTreeWindow_${nextKnockoutPopupWindowId}`, features)
       };
