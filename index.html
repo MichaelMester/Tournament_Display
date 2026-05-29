@@ -90,6 +90,39 @@
       border-color: #1d4ed8;
       color: #ffffff;
     }
+    .manual-progress-btn {
+      position: absolute;
+      top: 6px;
+      left: 34px;
+      z-index: 20;
+      border-radius: 9999px;
+      border: 1px solid #94a3b8;
+      background: #ffffff;
+      color: #0f172a;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1;
+      padding: 4px 8px;
+      cursor: pointer;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+    }
+    .manual-progress-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+    .manual-progress-btn.start {
+      border-color: #16a34a;
+      color: #166534;
+      background: #f0fdf4;
+    }
+    .manual-progress-btn.stop {
+      top: 10px;
+      left: 118px;
+      border-color: #dc2626;
+      color: #991b1b;
+      background: #fef2f2;
+    }
     .print-selection-bar {
       display: flex;
       flex-wrap: wrap;
@@ -1323,6 +1356,9 @@
     let nextGameNumber = 1;
     let gameNumberStorageScope = '';
     let gameNumberStorageKey = '';
+    let manualInProgressByKey = {};
+    let manualInProgressStorageScope = '';
+    let manualInProgressStorageKey = '';
     let groupsRowOrderOverrides = (() => {
       try {
         return JSON.parse(localStorage.getItem('groupsRowOrderOverrides') || '{}') || {};
@@ -1543,15 +1579,149 @@
       }
     }
 
+    function setManualInProgressScope(eventId, env) {
+      const normalizedEventId = String(eventId || '').trim();
+      const normalizedEnv = String(env || 'prod').trim() || 'prod';
+      const scope = `${normalizedEnv}:${normalizedEventId}`;
+      if (!normalizedEventId) {
+        manualInProgressByKey = {};
+        manualInProgressStorageScope = '';
+        manualInProgressStorageKey = '';
+        return;
+      }
+      if (scope === manualInProgressStorageScope) return;
+
+      manualInProgressStorageScope = scope;
+      manualInProgressStorageKey = `manualInProgressGames:${scope}`;
+      manualInProgressByKey = {};
+      try {
+        const raw = localStorage.getItem(manualInProgressStorageKey);
+        if (raw) {
+          const parsed = JSON.parse(raw) || {};
+          if (parsed && typeof parsed === 'object') {
+            manualInProgressByKey = parsed;
+          }
+        }
+      } catch {
+        manualInProgressByKey = {};
+      }
+    }
+
+    function saveManualInProgressIfScoped() {
+      if (!manualInProgressStorageKey) return;
+      try {
+        localStorage.setItem(manualInProgressStorageKey, JSON.stringify(manualInProgressByKey));
+      } catch {}
+    }
+
+    function isManuallyInProgressGame(game) {
+      const stableKey = getStableGameKey(game);
+      if (!stableKey) return false;
+      return Boolean(manualInProgressByKey[stableKey]);
+    }
+
+    function syncManualInProgressOverrides(games) {
+      const statusByKey = new Map();
+      const existingKeys = new Set();
+      games.forEach(game => {
+        const stableKey = getStableGameKey(game);
+        if (!stableKey) return;
+        existingKeys.add(stableKey);
+        statusByKey.set(stableKey, game.status || '');
+      });
+
+      let changed = false;
+      Object.keys(manualInProgressByKey).forEach(stableKey => {
+        const existsInCurrentData = existingKeys.has(stableKey);
+        const status = statusByKey.get(stableKey);
+        if (!existsInCurrentData || status === 'FINISHED') {
+          delete manualInProgressByKey[stableKey];
+          changed = true;
+        }
+      });
+      if (changed) {
+        saveManualInProgressIfScoped();
+      }
+    }
+
+    function getDisplayUpcomingGames(games) {
+      return sortUpcomingGames((games || []).filter(game =>
+        game.status !== 'FINISHED' && game.status !== 'IN_PROGRESS' &&
+        (isValidPlayer(game.playerFullNameA) || isValidPlayer(game.playerFullNameX)) &&
+        !isManuallyInProgressGame(game)
+      ));
+    }
+
+    function startGameFromCard(cardEl) {
+      if (!cardEl) return;
+      const encodedKey = cardEl.getAttribute('data-stable-game-key') || '';
+      if (!encodedKey) return;
+      let stableKey = '';
+      try {
+        stableKey = decodeURIComponent(encodedKey);
+      } catch {
+        stableKey = encodedKey;
+      }
+      if (!stableKey) return;
+      manualInProgressByKey[stableKey] = true;
+      saveManualInProgressIfScoped();
+      renderGames(gamesData);
+    }
+
+    function startGameByStableKey(encodedKey) {
+      if (!encodedKey) return;
+      let stableKey = '';
+      try {
+        stableKey = decodeURIComponent(encodedKey);
+      } catch {
+        stableKey = encodedKey;
+      }
+      if (!stableKey) return;
+      manualInProgressByKey[stableKey] = true;
+      saveManualInProgressIfScoped();
+      renderGames(gamesData);
+    }
+
+    function stopGameFromCard(cardEl) {
+      if (!cardEl) return;
+      const encodedKey = cardEl.getAttribute('data-stable-game-key') || '';
+      if (!encodedKey) return;
+      let stableKey = '';
+      try {
+        stableKey = decodeURIComponent(encodedKey);
+      } catch {
+        stableKey = encodedKey;
+      }
+      if (!stableKey) return;
+      if (Object.prototype.hasOwnProperty.call(manualInProgressByKey, stableKey)) {
+        delete manualInProgressByKey[stableKey];
+        saveManualInProgressIfScoped();
+      }
+      renderGames(gamesData);
+    }
+
+    function stopGameByStableKey(encodedKey) {
+      if (!encodedKey) return;
+      let stableKey = '';
+      try {
+        stableKey = decodeURIComponent(encodedKey);
+      } catch {
+        stableKey = encodedKey;
+      }
+      if (!stableKey) return;
+      if (Object.prototype.hasOwnProperty.call(manualInProgressByKey, stableKey)) {
+        delete manualInProgressByKey[stableKey];
+        saveManualInProgressIfScoped();
+      }
+      renderGames(gamesData);
+    }
+
     function updateUpcomingSelectionUI() {
       const counter = document.getElementById('selected-upcoming-count');
       const selectAll = document.getElementById('select-all-upcoming-print');
       const enableSelection = document.getElementById('enable-upcoming-print-selection');
       const selectionTools = document.getElementById('upcoming-print-selection-tools');
-      const upcomingGames = gamesData.filter(game =>
-        game.status !== 'FINISHED' && game.status !== 'IN_PROGRESS' &&
-        (isValidPlayer(game.playerFullNameA) || isValidPlayer(game.playerFullNameX))
-      );
+      const upcomingGames = getDisplayUpcomingGames(gamesData);
       const allKeys = upcomingGames.map(getUpcomingGameKey).filter(Boolean);
       const selectedCount = allKeys.filter(key => selectedUpcomingGameKeys.has(key)).length;
 
@@ -1601,10 +1771,7 @@
 
     function toggleSelectAllUpcoming(checked) {
       if (!isUpcomingPrintSelectionEnabled) return;
-      const upcomingGames = gamesData.filter(game =>
-        game.status !== 'FINISHED' && game.status !== 'IN_PROGRESS' &&
-        (isValidPlayer(game.playerFullNameA) || isValidPlayer(game.playerFullNameX))
-      );
+      const upcomingGames = getDisplayUpcomingGames(gamesData);
       if (checked) {
         selectedUpcomingGameKeys = new Set(upcomingGames.map(getUpcomingGameKey).filter(Boolean));
       } else {
@@ -3532,8 +3699,10 @@
       let upcomingDataAttrs = '';
       let announceButtonHtml = '';
       let selectionButtonHtml = '';
+      let manualProgressButtonHtml = '';
       let gameNumberHtml = '';
       const stableKey = getStableGameKey(game);
+      const encodedStableKey = encodeURIComponent(stableKey || '');
       const stableGameNumber = gameNumberMap && gameNumberMap.has(stableKey) ? gameNumberMap.get(stableKey) : null;
       if (type === 'upcoming') {
         const gameKey = getUpcomingGameKey(game);
@@ -3543,11 +3712,17 @@
         const playerXid = encodeURIComponent(game.playerXid || '');
         const encodedGameKey = encodeURIComponent(gameKey);
         const isSelected = selectedUpcomingGameKeys.has(gameKey);
+        const canManualStart = !isGrayed;
         upcomingDataAttrs = `data-player-a="${playerAEncoded}" data-player-x="${playerXEncoded}" data-player-aid="${playerAid}" data-player-xid="${playerXid}" data-game-key="${encodedGameKey}"`;
         announceButtonHtml = `<button type="button" class="announce-btn" aria-label="הכרזת משחק" title="השמע הכרזה" onclick="event.stopPropagation(); announcePlayersFromCard(this.closest('.game-card'))">▶</button>`;
+        manualProgressButtonHtml = `<button type="button" class="manual-progress-btn start" aria-label="התחלת משחק" title="${canManualStart ? 'העבר למשחקים עכשיו' : 'לא ניתן להתחיל משחק אפור'}" ${canManualStart ? '' : 'disabled'} onclick="if (typeof event !== 'undefined' && event && event.stopPropagation) event.stopPropagation(); ${canManualStart ? `startGameByStableKey('${encodedStableKey}')` : ''}">התחל</button>`;
         if (isUpcomingPrintSelectionEnabled) {
           selectionButtonHtml = `<button type="button" class="selection-btn ${isSelected ? 'selected' : ''}" aria-label="בחירת משחק להדפסה" title="בחר להדפסה" onclick="event.stopPropagation(); toggleUpcomingSelection(decodeURIComponent(this.closest('.game-card').getAttribute('data-game-key') || ''))">${isSelected ? '✓' : ''}</button>`;
         }
+      }
+      if (type === 'inprogress' && isManuallyInProgressGame(game)) {
+        const isApiInProgress = String(game.status || '').toUpperCase() === 'IN_PROGRESS';
+        manualProgressButtonHtml = `<button type="button" class="manual-progress-btn stop" aria-label="עצירת משחק" title="${isApiInProgress ? 'לא ניתן לעצור משחק שבסטטוס משחק כעת מהמערכת' : 'בטל התחלה ידנית'}" ${isApiInProgress ? 'disabled' : ''} onclick="if (typeof event !== 'undefined' && event && event.stopPropagation) event.stopPropagation(); ${isApiInProgress ? '' : `stopGameByStableKey('${encodedStableKey}')`}">עצור</button>`;
       }
       if (stableGameNumber !== null) {
         gameNumberHtml = `משחק ${stableGameNumber} | `;
@@ -3627,29 +3802,12 @@
         if (hhmm) {
           extraDetails += ` | <span title=\"שעת משחק\">שעת משחק: ${hhmm}</span>`;
         }
-        // Add date if present
-        if (game.date) {
-          // Format date as YYYY-MM-DD or DD/MM/YYYY if needed
-          let dateStr = '';
-          try {
-            const d = new Date(game.date);
-            if (!isNaN(d)) {
-              // Format as DD/MM/YYYY
-              const day = String(d.getDate()).padStart(2, '0');
-              const month = String(d.getMonth() + 1).padStart(2, '0');
-              const year = d.getFullYear();
-              dateStr = `${day}/${month}/${year}`;
-            }
-          } catch {}
-          if (dateStr) {
-            extraDetails += ` | <span title=\"תאריך\">תאריך: ${dateStr}</span>`;
-          }
-        }
       }
       return `
-        <div class="game-card bg-slate-50 rounded-lg p-2 border border-slate-200 text-sm ${grayClass} relative" ${upcomingDataAttrs}>
+        <div class="game-card bg-slate-50 rounded-lg p-2 border border-slate-200 text-sm ${grayClass} relative" data-stable-game-key="${encodedStableKey}" ${upcomingDataAttrs}>
           ${announceButtonHtml}
           ${selectionButtonHtml}
+          ${manualProgressButtonHtml}
           ${timerHtml}
           <div class="flex justify-between items-center mb-1">
             <span class="text-slate-500 text-xs w-full text-right block">
@@ -3842,10 +4000,7 @@
     }
     function printUpcomingGames() {
       const printContainer = document.getElementById('print-container');
-      const allUpcomingGames = sortUpcomingGames(gamesData.filter(game =>
-        game.status !== 'FINISHED' && game.status !== 'IN_PROGRESS' &&
-        (isValidPlayer(game.playerFullNameA) || isValidPlayer(game.playerFullNameX))
-      ));
+      const allUpcomingGames = getDisplayUpcomingGames(gamesData);
       const gameNumberMap = buildUpcomingGameNumberMap(allUpcomingGames);
       const upcomingGames = selectedUpcomingGameKeys.size > 0
         ? allUpcomingGames.filter(game => selectedUpcomingGameKeys.has(getUpcomingGameKey(game)))
@@ -3915,10 +4070,11 @@
     // Render games to columns
     function renderGames(games) {
       setupPlayerTimers(games);
+      syncManualInProgressOverrides(games);
       const playersInProgress = getPlayersInProgress(games);
       // For finished/in-progress: both players must exist. For upcoming: at least one player must exist.
       const validGames = games.filter(game => isValidPlayer(game.playerFullNameA) && isValidPlayer(game.playerFullNameX));
-      const upcomingGamesRaw = games.filter(game => 
+      const allUpcomingByStatus = games.filter(game => 
         game.status !== 'FINISHED' && game.status !== 'IN_PROGRESS' && (isValidPlayer(game.playerFullNameA) || isValidPlayer(game.playerFullNameX))
       );
       // --- Track state transitions for finished_at ---
@@ -3927,7 +4083,15 @@
       const prevFinishedIds = (window._prevFinishedIds || []);
       let inProgressGames = validGames.filter(g => g.status === 'IN_PROGRESS');
       let finishedGames = validGames.filter(g => g.status === 'FINISHED');
-      let upcomingGames = upcomingGamesRaw;
+      const manuallyStartedGames = allUpcomingByStatus.filter(game => isManuallyInProgressGame(game));
+      const inProgressStableKeys = new Set(inProgressGames.map(getStableGameKey).filter(Boolean));
+      manuallyStartedGames.forEach(game => {
+        const stableKey = getStableGameKey(game);
+        if (!stableKey || inProgressStableKeys.has(stableKey)) return;
+        inProgressGames.push(game);
+        inProgressStableKeys.add(stableKey);
+      });
+      let upcomingGames = getDisplayUpcomingGames(games);
       syncUpcomingSelection(upcomingGames);
       const inProgressIds = inProgressGames.map(g => g.id).filter(Boolean);
       const finishedIds = finishedGames.map(g => g.id).filter(Boolean);
@@ -4253,6 +4417,7 @@
       }
 
       setGameNumberScope(eventId, env);
+      setManualInProgressScope(eventId, env);
 
       // Show loading state
       btnText.textContent = 'טוען...';
