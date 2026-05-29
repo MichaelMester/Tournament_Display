@@ -1541,6 +1541,11 @@
     let manualInProgressStorageScope = '';
     let manualInProgressStorageKey = '';
     const COMBINED_SELECTION_STORAGE_PREFIX = 'combinedDisplaySelection';
+    const DRAW_COLOR_STORAGE_PREFIX = 'drawDisplayColors';
+    let drawColorOverrides = {};
+    let drawColorStorageScope = '';
+    let drawColorStorageKey = '';
+    let drawColorInputEl = null;
 
     function getCombinedSelectionScope() {
       const eventId = String(document.getElementById('event-id-input')?.value || '').trim();
@@ -1578,6 +1583,159 @@
           knockoutDraws: Array.isArray(selection?.knockoutDraws) ? selection.knockoutDraws.slice() : []
         }));
       } catch {}
+    }
+
+    function normalizeHexColor(value) {
+      const text = String(value || '').trim();
+      if (!text) return '';
+      const normalized = text.startsWith('#') ? text : `#${text}`;
+      if (!/^#[0-9a-fA-F]{6}$/.test(normalized)) return '';
+      return normalized.toLowerCase();
+    }
+
+    function parseHexColor(value) {
+      const normalized = normalizeHexColor(value);
+      if (!normalized) return null;
+      const red = Number.parseInt(normalized.slice(1, 3), 16);
+      const green = Number.parseInt(normalized.slice(3, 5), 16);
+      const blue = Number.parseInt(normalized.slice(5, 7), 16);
+      return { red, green, blue, hex: normalized };
+    }
+
+    function getContrastTextColor(value) {
+      const rgb = parseHexColor(value);
+      if (!rgb) return '#0f172a';
+      const luminance = ((0.299 * rgb.red) + (0.587 * rgb.green) + (0.114 * rgb.blue)) / 255;
+      return luminance > 0.6 ? '#0f172a' : '#ffffff';
+    }
+
+    function shadeHexColor(value, factor) {
+      const rgb = parseHexColor(value);
+      if (!rgb) return '';
+      const clamp = (n) => Math.max(0, Math.min(255, Math.round(n)));
+      const shadedRed = clamp(rgb.red * factor);
+      const shadedGreen = clamp(rgb.green * factor);
+      const shadedBlue = clamp(rgb.blue * factor);
+      const toHex = (n) => n.toString(16).padStart(2, '0');
+      return `#${toHex(shadedRed)}${toHex(shadedGreen)}${toHex(shadedBlue)}`;
+    }
+
+    function setDrawColorScope(eventId, env) {
+      const normalizedEventId = String(eventId || '').trim();
+      const normalizedEnv = String(env || 'prod').trim() || 'prod';
+      const scope = `${normalizedEnv}:${normalizedEventId}`;
+      if (!normalizedEventId) {
+        drawColorOverrides = {};
+        drawColorStorageScope = '';
+        drawColorStorageKey = '';
+        return;
+      }
+      if (scope === drawColorStorageScope) return;
+
+      drawColorStorageScope = scope;
+      drawColorStorageKey = `${DRAW_COLOR_STORAGE_PREFIX}:${scope}`;
+      drawColorOverrides = {};
+      try {
+        const raw = localStorage.getItem(drawColorStorageKey);
+        if (raw) {
+          const parsed = JSON.parse(raw) || {};
+          if (parsed && typeof parsed === 'object') {
+            const next = {};
+            Object.entries(parsed).forEach(([drawName, color]) => {
+              const normalizedColor = normalizeHexColor(color);
+              if (!normalizedColor) return;
+              next[String(drawName || '').trim()] = normalizedColor;
+            });
+            drawColorOverrides = next;
+          }
+        }
+      } catch {
+        drawColorOverrides = {};
+      }
+    }
+
+    function saveDrawColorOverridesIfScoped() {
+      if (!drawColorStorageKey) return;
+      try {
+        localStorage.setItem(drawColorStorageKey, JSON.stringify(drawColorOverrides || {}));
+      } catch {}
+    }
+
+    function getDrawColorOverride(drawName) {
+      const key = String(drawName || '').trim();
+      if (!key) return '';
+      return normalizeHexColor(drawColorOverrides[key]);
+    }
+
+    function ensureDrawColorInput() {
+      if (drawColorInputEl && drawColorInputEl.isConnected) return drawColorInputEl;
+      const input = document.createElement('input');
+      input.type = 'color';
+      input.style.position = 'fixed';
+      input.style.opacity = '0';
+      input.style.pointerEvents = 'none';
+      input.style.width = '1px';
+      input.style.height = '1px';
+      input.style.left = '-1000px';
+      input.style.top = '-1000px';
+      input.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(input);
+      drawColorInputEl = input;
+      return drawColorInputEl;
+    }
+
+    function setDrawDisplayColor(drawName, color) {
+      const key = String(drawName || '').trim();
+      const normalizedColor = normalizeHexColor(color);
+      if (!key || !normalizedColor) return;
+      drawColorOverrides[key] = normalizedColor;
+      saveDrawColorOverridesIfScoped();
+      refreshGroupsPopupIfOpen();
+      refreshKnockoutPopupIfOpen();
+    }
+
+    function openDrawColorPickerForDraw(drawName) {
+      const key = String(drawName || '').trim();
+      if (!key) return;
+      const input = document.createElement('input');
+      input.type = 'color';
+      input.style.position = 'fixed';
+      input.style.opacity = '0';
+      input.style.pointerEvents = 'none';
+      input.style.width = '1px';
+      input.style.height = '1px';
+      input.style.left = '-1000px';
+      input.style.top = '-1000px';
+      input.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(input);
+
+      let cleaned = false;
+      const cleanup = () => {
+        if (cleaned) return;
+        cleaned = true;
+        input.onchange = null;
+        input.onblur = null;
+        if (input.isConnected) input.remove();
+      };
+
+      input.value = getDrawColorOverride(key) || '#60a5fa';
+      input.onchange = () => {
+        setDrawDisplayColor(key, input.value);
+        cleanup();
+      };
+      input.onblur = () => {
+        setTimeout(cleanup, 0);
+      };
+
+      try {
+        if (typeof input.showPicker === 'function') {
+          input.showPicker();
+        } else {
+          input.click();
+        }
+      } catch {
+        input.click();
+      }
     }
 
     function hasDragDataType(event, expectedType) {
@@ -2020,6 +2178,15 @@
 
     function getDrawTheme(drawName) {
       const text = String(drawName || 'ללא קטגוריה');
+      const overrideColor = getDrawColorOverride(text);
+      if (overrideColor) {
+        return {
+          titleBg: overrideColor,
+          borderColor: shadeHexColor(overrideColor, 0.75) || overrideColor,
+          titleColor: getContrastTextColor(overrideColor)
+        };
+      }
+
       let hash = 0;
       for (let i = 0; i < text.length; i += 1) {
         hash = ((hash << 5) - hash) + text.charCodeAt(i);
@@ -2069,6 +2236,7 @@
       return Array.from(groupsByDraw.entries()).map(([, drawGroups]) => {
         const cards = drawGroups.map(group => {
           const theme = getDrawTheme(group.draw);
+          const drawToken = encodeURIComponent(String(group.draw || ''));
           const rowsWithDrag = group.players.map((player, index) => {
             const displayName = formatGroupsPlayerDisplayName(player.name);
             const groupToken = encodeURIComponent(String(group.groupKey || ''));
@@ -2089,7 +2257,7 @@
 
           return `
             <section class="group-card" style="border-color:${escapeHtml(theme.borderColor)};">
-              <div class="group-card-title" style="background:${escapeHtml(theme.titleBg)}; border-bottom-color:${escapeHtml(theme.borderColor)}; color:${escapeHtml(theme.titleColor)};">
+              <div class="group-card-title" onclick="openDrawColorPickerForDraw(decodeURIComponent('${drawToken}'))" title="שנה צבע קטגוריה" style="cursor:pointer; background:${escapeHtml(theme.titleBg)}; border-bottom-color:${escapeHtml(theme.borderColor)}; color:${escapeHtml(theme.titleColor)};">
                 <span>בית ${escapeHtml(group.groupNo)}</span>
                 ${group.isFinishedGroup ? '<span class="group-finished-badge">הבית הסתיים</span>' : ''}
               </div>
@@ -2132,6 +2300,7 @@
           const theme = getDrawTheme(group.draw);
           const groupKey = String(group.groupKey || '');
           const groupToken = encodeURIComponent(groupKey);
+          const drawToken = encodeURIComponent(String(group.draw || ''));
           const rowsWithDrag = group.players.map((player, index) => {
             const displayName = formatGroupsPlayerDisplayName(player.name);
             const playerKey = getGroupPlayerOrderKey(player);
@@ -2151,7 +2320,7 @@
 
           return `
             <section class="group-card combined-group-card" style="border-color:${escapeHtml(theme.borderColor)};" ondragover="allowCombinedItemDrop(event)" ondrop="dropCombinedItem(${windowId}, 'group-card', decodeURIComponent('${groupToken}'), event)">
-              <div class="group-card-title combined-group-card-handle" draggable="true" ondragstart="startCombinedItemDrag(${windowId}, 'group-card', decodeURIComponent('${groupToken}'), event)" style="background:${escapeHtml(theme.titleBg)}; border-bottom-color:${escapeHtml(theme.borderColor)}; color:${escapeHtml(theme.titleColor)};">
+              <div class="group-card-title combined-group-card-handle" draggable="true" ondragstart="startCombinedItemDrag(${windowId}, 'group-card', decodeURIComponent('${groupToken}'), event)" onclick="openDrawColorPickerForDraw(decodeURIComponent('${drawToken}'))" title="שנה צבע קטגוריה" style="background:${escapeHtml(theme.titleBg)}; border-bottom-color:${escapeHtml(theme.borderColor)}; color:${escapeHtml(theme.titleColor)};">
                 <span>${escapeHtml(group.draw)} | בית ${escapeHtml(group.groupNo)}</span>
                 ${group.isFinishedGroup ? '<span class="group-finished-badge">הבית הסתיים</span>' : ''}
               </div>
@@ -2329,6 +2498,50 @@
     function onGroupPlayersDragEnter(event) { if (window.opener?.onGroupPlayersDragEnter) window.opener.onGroupPlayersDragEnter(event); }
     function onGroupPlayersDragLeave(event) { if (window.opener?.onGroupPlayersDragLeave) window.opener.onGroupPlayersDragLeave(event); }
     function dropGroupPlayersSwap(scope, windowId, groupKey, playerKey, event) { if (window.opener?.dropGroupPlayersSwap) window.opener.dropGroupPlayersSwap(scope, windowId, groupKey, playerKey, event); }
+    function openDrawColorPickerForDraw(drawName) {
+      const key = String(drawName || '').trim();
+      if (!key || !window.opener?.setDrawDisplayColor) return;
+      const input = document.createElement('input');
+      input.type = 'color';
+      input.style.position = 'fixed';
+      input.style.opacity = '0';
+      input.style.pointerEvents = 'none';
+      input.style.width = '1px';
+      input.style.height = '1px';
+      input.style.left = '-1000px';
+      input.style.top = '-1000px';
+      input.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(input);
+
+      let cleaned = false;
+      const cleanup = () => {
+        if (cleaned) return;
+        cleaned = true;
+        input.onchange = null;
+        input.onblur = null;
+        if (input.isConnected) input.remove();
+      };
+
+      const existingColor = window.opener?.getDrawColorOverride ? window.opener.getDrawColorOverride(key) : '';
+      input.value = existingColor || '#60a5fa';
+      input.onchange = () => {
+        window.opener.setDrawDisplayColor(key, input.value);
+        cleanup();
+      };
+      input.onblur = () => {
+        setTimeout(cleanup, 0);
+      };
+
+      try {
+        if (typeof input.showPicker === 'function') {
+          input.showPicker();
+        } else {
+          input.click();
+        }
+      } catch {
+        input.click();
+      }
+    }
   <\/script>
 </head>
 <body>
@@ -3813,7 +4026,7 @@
 
         return `
           <section class="knockout-draw-card"${dragDropAttrs} style="--round-count:${tree.rounds.length}; border-color:${escapeHtml(theme.borderColor)};">
-            <div class="knockout-draw-title${enableDrawDrag ? ' knockout-draw-drag-handle' : ''}"${dragTitleAttrs} style="background:${escapeHtml(theme.titleBg)}; border-bottom-color:${escapeHtml(theme.borderColor)}; color:${escapeHtml(theme.titleColor)};">${escapeHtml(tree.drawName)}</div>
+            <div class="knockout-draw-title${enableDrawDrag ? ' knockout-draw-drag-handle' : ''}"${dragTitleAttrs} onclick="openDrawColorPickerForDraw(decodeURIComponent('${drawKeyToken}'))" title="שנה צבע קטגוריה" style="background:${escapeHtml(theme.titleBg)}; border-bottom-color:${escapeHtml(theme.borderColor)}; color:${escapeHtml(theme.titleColor)}; cursor:pointer;">${escapeHtml(tree.drawName)}</div>
             <div class="knockout-rounds">${roundsHtml}</div>
           </section>
         `;
@@ -4530,6 +4743,50 @@
     function onGroupPlayersDragEnter(event) { if (window.opener?.onGroupPlayersDragEnter) window.opener.onGroupPlayersDragEnter(event); }
     function onGroupPlayersDragLeave(event) { if (window.opener?.onGroupPlayersDragLeave) window.opener.onGroupPlayersDragLeave(event); }
     function dropGroupPlayersSwap(scope, windowId, groupKey, playerKey, event) { if (window.opener?.dropGroupPlayersSwap) window.opener.dropGroupPlayersSwap(scope, windowId, groupKey, playerKey, event); }
+    function openDrawColorPickerForDraw(drawName) {
+      const key = String(drawName || '').trim();
+      if (!key || !window.opener?.setDrawDisplayColor) return;
+      const input = document.createElement('input');
+      input.type = 'color';
+      input.style.position = 'fixed';
+      input.style.opacity = '0';
+      input.style.pointerEvents = 'none';
+      input.style.width = '1px';
+      input.style.height = '1px';
+      input.style.left = '-1000px';
+      input.style.top = '-1000px';
+      input.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(input);
+
+      let cleaned = false;
+      const cleanup = () => {
+        if (cleaned) return;
+        cleaned = true;
+        input.onchange = null;
+        input.onblur = null;
+        if (input.isConnected) input.remove();
+      };
+
+      const existingColor = window.opener?.getDrawColorOverride ? window.opener.getDrawColorOverride(key) : '';
+      input.value = existingColor || '#60a5fa';
+      input.onchange = () => {
+        window.opener.setDrawDisplayColor(key, input.value);
+        cleanup();
+      };
+      input.onblur = () => {
+        setTimeout(cleanup, 0);
+      };
+
+      try {
+        if (typeof input.showPicker === 'function') {
+          input.showPicker();
+        } else {
+          input.click();
+        }
+      } catch {
+        input.click();
+      }
+    }
     function updateKnockoutPopupZoom(windowId, value) { if (window.opener?.updateKnockoutPopupZoom) window.opener.updateKnockoutPopupZoom(windowId, value); }
     function adjustKnockoutPopupZoom(windowId, delta) { if (window.opener?.adjustKnockoutPopupZoom) window.opener.adjustKnockoutPopupZoom(windowId, delta); }
     function resetKnockoutPopupZoom(windowId) { if (window.opener?.resetKnockoutPopupZoom) window.opener.resetKnockoutPopupZoom(windowId); }
@@ -5640,6 +5897,7 @@
 
       setGameNumberScope(eventId, env);
       setManualInProgressScope(eventId, env);
+      setDrawColorScope(eventId, env);
 
       // Show loading state
       btnText.textContent = 'טוען...';
