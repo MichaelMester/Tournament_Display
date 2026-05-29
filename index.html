@@ -447,14 +447,16 @@
       padding: 6px;
       overflow: auto;
       display: grid;
+      grid-template-rows: 1fr;
       gap: 6px;
-      align-content: start;
+      align-content: stretch;
+      min-height: 0;
       background: #f8fafc;
     }
     .combined-popup-section {
       display: grid;
+      grid-template-rows: auto 1fr;
       gap: 6px;
-      align-content: start;
       min-height: 0;
     }
     .combined-popup-section-draggable {
@@ -471,6 +473,10 @@
       gap: 6px;
       min-height: 0;
       height: 100%;
+    }
+    .knockout-modal-body > .combined-layout {
+      height: 100%;
+      min-height: 0;
     }
     .combined-layout-single .combined-popup-section {
       flex: 1 1 auto;
@@ -494,16 +500,12 @@
     .combined-groups-viewport {
       position: relative;
       overflow: hidden;
-      height: min(48vh, 520px);
+      height: 100%;
+      min-height: 0;
       border: 1px solid #e2e8f0;
       border-radius: 10px;
       background: #ffffff;
       padding: 4px;
-    }
-    .combined-layout-single .combined-groups-viewport,
-    .combined-layout-two .combined-groups-viewport {
-      height: 100%;
-      min-height: 0;
     }
     .combined-knockout-viewport {
       overflow: hidden;
@@ -2750,6 +2752,13 @@
       order[targetIndex] = temp;
       setGroupPlayersOrder(resolvedGroupKey, order);
 
+      if (dropScope === 'combined') {
+        const combinedEntry = getLiveKnockoutPopupWindows().find(item => item.id === resolvedWindowId && item.mode === 'combined');
+        if (combinedEntry) {
+          combinedEntry.preserveGroupsAutoScaleOnce = true;
+        }
+      }
+
       refreshGroupsPopupIfOpen();
       refreshKnockoutPopupIfOpen();
     }
@@ -3463,14 +3472,14 @@
       fit.style.transform = `scale(${scale * manualZoom})`;
     }
 
-    function applyCombinedGroupsContentFit(rootDocument = document, zoomPercent = 100) {
+    function applyCombinedGroupsContentFit(rootDocument = document, zoomPercent = 100, options = {}) {
       const viewport = rootDocument.getElementById('combined-groups-viewport');
       const fit = rootDocument.getElementById('combined-groups-fit');
       if (!viewport || !fit) return;
 
       if (!fit.children.length) {
         fit.style.transform = 'scale(1)';
-        return;
+        return 1;
       }
 
       const calculateScale = () => {
@@ -3483,9 +3492,12 @@
       };
 
       fit.style.transform = 'scale(1)';
-      const autoScale = Math.max(0.45, calculateScale());
+      const previousAutoScale = Number(options?.previousAutoScale);
+      const keepPreviousAutoScale = Boolean(options?.keepPreviousAutoScale) && previousAutoScale > 0;
+      const autoScale = keepPreviousAutoScale ? previousAutoScale : Math.max(0.45, calculateScale());
       const manualZoom = clampCombinedGroupsZoomPercent(zoomPercent) / 100;
       fit.style.transform = `scale(${autoScale * manualZoom})`;
+      return autoScale;
     }
 
     function clampKnockoutZoomPercent(value) {
@@ -3542,7 +3554,8 @@
       const label = popupDoc.getElementById('groups-zoom-value');
       if (slider) slider.value = String(entry.groupsZoomPercent);
       if (label) label.textContent = `${entry.groupsZoomPercent}%`;
-      applyCombinedGroupsContentFit(popupDoc, entry.groupsZoomPercent);
+      entry.lastGroupsAutoScale = applyCombinedGroupsContentFit(popupDoc, entry.groupsZoomPercent);
+      entry.preserveGroupsAutoScaleOnce = false;
     }
 
     function adjustCombinedGroupsPopupZoom(windowId, delta) {
@@ -3577,7 +3590,8 @@
       if (slider) slider.value = String(entry.combinedGroupsPanePercent);
 
       applyKnockoutContentFit(popupDoc, entry.zoomPercent || 100);
-      applyCombinedGroupsContentFit(popupDoc, entry.groupsZoomPercent || 100);
+      entry.lastGroupsAutoScale = applyCombinedGroupsContentFit(popupDoc, entry.groupsZoomPercent || 100);
+      entry.preserveGroupsAutoScaleOnce = false;
     }
 
     function setKnockoutSingleRow(windowId, enabled) {
@@ -4101,7 +4115,7 @@
   <style>
     * { box-sizing: border-box; font-family: 'Heebo', sans-serif; }
     html, body { margin: 0; width: 100%; height: 100%; background: #f8fafc; color: #0f172a; }
-    .knockout-popup-shell { position: relative; display: grid; width: 100%; height: 100%; }
+    .knockout-popup-shell { position: relative; display: grid; grid-template-rows: 1fr; width: 100%; height: 100%; min-height: 0; }
     .knockout-zoom-tools {
       position: fixed;
       top: 10px;
@@ -4204,14 +4218,16 @@
       padding: 6px;
       overflow: hidden;
       display: grid;
+      grid-template-rows: 1fr;
       gap: 6px;
-      align-content: start;
+      align-content: stretch;
+      min-height: 0;
       background: #f8fafc;
     }
     .combined-popup-section {
       display: grid;
+      grid-template-rows: auto 1fr;
       gap: 6px;
-      align-content: start;
       min-height: 0;
     }
     .combined-popup-section-draggable {
@@ -4228,6 +4244,10 @@
       gap: 6px;
       min-height: 0;
       height: 100%;
+    }
+    .knockout-modal-body > .combined-layout {
+      height: 100%;
+      min-height: 0;
     }
     .combined-layout-single .combined-popup-section {
       flex: 1 1 auto;
@@ -4251,16 +4271,12 @@
     .combined-groups-viewport {
       position: relative;
       overflow: hidden;
-      height: min(48vh, 520px);
+      height: 100%;
+      min-height: 0;
       border: 1px solid #e2e8f0;
       border-radius: 10px;
       background: #ffffff;
       padding: 4px;
-    }
-    .combined-layout-single .combined-groups-viewport,
-    .combined-layout-two .combined-groups-viewport {
-      height: 100%;
-      min-height: 0;
     }
     .combined-knockout-viewport {
       overflow: hidden;
@@ -4544,7 +4560,7 @@
       <input id="combined-pane-slider" type="range" min="20" max="80" step="1" value="${clampCombinedPanePercent(entry.combinedGroupsPanePercent || 50)}" oninput="updateCombinedPaneSplit(${entry.id}, this.value)">
       <span id="combined-pane-value" class="knockout-zoom-value">${clampCombinedPanePercent(entry.combinedGroupsPanePercent || 50)}%</span>
       ` : ''}
-      ${(entry.mode === 'combined' && entry._hasCombinedKnockoutSection && entry._hasCombinedGroupsSection) ? '<span class="zoom-tools-separator"></span>' : ''}
+      ${(entry.mode === 'combined' && entry._hasCombinedGroupsSection) ? '<span class="zoom-tools-separator"></span>' : ''}
       ${(entry.mode === 'combined' && entry._hasCombinedGroupsSection) ? `
       <span class="zoom-section-label">Groups</span>
       <button type="button" onclick="adjustCombinedGroupsPopupZoom(${entry.id}, -5)">-</button>
@@ -4563,7 +4579,15 @@
 
       entry.win.requestAnimationFrame(() => {
         applyKnockoutContentFit(popupDoc, entry.zoomPercent || 100);
-        applyCombinedGroupsContentFit(popupDoc, entry.groupsZoomPercent || 100);
+        entry.lastGroupsAutoScale = applyCombinedGroupsContentFit(
+          popupDoc,
+          entry.groupsZoomPercent || 100,
+          {
+            keepPreviousAutoScale: Boolean(entry.preserveGroupsAutoScaleOnce),
+            previousAutoScale: entry.lastGroupsAutoScale
+          }
+        );
+        entry.preserveGroupsAutoScaleOnce = false;
       });
     }
 
@@ -4609,6 +4633,8 @@
         knockoutSingleRow: true,
         zoomPercent: 100,
         groupsZoomPercent: 100,
+        lastGroupsAutoScale: 1,
+        preserveGroupsAutoScaleOnce: false,
         zoomToolbarCollapsed: false,
         resizeTimer: null,
         win: window.open('', `combinedTreeWindow_${nextKnockoutPopupWindowId}`, features)
