@@ -385,6 +385,16 @@
     .group-table tbody tr:hover td {
       background: #f2f8ff;
     }
+    .group-table tbody tr.player-order-draggable {
+      cursor: grab;
+    }
+    .group-table tbody tr.player-order-draggable:active {
+      cursor: grabbing;
+    }
+    .group-table tbody tr.group-player-drop-target td {
+      background: #dbeafe !important;
+      box-shadow: inset 0 0 0 1px #2563eb;
+    }
     .group-table th.player-col,
     .group-table td.player-col {
       text-align: right;
@@ -398,26 +408,6 @@
     }
     .group-table tbody tr:last-child td {
       border-bottom: 0;
-    }
-    .group-row-draggable {
-      cursor: grab;
-      user-select: none;
-    }
-    .group-row-draggable td:first-child::before {
-      content: '↕';
-      display: inline-block;
-      margin-left: 6px;
-      color: #64748b;
-      font-size: 12px;
-      font-weight: 700;
-    }
-    .group-row-drag-source {
-      background: #eff6ff;
-    }
-    .group-row-drop-target {
-      outline: 2px dashed #2563eb;
-      outline-offset: -2px;
-      background: #e0f2fe;
     }
     .knockout-overlay {
       position: fixed;
@@ -618,12 +608,11 @@
     .combined-groups-wrap .group-table td:last-child { border-left: 0; }
     .combined-groups-wrap .group-table tbody tr:nth-child(even) td { background: #fbfdff; }
     .combined-groups-wrap .group-table tbody tr:hover td { background: #eef6ff; }
-    .combined-groups-wrap .group-row-draggable { cursor: grab; user-select: none; }
-    .combined-groups-wrap .group-row-drag-source { background: #eff6ff; }
-    .combined-groups-wrap .group-row-drop-target {
-      outline: 2px dashed #2563eb;
-      outline-offset: -2px;
-      background: #e0f2fe;
+    .combined-groups-wrap .group-table tbody tr.player-order-draggable { cursor: grab; }
+    .combined-groups-wrap .group-table tbody tr.player-order-draggable:active { cursor: grabbing; }
+    .combined-groups-wrap .group-table tbody tr.group-player-drop-target td {
+      background: #dbeafe !important;
+      box-shadow: inset 0 0 0 1px #2563eb;
     }
     .knockout-draw-drag-handle {
       cursor: grab;
@@ -1540,7 +1529,6 @@
     let knockoutPopupWindows = [];
     let nextKnockoutPopupWindowId = 1;
     let knockoutDrawSelectionState = null;
-    let groupsRowDragState = { groupKey: '', playerKey: '' };
     let gameNumberByKey = {};
     let nextGameNumber = 1;
     let gameNumberStorageScope = '';
@@ -1549,19 +1537,6 @@
     let manualInProgressStorageScope = '';
     let manualInProgressStorageKey = '';
     const COMBINED_SELECTION_STORAGE_PREFIX = 'combinedDisplaySelection';
-    let groupsRowOrderOverrides = (() => {
-      try {
-        return JSON.parse(localStorage.getItem('groupsRowOrderOverrides') || '{}') || {};
-      } catch {
-        return {};
-      }
-    })();
-
-    function saveGroupsRowOrderOverrides() {
-      try {
-        localStorage.setItem('groupsRowOrderOverrides', JSON.stringify(groupsRowOrderOverrides));
-      } catch {}
-    }
 
     function getCombinedSelectionScope() {
       const eventId = String(document.getElementById('event-id-input')?.value || '').trim();
@@ -1601,139 +1576,14 @@
       } catch {}
     }
 
-    function getGroupPlayerKey(player) {
-      const playerId = String(player?.playerId || '').trim();
-      if (playerId) return `id:${playerId}`;
-      return `name:${normalizePlayerName(player?.name || '')}`;
-    }
-
-    function getOrderedZeroPointKeys(groupKey, zeroPointKeys) {
-      const current = Array.isArray(groupsRowOrderOverrides[groupKey]) ? groupsRowOrderOverrides[groupKey] : [];
-      const existing = new Set(zeroPointKeys);
-      const ordered = current.filter(key => existing.has(key));
-      zeroPointKeys.forEach(key => {
-        if (!ordered.includes(key)) ordered.push(key);
-      });
-      return ordered;
-    }
-
-    function applyGroupRowOverride(groupKey, players) {
-      const zeroPointPlayers = players.filter(player => Number(player.points) === 0);
-      const zeroPointKeys = zeroPointPlayers.map(getGroupPlayerKey);
-      if (zeroPointKeys.length <= 1) return players;
-
-      const orderedKeys = getOrderedZeroPointKeys(groupKey, zeroPointKeys);
-      const byKey = new Map(zeroPointPlayers.map(player => [getGroupPlayerKey(player), player]));
-      const orderedZeroPlayers = orderedKeys.map(key => byKey.get(key)).filter(Boolean);
-      if (orderedZeroPlayers.length !== zeroPointPlayers.length) return players;
-
-      let zeroIndex = 0;
-      return players.map(player => {
-        if (Number(player.points) !== 0) return player;
-        const replacement = orderedZeroPlayers[zeroIndex];
-        zeroIndex += 1;
-        return replacement || player;
-      });
-    }
-
-    function swapGroupZeroPointRows(groupKey, fromPlayerKey, toPlayerKey) {
-      const standings = buildGroupStandings(gamesData || []);
-      const group = standings.find(item => item.groupKey === groupKey);
-      if (!group) return false;
-
-      const zeroPointKeys = group.players
-        .filter(player => Number(player.points) === 0)
-        .map(getGroupPlayerKey);
-      if (!zeroPointKeys.includes(fromPlayerKey) || !zeroPointKeys.includes(toPlayerKey)) {
-        return false;
-      }
-
-      const orderedKeys = getOrderedZeroPointKeys(groupKey, zeroPointKeys);
-      const fromIndex = orderedKeys.indexOf(fromPlayerKey);
-      const toIndex = orderedKeys.indexOf(toPlayerKey);
-      if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return false;
-
-      const temp = orderedKeys[fromIndex];
-      orderedKeys[fromIndex] = orderedKeys[toIndex];
-      orderedKeys[toIndex] = temp;
-
-      groupsRowOrderOverrides[groupKey] = orderedKeys;
-      saveGroupsRowOrderOverrides();
-      return true;
-    }
-
-    function clearGroupRowDragHighlights(rootDocument = document) {
-      rootDocument.querySelectorAll('.group-row-drag-source, .group-row-drop-target').forEach(row => {
-        row.classList.remove('group-row-drag-source', 'group-row-drop-target');
-      });
-    }
-
-    function bindGroupRowDragAndDrop(container, rootDocument = document) {
-      const rows = container.querySelectorAll('tr[data-group-key][data-player-key][data-points]');
-      rows.forEach(row => {
-        const points = Number(row.getAttribute('data-points') || 0);
-        const canDrag = points === 0;
-        row.setAttribute('draggable', canDrag ? 'true' : 'false');
-        row.classList.toggle('group-row-draggable', canDrag);
-
-        row.addEventListener('dragstart', event => {
-          event.stopPropagation();
-          if (!canDrag) {
-            event.preventDefault();
-            return;
-          }
-
-          const groupKey = row.getAttribute('data-group-key') || '';
-          const playerKey = row.getAttribute('data-player-key') || '';
-          groupsRowDragState.groupKey = groupKey;
-          groupsRowDragState.playerKey = playerKey;
-          row.classList.add('group-row-drag-source');
-          if (event.dataTransfer) {
-            event.dataTransfer.effectAllowed = 'move';
-            event.dataTransfer.setData('text/plain', `${groupKey}|||${playerKey}`);
-          }
-        });
-
-        row.addEventListener('dragover', event => {
-          const targetPoints = Number(row.getAttribute('data-points') || 0);
-          const targetGroup = row.getAttribute('data-group-key') || '';
-          const canDrop = targetPoints === 0 && targetGroup && targetGroup === groupsRowDragState.groupKey;
-          if (!canDrop) return;
-          event.stopPropagation();
-          event.preventDefault();
-          row.classList.add('group-row-drop-target');
-        });
-
-        row.addEventListener('dragleave', () => {
-          row.classList.remove('group-row-drop-target');
-        });
-
-        row.addEventListener('drop', event => {
-          event.stopPropagation();
-          event.preventDefault();
-          const targetPoints = Number(row.getAttribute('data-points') || 0);
-          const targetGroup = row.getAttribute('data-group-key') || '';
-          const targetPlayerKey = row.getAttribute('data-player-key') || '';
-          if (targetPoints !== 0 || !targetGroup || targetGroup !== groupsRowDragState.groupKey) {
-            clearGroupRowDragHighlights(rootDocument);
-            groupsRowDragState = { groupKey: '', playerKey: '' };
-            return;
-          }
-
-          const didSwap = swapGroupZeroPointRows(targetGroup, groupsRowDragState.playerKey, targetPlayerKey);
-          clearGroupRowDragHighlights(rootDocument);
-          groupsRowDragState = { groupKey: '', playerKey: '' };
-          if (didSwap) {
-            refreshGroupsPopupIfOpen();
-            refreshKnockoutPopupIfOpen();
-          }
-        });
-
-        row.addEventListener('dragend', () => {
-          clearGroupRowDragHighlights(rootDocument);
-          groupsRowDragState = { groupKey: '', playerKey: '' };
-        });
-      });
+    function hasDragDataType(event, expectedType) {
+      if (!event || !event.dataTransfer || !expectedType) return false;
+      const types = event.dataTransfer.types;
+      if (!types) return false;
+      if (Array.isArray(types)) return types.includes(expectedType);
+      if (typeof types.contains === 'function') return types.contains(expectedType);
+      if (typeof types.indexOf === 'function') return types.indexOf(expectedType) >= 0;
+      return false;
     }
 
     function getUpcomingGameKey(game) {
@@ -2122,26 +1972,32 @@
       });
 
       const groupList = Array.from(groups.values()).map(group => {
-        const players = Array.from(group.players.values()).map(player => ({
+        let players = Array.from(group.players.values()).map(player => ({
           ...player,
           setDiff: player.setsWon - player.setsLost
         }));
         const playersCount = players.length;
         const expectedGamesPerPlayer = Math.max(playersCount - 1, 0);
         const isFinishedGroup = playersCount > 1 && players.every(player => player.gamesPlayed === expectedGamesPerPlayer);
+        const canManualReorder = playersCount > 1 && players.every(player => player.points === 0);
 
-        players.sort((a, b) => {
-          if (b.points !== a.points) return b.points - a.points;
-          if (b.setDiff !== a.setDiff) return b.setDiff - a.setDiff;
-          if (b.setsWon !== a.setsWon) return b.setsWon - a.setsWon;
-          return a.name.localeCompare(b.name, 'he');
-        });
+        if (canManualReorder) {
+          players = applyGroupPlayersOrder(`${group.draw}|||${group.groupNo}`, players);
+        } else {
+          players.sort((a, b) => {
+            if (b.points !== a.points) return b.points - a.points;
+            if (b.setDiff !== a.setDiff) return b.setDiff - a.setDiff;
+            if (b.setsWon !== a.setsWon) return b.setsWon - a.setsWon;
+            return a.name.localeCompare(b.name, 'he');
+          });
+        }
 
         return {
           groupKey: `${group.draw}|||${group.groupNo}`,
           draw: group.draw,
           groupNo: group.groupNo,
           isFinishedGroup,
+          canManualReorder,
           players
         };
       });
@@ -2209,12 +2065,16 @@
       return Array.from(groupsByDraw.entries()).map(([, drawGroups]) => {
         const cards = drawGroups.map(group => {
           const theme = getDrawTheme(group.draw);
-          const orderedPlayers = applyGroupRowOverride(group.groupKey, group.players);
-          const rowsWithDrag = orderedPlayers.map((player, index) => {
-            const playerKey = getGroupPlayerKey(player);
+          const rowsWithDrag = group.players.map((player, index) => {
             const displayName = formatGroupsPlayerDisplayName(player.name);
+            const groupToken = encodeURIComponent(String(group.groupKey || ''));
+            const playerKey = getGroupPlayerOrderKey(player);
+            const playerToken = encodeURIComponent(playerKey);
+            const dragAttrs = group.canManualReorder && playerKey
+              ? ` class="player-order-draggable" data-group-key="${escapeHtml(group.groupKey)}" data-player-key="${escapeHtml(playerKey)}" draggable="true" ondragstart="startGroupPlayersDrag('groups-popup', 0, decodeURIComponent('${groupToken}'), decodeURIComponent('${playerToken}'), event)" ondragend="endGroupPlayersDrag(event)" ondragover="allowGroupPlayersDrop(event)" ondragenter="onGroupPlayersDragEnter(event)" ondragleave="onGroupPlayersDragLeave(event)" ondrop="dropGroupPlayersSwap('groups-popup', 0, decodeURIComponent('${groupToken}'), decodeURIComponent('${playerToken}'), event)"`
+              : '';
             return `
-              <tr data-group-key="${escapeHtml(group.groupKey)}" data-player-key="${escapeHtml(playerKey)}" data-points="${Number(player.points) || 0}">
+              <tr${dragAttrs}>
                 <td>${index + 1}</td>
                 <td class="player-col" title="${escapeHtml(player.name)}">${escapeHtml(displayName)}</td>
                 <td>${player.gamesPlayed}</td>
@@ -2266,12 +2126,17 @@
       const sections = Array.from(groupsByDraw.entries()).map(([, drawGroups]) => {
         const cards = drawGroups.map(group => {
           const theme = getDrawTheme(group.draw);
-          const orderedPlayers = applyGroupRowOverride(group.groupKey, group.players);
-          const rowsWithDrag = orderedPlayers.map((player, index) => {
-            const playerKey = getGroupPlayerKey(player);
+          const groupKey = String(group.groupKey || '');
+          const groupToken = encodeURIComponent(groupKey);
+          const rowsWithDrag = group.players.map((player, index) => {
             const displayName = formatGroupsPlayerDisplayName(player.name);
+            const playerKey = getGroupPlayerOrderKey(player);
+            const playerToken = encodeURIComponent(playerKey);
+            const dragAttrs = group.canManualReorder && playerKey
+              ? ` class="player-order-draggable" data-group-key="${escapeHtml(groupKey)}" data-player-key="${escapeHtml(playerKey)}" draggable="true" ondragstart="startGroupPlayersDrag('combined', ${windowId}, decodeURIComponent('${groupToken}'), decodeURIComponent('${playerToken}'), event)" ondragend="endGroupPlayersDrag(event)" ondragover="allowGroupPlayersDrop(event)" ondragenter="onGroupPlayersDragEnter(event)" ondragleave="onGroupPlayersDragLeave(event)" ondrop="dropGroupPlayersSwap('combined', ${windowId}, decodeURIComponent('${groupToken}'), decodeURIComponent('${playerToken}'), event)"`
+              : '';
             return `
-              <tr data-group-key="${escapeHtml(group.groupKey)}" data-player-key="${escapeHtml(playerKey)}" data-points="${Number(player.points) || 0}">
+              <tr${dragAttrs}>
                 <td>${index + 1}</td>
                 <td class="player-col" title="${escapeHtml(player.name)}">${escapeHtml(displayName)}</td>
                 <td>${player.gamesPlayed}</td>
@@ -2280,8 +2145,6 @@
             `;
           }).join('');
 
-          const groupKey = String(group.groupKey || '');
-          const groupToken = encodeURIComponent(groupKey);
           return `
             <section class="group-card combined-group-card" style="border-color:${escapeHtml(theme.borderColor)};" ondragover="allowCombinedItemDrop(event)" ondrop="dropCombinedItem(${windowId}, 'group-card', decodeURIComponent('${groupToken}'), event)">
               <div class="group-card-title combined-group-card-handle" draggable="true" ondragstart="startCombinedItemDrag(${windowId}, 'group-card', decodeURIComponent('${groupToken}'), event)" style="background:${escapeHtml(theme.titleBg)}; border-bottom-color:${escapeHtml(theme.borderColor)}; color:${escapeHtml(theme.titleColor)};">
@@ -2437,6 +2300,12 @@
     .group-table td:last-child { border-left: 0; }
     .group-table tbody tr:nth-child(even) td { background: #fbfdff; }
     .group-table tbody tr:hover td { background: #f2f8ff; }
+    .group-table tbody tr.player-order-draggable { cursor: grab; }
+    .group-table tbody tr.player-order-draggable:active { cursor: grabbing; }
+    .group-table tbody tr.group-player-drop-target td {
+      background: #dbeafe !important;
+      box-shadow: inset 0 0 0 1px #2563eb;
+    }
     .group-table th.player-col,
     .group-table td.player-col { text-align: right; }
     .group-table td.player-col {
@@ -2447,22 +2316,15 @@
       max-width: none;
     }
     .group-table tbody tr:last-child td { border-bottom: 0; }
-    .group-row-draggable { cursor: grab; user-select: none; }
-    .group-row-draggable td:first-child::before {
-      content: '↕';
-      display: inline-block;
-      margin-left: 6px;
-      color: #64748b;
-      font-size: 12px;
-      font-weight: 700;
-    }
-    .group-row-drag-source { background: #eff6ff; }
-    .group-row-drop-target {
-      outline: 2px dashed #2563eb;
-      outline-offset: -2px;
-      background: #e0f2fe;
-    }
   </style>
+  <script>
+    function startGroupPlayersDrag(scope, windowId, groupKey, playerKey, event) { if (window.opener?.startGroupPlayersDrag) window.opener.startGroupPlayersDrag(scope, windowId, groupKey, playerKey, event); }
+    function endGroupPlayersDrag(event) { if (window.opener?.endGroupPlayersDrag) window.opener.endGroupPlayersDrag(event); }
+    function allowGroupPlayersDrop(event) { if (window.opener?.allowGroupPlayersDrop) window.opener.allowGroupPlayersDrop(event); }
+    function onGroupPlayersDragEnter(event) { if (window.opener?.onGroupPlayersDragEnter) window.opener.onGroupPlayersDragEnter(event); }
+    function onGroupPlayersDragLeave(event) { if (window.opener?.onGroupPlayersDragLeave) window.opener.onGroupPlayersDragLeave(event); }
+    function dropGroupPlayersSwap(scope, windowId, groupKey, playerKey, event) { if (window.opener?.dropGroupPlayersSwap) window.opener.dropGroupPlayersSwap(scope, windowId, groupKey, playerKey, event); }
+  <\/script>
 </head>
 <body>
   <div class="groups-popup-shell">
@@ -2475,11 +2337,6 @@
 </body>
 </html>`);
       popupDoc.close();
-
-      const popupBody = popupDoc.getElementById('groups-modal-body');
-      if (popupBody) {
-        bindGroupRowDragAndDrop(popupBody, popupDoc);
-      }
     }
 
     function openGroupsPopup() {
@@ -2629,6 +2486,7 @@
     }
 
     const KNOCKOUT_FIRST_STAGE_ORDER_KEY = 'knockoutFirstStageOrder';
+    const GROUP_PLAYERS_ORDER_KEY = 'groupPlayersManualOrder';
     const knockoutFirstStageDragState = {
       drawName: '',
       fromIndex: -1
@@ -2642,6 +2500,256 @@
       itemType: '',
       itemKey: ''
     };
+    const groupPlayersDragState = {
+      scope: '',
+      windowId: -1,
+      groupKey: '',
+      playerKey: ''
+    };
+
+    function getGroupPlayerOrderKey(player) {
+      const normalizedId = normalizePlayerId(player?.playerId || '');
+      if (normalizedId) return `id:${normalizedId}`;
+      const normalizedName = normalizePlayerName(player?.name || '');
+      return normalizedName ? `name:${normalizedName}` : '';
+    }
+
+    function readGroupPlayersOrderStore() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(GROUP_PLAYERS_ORDER_KEY) || '{}');
+        return parsed && typeof parsed === 'object' ? parsed : {};
+      } catch {
+        return {};
+      }
+    }
+
+    function writeGroupPlayersOrderStore(store) {
+      localStorage.setItem(GROUP_PLAYERS_ORDER_KEY, JSON.stringify(store || {}));
+    }
+
+    function normalizeGroupPlayersOrder(order, availableKeys) {
+      const validKeys = Array.isArray(availableKeys) ? availableKeys.filter(Boolean) : [];
+      if (validKeys.length <= 1) return validKeys;
+
+      const keySet = new Set(validKeys);
+      const normalized = [];
+      if (Array.isArray(order)) {
+        order.forEach(item => {
+          const key = String(item || '');
+          if (!keySet.has(key) || normalized.includes(key)) return;
+          normalized.push(key);
+        });
+      }
+
+      validKeys.forEach(key => {
+        if (!normalized.includes(key)) normalized.push(key);
+      });
+      return normalized;
+    }
+
+    function getGroupPlayersOrder(groupKey, availableKeys) {
+      const key = String(groupKey || '');
+      const store = readGroupPlayersOrderStore();
+      return normalizeGroupPlayersOrder(store[key], availableKeys);
+    }
+
+    function setGroupPlayersOrder(groupKey, order) {
+      const key = String(groupKey || '');
+      if (!key) return;
+      const normalizedOrder = normalizeGroupPlayersOrder(order, Array.isArray(order) ? order : []);
+      const store = readGroupPlayersOrderStore();
+      store[key] = normalizedOrder;
+      writeGroupPlayersOrderStore(store);
+    }
+
+    function applyGroupPlayersOrder(groupKey, players) {
+      const sourcePlayers = Array.isArray(players) ? players.slice() : [];
+      if (sourcePlayers.length <= 1) return sourcePlayers;
+
+      const keyedPlayers = sourcePlayers.map(player => ({
+        player,
+        key: getGroupPlayerOrderKey(player)
+      })).filter(item => !!item.key);
+      if (keyedPlayers.length !== sourcePlayers.length) {
+        return sourcePlayers;
+      }
+
+      const availableKeys = keyedPlayers.map(item => item.key);
+      const uniqueKeys = new Set(availableKeys);
+      if (uniqueKeys.size !== availableKeys.length) {
+        return sourcePlayers;
+      }
+
+      const order = getGroupPlayersOrder(groupKey, availableKeys);
+      const byKey = new Map(keyedPlayers.map(item => [item.key, item.player]));
+      return order.map(key => byKey.get(key)).filter(Boolean);
+    }
+
+    function clearGroupPlayersDragState() {
+      groupPlayersDragState.scope = '';
+      groupPlayersDragState.windowId = -1;
+      groupPlayersDragState.groupKey = '';
+      groupPlayersDragState.playerKey = '';
+    }
+
+    function parseGroupPlayersDragPayload(raw) {
+      if (!raw) return null;
+      try {
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') return null;
+        return {
+          scope: String(parsed.scope || ''),
+          windowId: Number.parseInt(String(parsed.windowId), 10),
+          groupKey: String(parsed.groupKey || ''),
+          playerKey: String(parsed.playerKey || '')
+        };
+      } catch {
+        return null;
+      }
+    }
+
+    function startGroupPlayersDrag(scope, windowId, groupKey, playerKey, event) {
+      const dragScope = String(scope || '');
+      const parsedWindowId = Number.parseInt(String(windowId), 10);
+      const resolvedWindowId = Number.isNaN(parsedWindowId) ? 0 : parsedWindowId;
+      const resolvedGroupKey = String(groupKey || '');
+      const resolvedPlayerKey = String(playerKey || '');
+      if (!dragScope || !resolvedGroupKey || !resolvedPlayerKey) return;
+
+      groupPlayersDragState.scope = dragScope;
+      groupPlayersDragState.windowId = resolvedWindowId;
+      groupPlayersDragState.groupKey = resolvedGroupKey;
+      groupPlayersDragState.playerKey = resolvedPlayerKey;
+
+      if (event?.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'move';
+        const payload = JSON.stringify({
+          scope: dragScope,
+          windowId: resolvedWindowId,
+          groupKey: resolvedGroupKey,
+          playerKey: resolvedPlayerKey
+        });
+        event.dataTransfer.setData('application/x-group-player-drag', payload);
+        event.dataTransfer.setData('text/plain', payload);
+      }
+      event?.stopPropagation?.();
+    }
+
+    function allowGroupPlayersDrop(event) {
+      if (!event) return;
+      if (!hasDragDataType(event, 'application/x-group-player-drag')) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = 'move';
+      }
+    }
+
+    function setGroupPlayersDropTargetClass(event, addClass) {
+      const row = event?.currentTarget;
+      if (!row || !row.classList) return;
+      if (addClass) {
+        row.classList.add('group-player-drop-target');
+      } else {
+        row.classList.remove('group-player-drop-target');
+      }
+    }
+
+    function onGroupPlayersDragEnter(event) {
+      allowGroupPlayersDrop(event);
+      setGroupPlayersDropTargetClass(event, true);
+    }
+
+    function onGroupPlayersDragLeave(event) {
+      setGroupPlayersDropTargetClass(event, false);
+    }
+
+    function endGroupPlayersDrag(event) {
+      setGroupPlayersDropTargetClass(event, false);
+      clearGroupPlayersDragState();
+    }
+
+    function dropGroupPlayersSwap(scope, windowId, groupKey, targetPlayerKey, event) {
+      if (event && !hasDragDataType(event, 'application/x-group-player-drag') && !groupPlayersDragState.playerKey) {
+        return;
+      }
+      allowGroupPlayersDrop(event);
+      setGroupPlayersDropTargetClass(event, false);
+
+      const dropScope = String(scope || '');
+      const parsedWindowId = Number.parseInt(String(windowId), 10);
+      const resolvedWindowId = Number.isNaN(parsedWindowId) ? 0 : parsedWindowId;
+      const resolvedGroupKey = String(groupKey || '');
+      const resolvedTargetKey = String(targetPlayerKey || '');
+      if (!dropScope || !resolvedGroupKey || !resolvedTargetKey) {
+        clearGroupPlayersDragState();
+        return;
+      }
+
+      let sourceScope = '';
+      let sourceWindowId = -1;
+      let sourceGroupKey = '';
+      let sourcePlayerKey = '';
+
+      if (groupPlayersDragState.playerKey) {
+        sourceScope = groupPlayersDragState.scope;
+        sourceWindowId = groupPlayersDragState.windowId;
+        sourceGroupKey = groupPlayersDragState.groupKey;
+        sourcePlayerKey = groupPlayersDragState.playerKey;
+      }
+
+      if ((!sourceScope || !sourceGroupKey || !sourcePlayerKey) && event?.dataTransfer) {
+        const typedPayload = parseGroupPlayersDragPayload(event.dataTransfer.getData('application/x-group-player-drag') || '');
+        if (typedPayload) {
+          sourceScope = typedPayload.scope;
+          sourceWindowId = typedPayload.windowId;
+          sourceGroupKey = typedPayload.groupKey;
+          sourcePlayerKey = typedPayload.playerKey;
+        }
+      }
+
+      if ((!sourceScope || !sourceGroupKey || !sourcePlayerKey) && event?.dataTransfer) {
+        const fallbackPayload = parseGroupPlayersDragPayload(event.dataTransfer.getData('text/plain') || '');
+        if (fallbackPayload) {
+          sourceScope = fallbackPayload.scope;
+          sourceWindowId = fallbackPayload.windowId;
+          sourceGroupKey = fallbackPayload.groupKey;
+          sourcePlayerKey = fallbackPayload.playerKey;
+        }
+      }
+
+      clearGroupPlayersDragState();
+
+      if (
+        sourceScope !== dropScope
+        || sourceWindowId !== resolvedWindowId
+        || sourceGroupKey !== resolvedGroupKey
+        || !sourcePlayerKey
+        || sourcePlayerKey === resolvedTargetKey
+      ) {
+        return;
+      }
+
+      const standings = buildGroupStandings(gamesData || []);
+      const groupEntry = standings.find(group => String(group.groupKey || '') === resolvedGroupKey);
+      if (!groupEntry || !groupEntry.canManualReorder) return;
+
+      const availableKeys = groupEntry.players.map(getGroupPlayerOrderKey).filter(Boolean);
+      if (!availableKeys.includes(sourcePlayerKey) || !availableKeys.includes(resolvedTargetKey)) return;
+
+      const order = getGroupPlayersOrder(resolvedGroupKey, availableKeys);
+      const sourceIndex = order.indexOf(sourcePlayerKey);
+      const targetIndex = order.indexOf(resolvedTargetKey);
+      if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return;
+
+      const temp = order[sourceIndex];
+      order[sourceIndex] = order[targetIndex];
+      order[targetIndex] = temp;
+      setGroupPlayersOrder(resolvedGroupKey, order);
+
+      refreshGroupsPopupIfOpen();
+      refreshKnockoutPopupIfOpen();
+    }
 
     function readKnockoutFirstStageOrderStore() {
       try {
@@ -2947,12 +3055,14 @@
       combinedSectionDragState.sectionKey = key;
       if (event?.dataTransfer) {
         event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('application/x-combined-section-drag', `${parsedWindowId}|${key}`);
         event.dataTransfer.setData('text/plain', `${parsedWindowId}|${key}`);
       }
     }
 
     function allowCombinedSectionDrop(event) {
       if (!event) return;
+      if (!hasDragDataType(event, 'application/x-combined-section-drag')) return;
       event.preventDefault();
       if (event.dataTransfer) {
         event.dataTransfer.dropEffect = 'move';
@@ -2960,12 +3070,24 @@
     }
 
     function dropCombinedSection(windowId, targetSectionKey, event) {
-      allowCombinedSectionDrop(event);
+      if (event && !hasDragDataType(event, 'application/x-combined-section-drag') && combinedSectionDragState.windowId < 0) {
+        return;
+      }
+      event?.preventDefault?.();
       const parsedWindowId = Number.parseInt(String(windowId), 10);
       const targetKey = String(targetSectionKey || '');
       if (Number.isNaN(parsedWindowId) || !targetKey) return;
 
       let sourceKey = combinedSectionDragState.windowId === parsedWindowId ? combinedSectionDragState.sectionKey : '';
+      if (!sourceKey && event?.dataTransfer) {
+        const typedRaw = event.dataTransfer.getData('application/x-combined-section-drag') || '';
+        if (typedRaw) {
+          const typedParts = typedRaw.split('|');
+          if (typedParts.length === 2 && Number.parseInt(typedParts[0], 10) === parsedWindowId) {
+            sourceKey = typedParts[1] || '';
+          }
+        }
+      }
       if (!sourceKey && event?.dataTransfer) {
         const raw = event.dataTransfer.getData('text/plain') || '';
         const parts = raw.split('|');
@@ -3006,6 +3128,7 @@
       combinedItemDragState.itemKey = key;
       if (event?.dataTransfer) {
         event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('application/x-combined-item-drag', `${parsedWindowId}|${type}|${key}`);
         event.dataTransfer.setData('text/plain', `${parsedWindowId}|${type}|${key}`);
       }
       event?.stopPropagation?.();
@@ -3013,6 +3136,7 @@
 
     function allowCombinedItemDrop(event) {
       if (!event) return;
+      if (!hasDragDataType(event, 'application/x-combined-item-drag')) return;
       event.preventDefault();
       event.stopPropagation();
       if (event.dataTransfer) {
@@ -3021,7 +3145,11 @@
     }
 
     function dropCombinedItem(windowId, itemType, targetKey, event) {
-      allowCombinedItemDrop(event);
+      if (event && !hasDragDataType(event, 'application/x-combined-item-drag') && combinedItemDragState.windowId < 0) {
+        return;
+      }
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
       const parsedWindowId = Number.parseInt(String(windowId), 10);
       const type = String(itemType || '');
       const target = String(targetKey || '');
@@ -3032,6 +3160,17 @@
       if (combinedItemDragState.windowId === parsedWindowId) {
         sourceType = combinedItemDragState.itemType;
         sourceKey = combinedItemDragState.itemKey;
+      }
+
+      if ((!sourceType || !sourceKey) && event?.dataTransfer) {
+        const typedRaw = event.dataTransfer.getData('application/x-combined-item-drag') || '';
+        if (typedRaw) {
+          const typedParts = typedRaw.split('|');
+          if (typedParts.length >= 3 && Number.parseInt(typedParts[0], 10) === parsedWindowId) {
+            sourceType = typedParts[1] || '';
+            sourceKey = typedParts.slice(2).join('|') || '';
+          }
+        }
       }
 
       if ((!sourceType || !sourceKey) && event?.dataTransfer) {
@@ -3989,7 +4128,9 @@
       cursor: pointer;
     }
     .knockout-zoom-tools button {
-      width: 28px;
+      width: auto;
+      min-width: 28px;
+      padding: 0 8px;
     }
     .knockout-zoom-toggle {
       position: fixed;
@@ -4222,6 +4363,12 @@
     .combined-groups-wrap .group-table td:last-child { border-left: 0; }
     .combined-groups-wrap .group-table tbody tr:nth-child(even) td { background: #fbfdff; }
     .combined-groups-wrap .group-table tbody tr:hover td { background: #f2f8ff; }
+    .combined-groups-wrap .group-table tbody tr.player-order-draggable { cursor: grab; }
+    .combined-groups-wrap .group-table tbody tr.player-order-draggable:active { cursor: grabbing; }
+    .combined-groups-wrap .group-table tbody tr.group-player-drop-target td {
+      background: #dbeafe !important;
+      box-shadow: inset 0 0 0 1px #2563eb;
+    }
     .knockout-draw-drag-handle {
       cursor: grab;
       user-select: none;
@@ -4357,6 +4504,12 @@
     function startCombinedItemDrag(windowId, itemType, itemKey, event) { if (window.opener?.startCombinedItemDrag) window.opener.startCombinedItemDrag(windowId, itemType, itemKey, event); }
     function allowCombinedItemDrop(event) { if (window.opener?.allowCombinedItemDrop) window.opener.allowCombinedItemDrop(event); }
     function dropCombinedItem(windowId, itemType, itemKey, event) { if (window.opener?.dropCombinedItem) window.opener.dropCombinedItem(windowId, itemType, itemKey, event); }
+    function startGroupPlayersDrag(scope, windowId, groupKey, playerKey, event) { if (window.opener?.startGroupPlayersDrag) window.opener.startGroupPlayersDrag(scope, windowId, groupKey, playerKey, event); }
+    function endGroupPlayersDrag(event) { if (window.opener?.endGroupPlayersDrag) window.opener.endGroupPlayersDrag(event); }
+    function allowGroupPlayersDrop(event) { if (window.opener?.allowGroupPlayersDrop) window.opener.allowGroupPlayersDrop(event); }
+    function onGroupPlayersDragEnter(event) { if (window.opener?.onGroupPlayersDragEnter) window.opener.onGroupPlayersDragEnter(event); }
+    function onGroupPlayersDragLeave(event) { if (window.opener?.onGroupPlayersDragLeave) window.opener.onGroupPlayersDragLeave(event); }
+    function dropGroupPlayersSwap(scope, windowId, groupKey, playerKey, event) { if (window.opener?.dropGroupPlayersSwap) window.opener.dropGroupPlayersSwap(scope, windowId, groupKey, playerKey, event); }
     function updateKnockoutPopupZoom(windowId, value) { if (window.opener?.updateKnockoutPopupZoom) window.opener.updateKnockoutPopupZoom(windowId, value); }
     function adjustKnockoutPopupZoom(windowId, delta) { if (window.opener?.adjustKnockoutPopupZoom) window.opener.adjustKnockoutPopupZoom(windowId, delta); }
     function resetKnockoutPopupZoom(windowId) { if (window.opener?.resetKnockoutPopupZoom) window.opener.resetKnockoutPopupZoom(windowId); }
@@ -4404,13 +4557,6 @@
 </html>`);
       popupDoc.close();
 
-      if (entry.mode === 'combined') {
-        const groupsFit = popupDoc.getElementById('combined-groups-fit');
-        if (groupsFit) {
-          bindGroupRowDragAndDrop(groupsFit, popupDoc);
-        }
-      }
-
       entry.win.requestAnimationFrame(() => {
         applyKnockoutContentFit(popupDoc, entry.zoomPercent || 100);
         applyCombinedGroupsContentFit(popupDoc, entry.groupsZoomPercent || 100);
@@ -4456,7 +4602,7 @@
         combinedGroupOrder: [],
         combinedKnockoutOrder: [],
         combinedGroupsPanePercent: 50,
-        knockoutSingleRow: false,
+        knockoutSingleRow: true,
         zoomPercent: 100,
         groupsZoomPercent: 100,
         zoomToolbarCollapsed: false,
@@ -4504,7 +4650,7 @@
       const entry = {
         id: nextKnockoutPopupWindowId,
         drawNames: selectedDrawNames.slice(),
-        knockoutSingleRow: false,
+        knockoutSingleRow: true,
         zoomPercent: 100,
         zoomToolbarCollapsed: false,
         resizeTimer: null,
