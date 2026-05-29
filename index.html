@@ -603,6 +603,7 @@
     }
     .print-grid {
       --print-gap: var(--print-spacing);
+      --print-row-height: calc((100% - (var(--print-gap) * 2)) / 3);
       display: grid;
       grid-template-columns: 1fr 1fr;
       grid-template-rows: repeat(3, minmax(0, 1fr));
@@ -624,8 +625,8 @@
         100% 1px;
       background-position:
         50% 0,
-        0 calc(33.333% - (var(--print-gap) / 6)),
-        0 calc(66.666% + (var(--print-gap) / 6)),
+        0 calc(var(--print-row-height) + (var(--print-gap) / 2)),
+        0 calc((var(--print-row-height) * 2) + (var(--print-gap) * 1.5)),
         0 calc(100% + (var(--print-frame-pad) / 2));
     }
     @media print {
@@ -643,8 +644,8 @@
           100% 1px;
         background-position:
           50% 0,
-          0 calc(33.333% - (var(--print-gap) / 6)),
-          0 calc(66.666% + (var(--print-gap) / 6)),
+          0 calc(var(--print-row-height) + (var(--print-gap) / 2)),
+          0 calc((var(--print-row-height) * 2) + (var(--print-gap) * 1.5)),
           0 calc(100% + (var(--print-frame-pad) / 2));
       }
     }
