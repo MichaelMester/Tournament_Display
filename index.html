@@ -299,46 +299,42 @@
       color: #ffffff;
     }
     .groups-modal-body {
-      padding: 16px;
+      padding: 8px;
       overflow: auto;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 8px;
       --groups-cols: 3;
-      background: #f8fafc;
+      background: linear-gradient(180deg, #f8fbff 0%, #f3f7fb 100%);
     }
     .groups-draw-section {
       display: grid;
       gap: 10px;
     }
-    .groups-draw-title {
-      margin: 0;
-      padding: 8px 10px;
-      border-radius: 10px;
-      border: 1px solid #cbd5e1;
-      background: #e2e8f0;
-      color: #0f172a;
-      font-size: 16px;
-      font-weight: 800;
-    }
+    .groups-draw-title { display: none; }
     .groups-draw-grid {
-      display: grid;
-      grid-template-columns: repeat(var(--groups-cols), minmax(0, 1fr));
-      gap: 14px;
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 10px;
+      overflow-x: auto;
+      overflow-y: hidden;
       align-content: start;
+      padding-bottom: 2px;
     }
     .group-card {
-      border: 1px solid #cbd5e1;
-      border-radius: 12px;
+      border: 1px solid #d6e2ee;
+      border-radius: 14px;
       background: #ffffff;
-      overflow: hidden;
+      overflow-x: auto;
+      overflow-y: hidden;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
     }
     .group-card-title {
       padding: 10px 12px;
       font-weight: 700;
-      color: #0f172a;
-      background: #e2e8f0;
-      border-bottom: 1px solid #cbd5e1;
+      color: #1e293b;
+      background: linear-gradient(180deg, #f8fbff 0%, #edf4fb 100%);
+      border-bottom: 1px solid #d6e2ee;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -349,7 +345,7 @@
       align-items: center;
       padding: 2px 8px;
       border-radius: 9999px;
-      background: #16a34a;
+      background: #22a35a;
       color: #ffffff;
       font-size: 11px;
       font-weight: 800;
@@ -358,26 +354,47 @@
     }
     .group-table {
       width: 100%;
-      border-collapse: collapse;
-      table-layout: fixed;
+      border-collapse: separate;
+      border-spacing: 0;
+      table-layout: auto;
+      border: 1px solid #b9c8d9 !important;
+      border-top-width: 1px;
+    }
+    .group-table thead th {
+      background: #f6f9fd;
+      font-weight: 800;
+      color: #334155;
+      border-bottom: 1px solid #c9d6e4 !important;
     }
     .group-table th,
     .group-table td {
-      border-bottom: 1px solid #e2e8f0;
+      border-bottom: 1px solid #d4dfeb !important;
+      border-left: 1px solid #d4dfeb !important;
       padding: 7px 8px;
       font-size: 13px;
       color: #0f172a;
       text-align: center;
+    }
+    .group-table th:last-child,
+    .group-table td:last-child {
+      border-left: 0;
+    }
+    .group-table tbody tr:nth-child(even) td {
+      background: #fbfdff;
+    }
+    .group-table tbody tr:hover td {
+      background: #f2f8ff;
     }
     .group-table th.player-col,
     .group-table td.player-col {
       text-align: right;
     }
     .group-table td.player-col {
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 0;
+      white-space: nowrap !important;
+      overflow: visible !important;
+      text-overflow: clip !important;
+      word-break: normal !important;
+      max-width: none;
     }
     .group-table tbody tr:last-child td {
       border-bottom: 0;
@@ -436,12 +453,184 @@
       color: #ffffff;
     }
     .knockout-modal-body {
-      padding: 16px;
-      overflow: hidden;
+      padding: 6px;
+      overflow: auto;
       display: grid;
-      gap: 14px;
+      gap: 6px;
       align-content: start;
       background: #f8fafc;
+    }
+    .combined-popup-section {
+      display: grid;
+      gap: 6px;
+      align-content: start;
+      min-height: 0;
+    }
+    .combined-popup-section-draggable {
+      cursor: default;
+      border: 1px dashed #cbd5e1;
+      border-radius: 10px;
+      padding: 4px;
+      background: #f8fafc;
+      min-height: 0;
+    }
+    .combined-layout {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-height: 0;
+      height: 100%;
+    }
+    .combined-layout-single .combined-popup-section {
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+    .combined-layout-two .combined-pane-groups {
+      flex: 0 0 calc((var(--groups-pane, 50) * 1%) - 5px);
+      min-height: 120px;
+    }
+    .combined-layout-two .combined-pane-knockout {
+      flex: 0 0 calc(((100 - var(--groups-pane, 50)) * 1%) - 5px);
+      min-height: 120px;
+    }
+    .combined-popup-drag-handle {
+      cursor: grab;
+      user-select: none;
+    }
+    .combined-popup-drag-handle:active {
+      cursor: grabbing;
+    }
+    .combined-groups-viewport {
+      position: relative;
+      overflow: hidden;
+      height: min(48vh, 520px);
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #ffffff;
+      padding: 4px;
+    }
+    .combined-layout-single .combined-groups-viewport,
+    .combined-layout-two .combined-groups-viewport {
+      height: 100%;
+      min-height: 0;
+    }
+    .combined-knockout-viewport {
+      overflow: hidden;
+      min-height: 0;
+      height: 100%;
+    }
+    .combined-groups-fit {
+      width: 100%;
+      transform-origin: top right;
+      will-change: transform;
+    }
+    .combined-popup-title {
+      margin: 0;
+      padding: 8px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      background: #e2e8f0;
+      color: #0f172a;
+      font-size: 15px;
+      font-weight: 800;
+    }
+    .combined-groups-wrap {
+      display: grid;
+      gap: 8px;
+      align-content: start;
+    }
+    .combined-groups-wrap .groups-draw-section {
+      display: grid;
+      gap: 6px;
+      align-content: start;
+    }
+    .combined-groups-wrap .groups-draw-title { display: none; }
+    .combined-groups-wrap .groups-draw-grid {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 10px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      justify-content: start;
+      align-content: start;
+      padding-bottom: 2px;
+    }
+    .combined-groups-wrap .group-card {
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      background: #ffffff;
+      overflow-x: auto;
+      overflow-y: hidden;
+      width: 280px;
+      box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+    }
+    .combined-group-card-handle {
+      cursor: grab;
+      user-select: none;
+    }
+    .combined-group-card-handle:active {
+      cursor: grabbing;
+    }
+    .combined-groups-wrap .group-card-title {
+      padding: 10px 12px;
+      font-weight: 700;
+      color: #0f172a;
+      background: #e2e8f0;
+      border-bottom: 1px solid #cbd5e1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .combined-groups-wrap .group-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      table-layout: auto;
+      border: 2px solid #475569 !important;
+      border-top-width: 1px;
+    }
+    .combined-groups-wrap .group-table thead th {
+      background: #e2e8f0;
+      font-weight: 800;
+      color: #334155;
+      border-bottom: 2px solid #64748b !important;
+    }
+    .combined-groups-wrap .group-table th,
+    .combined-groups-wrap .group-table td {
+      border-bottom: 2px solid #64748b !important;
+      border-left: 2px solid #64748b !important;
+      padding: 7px 8px;
+      font-size: 13px;
+      color: #0f172a;
+      text-align: center;
+    }
+    .combined-groups-wrap .group-table th.player-col,
+    .combined-groups-wrap .group-table td.player-col { text-align: right; }
+    .combined-groups-wrap .group-table td.player-col {
+      white-space: nowrap !important;
+      overflow: visible !important;
+      text-overflow: clip !important;
+      word-break: normal !important;
+      max-width: none;
+    }
+    .combined-groups-wrap .group-table th:last-child,
+    .combined-groups-wrap .group-table td:last-child { border-left: 0; }
+    .combined-groups-wrap .group-table tbody tr:nth-child(even) td { background: #fbfdff; }
+    .combined-groups-wrap .group-table tbody tr:hover td { background: #eef6ff; }
+    .combined-groups-wrap .group-row-draggable { cursor: grab; user-select: none; }
+    .combined-groups-wrap .group-row-drag-source { background: #eff6ff; }
+    .combined-groups-wrap .group-row-drop-target {
+      outline: 2px dashed #2563eb;
+      outline-offset: -2px;
+      background: #e0f2fe;
+    }
+    .knockout-draw-drag-handle {
+      cursor: grab;
+      user-select: none;
+    }
+    .knockout-draw-drag-handle:active {
+      cursor: grabbing;
     }
     .knockout-content-fit {
       display: flex;
@@ -1090,8 +1279,8 @@
           <div id="btn-spinner" class="loading-spinner hidden"></div></button>
         <button id="auto-reload-btn" onclick="toggleAutoReload()" class="px-3 py-2 text-sm whitespace-nowrap bg-gray-300 hover:bg-gray-400 text-slate-700 font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">הפעל רענון אוטומטי</button>
         <button id="print-upcoming-btn" onclick="printUpcomingGames()" class="px-3 py-2 text-sm whitespace-nowrap bg-slate-700 hover:bg-slate-800 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">הדפס משחקים הבאים</button>
-        <button id="groups-standings-btn" onclick="openGroupsPopup()" class="px-3 py-2 text-sm whitespace-nowrap bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">טבלת בתים</button>
-        <button id="knockout-tree-btn" onclick="openKnockoutPopup()" class="px-3 py-2 text-sm whitespace-nowrap bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">עץ נוקאאוט</button>
+        <button id="reset-game-numbers-btn" onclick="resetGameNumbers()" class="px-3 py-2 text-sm whitespace-nowrap font-semibold rounded-lg transition-colors flex items-center justify-center gap-2" style="background:#be123c;color:#ffffff;">איפוס מספרי משחקים</button>
+        <button id="groups-standings-btn" onclick="openCombinedPopup()" class="px-3 py-2 text-sm whitespace-nowrap bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">בתים + נוקאאוט</button>
       </div>
       <div class="print-selection-bar">
         <label for="enable-upcoming-print-selection">
@@ -1359,6 +1548,7 @@
     let manualInProgressByKey = {};
     let manualInProgressStorageScope = '';
     let manualInProgressStorageKey = '';
+    const COMBINED_SELECTION_STORAGE_PREFIX = 'combinedDisplaySelection';
     let groupsRowOrderOverrides = (() => {
       try {
         return JSON.parse(localStorage.getItem('groupsRowOrderOverrides') || '{}') || {};
@@ -1370,6 +1560,44 @@
     function saveGroupsRowOrderOverrides() {
       try {
         localStorage.setItem('groupsRowOrderOverrides', JSON.stringify(groupsRowOrderOverrides));
+      } catch {}
+    }
+
+    function getCombinedSelectionScope() {
+      const eventId = String(document.getElementById('event-id-input')?.value || '').trim();
+      const env = String(document.getElementById('env-select')?.value || 'prod').trim() || 'prod';
+      if (!eventId) return '';
+      return `${env}:${eventId}`;
+    }
+
+    function getCombinedSelectionStorageKey() {
+      const scope = getCombinedSelectionScope();
+      return scope ? `${COMBINED_SELECTION_STORAGE_PREFIX}:${scope}` : '';
+    }
+
+    function loadCombinedSelection() {
+      const storageKey = getCombinedSelectionStorageKey();
+      if (!storageKey) return null;
+      try {
+        const parsed = JSON.parse(localStorage.getItem(storageKey) || 'null');
+        if (!parsed || typeof parsed !== 'object') return null;
+        return {
+          groupDraws: Array.isArray(parsed.groupDraws) ? parsed.groupDraws.map(String) : null,
+          knockoutDraws: Array.isArray(parsed.knockoutDraws) ? parsed.knockoutDraws.map(String) : null
+        };
+      } catch {
+        return null;
+      }
+    }
+
+    function saveCombinedSelection(selection) {
+      const storageKey = getCombinedSelectionStorageKey();
+      if (!storageKey) return;
+      try {
+        localStorage.setItem(storageKey, JSON.stringify({
+          groupDraws: Array.isArray(selection?.groupDraws) ? selection.groupDraws.slice() : [],
+          knockoutDraws: Array.isArray(selection?.knockoutDraws) ? selection.knockoutDraws.slice() : []
+        }));
       } catch {}
     }
 
@@ -1449,6 +1677,7 @@
         row.classList.toggle('group-row-draggable', canDrag);
 
         row.addEventListener('dragstart', event => {
+          event.stopPropagation();
           if (!canDrag) {
             event.preventDefault();
             return;
@@ -1470,6 +1699,7 @@
           const targetGroup = row.getAttribute('data-group-key') || '';
           const canDrop = targetPoints === 0 && targetGroup && targetGroup === groupsRowDragState.groupKey;
           if (!canDrop) return;
+          event.stopPropagation();
           event.preventDefault();
           row.classList.add('group-row-drop-target');
         });
@@ -1479,6 +1709,7 @@
         });
 
         row.addEventListener('drop', event => {
+          event.stopPropagation();
           event.preventDefault();
           const targetPoints = Number(row.getAttribute('data-points') || 0);
           const targetGroup = row.getAttribute('data-group-key') || '';
@@ -1493,7 +1724,8 @@
           clearGroupRowDragHighlights(rootDocument);
           groupsRowDragState = { groupKey: '', playerKey: '' };
           if (didSwap) {
-            openGroupsPopup();
+            refreshGroupsPopupIfOpen();
+            refreshKnockoutPopupIfOpen();
           }
         });
 
@@ -1561,6 +1793,37 @@
           next: nextGameNumber
         }));
       } catch {}
+    }
+
+    function resetGameNumbers() {
+      const errorMsg = document.getElementById('error-message');
+      const successMsg = document.getElementById('success-message');
+      if (errorMsg) errorMsg.classList.add('hidden');
+      if (successMsg) successMsg.classList.add('hidden');
+
+      if (!gameNumberStorageKey) {
+        if (errorMsg) {
+          errorMsg.textContent = 'יש לטעון אירוע לפני איפוס מספרי המשחקים.';
+          errorMsg.classList.remove('hidden');
+        }
+        return;
+      }
+
+      const ok = window.confirm('לאפס את כל מספרי המשחקים ולהתחיל מחדש מ-1?');
+      if (!ok) return;
+
+      gameNumberByKey = {};
+      nextGameNumber = 1;
+      try {
+        localStorage.removeItem(gameNumberStorageKey);
+      } catch {}
+
+      renderGames(gamesData || []);
+
+      if (successMsg) {
+        successMsg.textContent = 'מספרי המשחקים אופסו והתחילו מחדש.';
+        successMsg.classList.remove('hidden');
+      }
     }
 
     function ensureGameNumbersForGames(games) {
@@ -1943,17 +2206,17 @@
         groupsByDraw.get(group.draw).push(group);
       });
 
-      return Array.from(groupsByDraw.entries()).map(([drawName, drawGroups]) => {
-        const drawTheme = getDrawTheme(drawName);
+      return Array.from(groupsByDraw.entries()).map(([, drawGroups]) => {
         const cards = drawGroups.map(group => {
           const theme = getDrawTheme(group.draw);
           const orderedPlayers = applyGroupRowOverride(group.groupKey, group.players);
           const rowsWithDrag = orderedPlayers.map((player, index) => {
             const playerKey = getGroupPlayerKey(player);
+            const displayName = formatGroupsPlayerDisplayName(player.name);
             return `
               <tr data-group-key="${escapeHtml(group.groupKey)}" data-player-key="${escapeHtml(playerKey)}" data-points="${Number(player.points) || 0}">
                 <td>${index + 1}</td>
-                <td class="player-col">${escapeHtml(player.name)}</td>
+                <td class="player-col" title="${escapeHtml(player.name)}">${escapeHtml(displayName)}</td>
                 <td>${player.gamesPlayed}</td>
                 <td class="font-bold">${player.points}</td>
               </tr>
@@ -1983,11 +2246,71 @@
 
         return `
           <section class="groups-draw-section">
-            <h3 class="groups-draw-title" style="background:${escapeHtml(drawTheme.titleBg)}; border-color:${escapeHtml(drawTheme.borderColor)}; color:${escapeHtml(drawTheme.titleColor)};">${escapeHtml(drawName)}</h3>
             <div class="groups-draw-grid">${cards}</div>
           </section>
         `;
       }).join('');
+    }
+
+    function getCombinedGroupsCardsHtml(standings, windowId) {
+      if (!Array.isArray(standings) || standings.length === 0) {
+        return '<div class="p-3 text-slate-600">לא נבחרו בתים להצגה.</div>';
+      }
+
+      const groupsByDraw = new Map();
+      standings.forEach(group => {
+        if (!groupsByDraw.has(group.draw)) groupsByDraw.set(group.draw, []);
+        groupsByDraw.get(group.draw).push(group);
+      });
+
+      const sections = Array.from(groupsByDraw.entries()).map(([, drawGroups]) => {
+        const cards = drawGroups.map(group => {
+          const theme = getDrawTheme(group.draw);
+          const orderedPlayers = applyGroupRowOverride(group.groupKey, group.players);
+          const rowsWithDrag = orderedPlayers.map((player, index) => {
+            const playerKey = getGroupPlayerKey(player);
+            const displayName = formatGroupsPlayerDisplayName(player.name);
+            return `
+              <tr data-group-key="${escapeHtml(group.groupKey)}" data-player-key="${escapeHtml(playerKey)}" data-points="${Number(player.points) || 0}">
+                <td>${index + 1}</td>
+                <td class="player-col" title="${escapeHtml(player.name)}">${escapeHtml(displayName)}</td>
+                <td>${player.gamesPlayed}</td>
+                <td class="font-bold">${player.points}</td>
+              </tr>
+            `;
+          }).join('');
+
+          const groupKey = String(group.groupKey || '');
+          const groupToken = encodeURIComponent(groupKey);
+          return `
+            <section class="group-card combined-group-card" style="border-color:${escapeHtml(theme.borderColor)};" ondragover="allowCombinedItemDrop(event)" ondrop="dropCombinedItem(${windowId}, 'group-card', decodeURIComponent('${groupToken}'), event)">
+              <div class="group-card-title combined-group-card-handle" draggable="true" ondragstart="startCombinedItemDrag(${windowId}, 'group-card', decodeURIComponent('${groupToken}'), event)" style="background:${escapeHtml(theme.titleBg)}; border-bottom-color:${escapeHtml(theme.borderColor)}; color:${escapeHtml(theme.titleColor)};">
+                <span>${escapeHtml(group.draw)} | בית ${escapeHtml(group.groupNo)}</span>
+                ${group.isFinishedGroup ? '<span class="group-finished-badge">הבית הסתיים</span>' : ''}
+              </div>
+              <table class="group-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th class="player-col">שחקן</th>
+                    <th>משחקים</th>
+                    <th>נקודות</th>
+                  </tr>
+                </thead>
+                <tbody>${rowsWithDrag}</tbody>
+              </table>
+            </section>
+          `;
+        }).join('');
+
+        return `
+          <section class="groups-draw-section">
+            <div class="groups-draw-grid">${cards}</div>
+          </section>
+        `;
+      }).join('');
+
+      return `<div class="combined-groups-wrap">${sections}</div>`;
     }
 
     function renderGroupsPopupWindow() {
@@ -2037,43 +2360,39 @@
       cursor: pointer;
     }
     .groups-modal-body {
-      padding: 16px;
+      padding: 8px;
       overflow: auto;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 8px;
       --groups-cols: ${groupsColumns};
-      background: #f8fafc;
+      background: linear-gradient(180deg, #f8fbff 0%, #f3f7fb 100%);
     }
     .groups-draw-section { display: grid; gap: 10px; }
-    .groups-draw-title {
-      margin: 0;
-      padding: 8px 10px;
-      border-radius: 10px;
-      border: 1px solid #cbd5e1;
-      background: #e2e8f0;
-      color: #0f172a;
-      font-size: 16px;
-      font-weight: 800;
-    }
+    .groups-draw-title { display: none; }
     .groups-draw-grid {
-      display: grid;
-      grid-template-columns: repeat(var(--groups-cols), minmax(0, 1fr));
-      gap: 14px;
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 10px;
+      overflow-x: auto;
+      overflow-y: hidden;
       align-content: start;
+      padding-bottom: 2px;
     }
     .group-card {
-      border: 1px solid #cbd5e1;
-      border-radius: 12px;
+      border: 1px solid #d6e2ee;
+      border-radius: 14px;
       background: #ffffff;
-      overflow: hidden;
+      overflow-x: auto;
+      overflow-y: hidden;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
     }
     .group-card-title {
       padding: 10px 12px;
       font-weight: 700;
-      color: #0f172a;
-      background: #e2e8f0;
-      border-bottom: 1px solid #cbd5e1;
+      color: #1e293b;
+      background: linear-gradient(180deg, #f8fbff 0%, #edf4fb 100%);
+      border-bottom: 1px solid #d6e2ee;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -2084,29 +2403,48 @@
       align-items: center;
       padding: 2px 8px;
       border-radius: 9999px;
-      background: #16a34a;
+      background: #22a35a;
       color: #ffffff;
       font-size: 11px;
       font-weight: 800;
       line-height: 1.4;
       white-space: nowrap;
     }
-    .group-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    .group-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      table-layout: auto;
+      border: 1px solid #b9c8d9;
+      border-top-width: 1px;
+    }
+    .group-table thead th {
+      background: #f6f9fd;
+      font-weight: 800;
+      color: #334155;
+      border-bottom: 1px solid #c9d6e4;
+    }
     .group-table th,
     .group-table td {
-      border-bottom: 1px solid #e2e8f0;
+      border-bottom: 1px solid #d4dfeb;
+      border-left: 1px solid #d4dfeb;
       padding: 7px 8px;
       font-size: 13px;
       color: #0f172a;
       text-align: center;
     }
+    .group-table th:last-child,
+    .group-table td:last-child { border-left: 0; }
+    .group-table tbody tr:nth-child(even) td { background: #fbfdff; }
+    .group-table tbody tr:hover td { background: #f2f8ff; }
     .group-table th.player-col,
     .group-table td.player-col { text-align: right; }
     .group-table td.player-col {
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 0;
+      white-space: nowrap !important;
+      overflow: visible !important;
+      text-overflow: clip !important;
+      word-break: normal !important;
+      max-width: none;
     }
     .group-table tbody tr:last-child td { border-bottom: 0; }
     .group-row-draggable { cursor: grab; user-select: none; }
@@ -2146,10 +2484,10 @@
 
     function openGroupsPopup() {
       if (!groupsPopupWindow || groupsPopupWindow.closed) {
-        const width = Math.max(1000, Math.floor(window.screen.availWidth * 0.55));
-        const height = Math.max(700, Math.floor(window.screen.availHeight * 0.9));
-        const left = Math.max(0, window.screenX + 40);
-        const top = Math.max(0, window.screenY + 40);
+        const width = Math.max(1100, Math.floor(window.screen.availWidth * 0.92));
+        const height = Math.max(760, Math.floor(window.screen.availHeight * 0.96));
+        const left = Math.max(0, window.screenX + 6);
+        const top = Math.max(0, window.screenY + 6);
         const features = `popup=yes,resizable=yes,scrollbars=yes,width=${width},height=${height},left=${left},top=${top}`;
         groupsPopupWindow = window.open('', 'groupsStandingsWindow', features);
         if (!groupsPopupWindow) {
@@ -2294,6 +2632,15 @@
     const knockoutFirstStageDragState = {
       drawName: '',
       fromIndex: -1
+    };
+    const combinedSectionDragState = {
+      windowId: -1,
+      sectionKey: ''
+    };
+    const combinedItemDragState = {
+      windowId: -1,
+      itemType: '',
+      itemKey: ''
     };
 
     function readKnockoutFirstStageOrderStore() {
@@ -2588,6 +2935,140 @@
       refreshKnockoutPopupIfOpen();
     }
 
+    function startCombinedSectionDrag(windowId, sectionKey, event) {
+      if (event?.target?.closest?.('tr[data-group-key][data-player-key], .group-table, .knockout-match')) {
+        event.preventDefault();
+        return;
+      }
+      const parsedWindowId = Number.parseInt(String(windowId), 10);
+      const key = String(sectionKey || '');
+      if (Number.isNaN(parsedWindowId) || !key) return;
+      combinedSectionDragState.windowId = parsedWindowId;
+      combinedSectionDragState.sectionKey = key;
+      if (event?.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', `${parsedWindowId}|${key}`);
+      }
+    }
+
+    function allowCombinedSectionDrop(event) {
+      if (!event) return;
+      event.preventDefault();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = 'move';
+      }
+    }
+
+    function dropCombinedSection(windowId, targetSectionKey, event) {
+      allowCombinedSectionDrop(event);
+      const parsedWindowId = Number.parseInt(String(windowId), 10);
+      const targetKey = String(targetSectionKey || '');
+      if (Number.isNaN(parsedWindowId) || !targetKey) return;
+
+      let sourceKey = combinedSectionDragState.windowId === parsedWindowId ? combinedSectionDragState.sectionKey : '';
+      if (!sourceKey && event?.dataTransfer) {
+        const raw = event.dataTransfer.getData('text/plain') || '';
+        const parts = raw.split('|');
+        if (parts.length === 2 && Number.parseInt(parts[0], 10) === parsedWindowId) {
+          sourceKey = parts[1] || '';
+        }
+      }
+
+      combinedSectionDragState.windowId = -1;
+      combinedSectionDragState.sectionKey = '';
+
+      if (!sourceKey || sourceKey === targetKey) return;
+      const entry = getLiveKnockoutPopupWindows().find(item => item.id === parsedWindowId);
+      if (!entry || entry.mode !== 'combined') return;
+
+      const currentOrder = Array.isArray(entry.combinedSectionOrder)
+        ? entry.combinedSectionOrder.filter(key => key === 'groups' || key === 'knockout')
+        : ['groups', 'knockout'];
+      const uniqueOrder = Array.from(new Set(currentOrder));
+      if (!uniqueOrder.includes('groups')) uniqueOrder.push('groups');
+      if (!uniqueOrder.includes('knockout')) uniqueOrder.push('knockout');
+
+      const withoutSource = uniqueOrder.filter(key => key !== sourceKey);
+      const targetIndex = withoutSource.indexOf(targetKey);
+      if (targetIndex < 0) return;
+      withoutSource.splice(targetIndex, 0, sourceKey);
+      entry.combinedSectionOrder = withoutSource;
+      renderKnockoutPopupWindow(entry);
+    }
+
+    function startCombinedItemDrag(windowId, itemType, itemKey, event) {
+      const parsedWindowId = Number.parseInt(String(windowId), 10);
+      const type = String(itemType || '');
+      const key = String(itemKey || '');
+      if (Number.isNaN(parsedWindowId) || !type || !key) return;
+      combinedItemDragState.windowId = parsedWindowId;
+      combinedItemDragState.itemType = type;
+      combinedItemDragState.itemKey = key;
+      if (event?.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', `${parsedWindowId}|${type}|${key}`);
+      }
+      event?.stopPropagation?.();
+    }
+
+    function allowCombinedItemDrop(event) {
+      if (!event) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = 'move';
+      }
+    }
+
+    function dropCombinedItem(windowId, itemType, targetKey, event) {
+      allowCombinedItemDrop(event);
+      const parsedWindowId = Number.parseInt(String(windowId), 10);
+      const type = String(itemType || '');
+      const target = String(targetKey || '');
+      if (Number.isNaN(parsedWindowId) || !type || !target) return;
+
+      let sourceType = '';
+      let sourceKey = '';
+      if (combinedItemDragState.windowId === parsedWindowId) {
+        sourceType = combinedItemDragState.itemType;
+        sourceKey = combinedItemDragState.itemKey;
+      }
+
+      if ((!sourceType || !sourceKey) && event?.dataTransfer) {
+        const raw = event.dataTransfer.getData('text/plain') || '';
+        const parts = raw.split('|');
+        if (parts.length >= 3 && Number.parseInt(parts[0], 10) === parsedWindowId) {
+          sourceType = parts[1] || '';
+          sourceKey = parts.slice(2).join('|') || '';
+        }
+      }
+
+      combinedItemDragState.windowId = -1;
+      combinedItemDragState.itemType = '';
+      combinedItemDragState.itemKey = '';
+
+      if (!sourceType || !sourceKey || sourceType !== type || sourceKey === target) return;
+      const entry = getLiveKnockoutPopupWindows().find(item => item.id === parsedWindowId);
+      if (!entry || entry.mode !== 'combined') return;
+
+      const orderField = type === 'group-card' ? 'combinedGroupOrder' : (type === 'knockout-draw' ? 'combinedKnockoutOrder' : '');
+      if (!orderField) return;
+
+      const available = type === 'group-card'
+        ? (Array.isArray(entry._combinedGroupKeys) ? entry._combinedGroupKeys.slice() : [])
+        : (Array.isArray(entry._combinedKnockoutKeys) ? entry._combinedKnockoutKeys.slice() : []);
+      const baseOrder = Array.isArray(entry[orderField]) ? entry[orderField].filter(key => available.includes(key)) : [];
+      const fullOrder = baseOrder.concat(available.filter(key => !baseOrder.includes(key)));
+      if (!fullOrder.includes(sourceKey) || !fullOrder.includes(target)) return;
+
+      const withoutSource = fullOrder.filter(key => key !== sourceKey);
+      const targetIndex = withoutSource.indexOf(target);
+      if (targetIndex < 0) return;
+      withoutSource.splice(targetIndex, 0, sourceKey);
+      entry[orderField] = withoutSource;
+      renderKnockoutPopupWindow(entry);
+    }
+
     function getNonGroupGamesByDraw(games) {
       const drawGames = new Map();
       games.forEach(game => {
@@ -2807,7 +3288,7 @@
     }
 
     function applyKnockoutContentFit(rootDocument = document, zoomPercent = 100) {
-      const body = rootDocument.getElementById('knockout-modal-body');
+      const body = rootDocument.getElementById('combined-knockout-viewport') || rootDocument.getElementById('knockout-modal-body');
       const fit = rootDocument.getElementById('knockout-content-fit');
       if (!body || !fit) return;
 
@@ -2840,8 +3321,41 @@
       fit.style.transform = `scale(${scale * manualZoom})`;
     }
 
+    function applyCombinedGroupsContentFit(rootDocument = document, zoomPercent = 100) {
+      const viewport = rootDocument.getElementById('combined-groups-viewport');
+      const fit = rootDocument.getElementById('combined-groups-fit');
+      if (!viewport || !fit) return;
+
+      if (!fit.children.length) {
+        fit.style.transform = 'scale(1)';
+        return;
+      }
+
+      const calculateScale = () => {
+        const availableWidth = viewport.clientWidth;
+        const availableHeight = viewport.clientHeight;
+        const contentWidth = fit.scrollWidth;
+        const contentHeight = fit.scrollHeight;
+        if (!availableWidth || !availableHeight || !contentWidth || !contentHeight) return 1;
+        return Math.min(1, availableWidth / contentWidth, availableHeight / contentHeight);
+      };
+
+      fit.style.transform = 'scale(1)';
+      const autoScale = Math.max(0.45, calculateScale());
+      const manualZoom = clampCombinedGroupsZoomPercent(zoomPercent) / 100;
+      fit.style.transform = `scale(${autoScale * manualZoom})`;
+    }
+
     function clampKnockoutZoomPercent(value) {
       return Math.max(25, Math.min(300, Math.round(Number(value) || 100)));
+    }
+
+    function clampCombinedGroupsZoomPercent(value) {
+      return Math.max(25, Math.min(300, Math.round(Number(value) || 100)));
+    }
+
+    function clampCombinedPanePercent(value) {
+      return Math.max(20, Math.min(80, Math.round(Number(value) || 50)));
     }
 
     function updateKnockoutPopupZoom(windowId, zoomPercent) {
@@ -2871,6 +3385,68 @@
 
     function resetKnockoutPopupZoom(windowId) {
       updateKnockoutPopupZoom(windowId, 100);
+    }
+
+    function updateCombinedGroupsPopupZoom(windowId, zoomPercent) {
+      const parsedWindowId = Number.parseInt(String(windowId), 10);
+      if (Number.isNaN(parsedWindowId)) return;
+
+      const entry = getLiveKnockoutPopupWindows().find(item => item.id === parsedWindowId);
+      if (!entry || entry.mode !== 'combined' || !entry.win || entry.win.closed) return;
+
+      entry.groupsZoomPercent = clampCombinedGroupsZoomPercent(zoomPercent);
+      const popupDoc = entry.win.document;
+      const slider = popupDoc.getElementById('groups-zoom-slider');
+      const label = popupDoc.getElementById('groups-zoom-value');
+      if (slider) slider.value = String(entry.groupsZoomPercent);
+      if (label) label.textContent = `${entry.groupsZoomPercent}%`;
+      applyCombinedGroupsContentFit(popupDoc, entry.groupsZoomPercent);
+    }
+
+    function adjustCombinedGroupsPopupZoom(windowId, delta) {
+      const parsedWindowId = Number.parseInt(String(windowId), 10);
+      if (Number.isNaN(parsedWindowId)) return;
+
+      const entry = getLiveKnockoutPopupWindows().find(item => item.id === parsedWindowId);
+      if (!entry || entry.mode !== 'combined') return;
+      updateCombinedGroupsPopupZoom(parsedWindowId, (entry.groupsZoomPercent || 100) + (Number(delta) || 0));
+    }
+
+    function resetCombinedGroupsPopupZoom(windowId) {
+      updateCombinedGroupsPopupZoom(windowId, 100);
+    }
+
+    function updateCombinedPaneSplit(windowId, percent) {
+      const parsedWindowId = Number.parseInt(String(windowId), 10);
+      if (Number.isNaN(parsedWindowId)) return;
+
+      const entry = getLiveKnockoutPopupWindows().find(item => item.id === parsedWindowId);
+      if (!entry || entry.mode !== 'combined' || !entry.win || entry.win.closed) return;
+
+      entry.combinedGroupsPanePercent = clampCombinedPanePercent(percent);
+      const popupDoc = entry.win.document;
+      const layoutRoot = popupDoc.getElementById('combined-layout-root');
+      const label = popupDoc.getElementById('combined-pane-value');
+      const slider = popupDoc.getElementById('combined-pane-slider');
+      if (layoutRoot) {
+        layoutRoot.style.setProperty('--groups-pane', String(entry.combinedGroupsPanePercent));
+      }
+      if (label) label.textContent = `${entry.combinedGroupsPanePercent}%`;
+      if (slider) slider.value = String(entry.combinedGroupsPanePercent);
+
+      applyKnockoutContentFit(popupDoc, entry.zoomPercent || 100);
+      applyCombinedGroupsContentFit(popupDoc, entry.groupsZoomPercent || 100);
+    }
+
+    function setKnockoutSingleRow(windowId, enabled) {
+      const parsedWindowId = Number.parseInt(String(windowId), 10);
+      if (Number.isNaN(parsedWindowId)) return;
+
+      const entry = getLiveKnockoutPopupWindows().find(item => item.id === parsedWindowId);
+      if (!entry || !entry.win || entry.win.closed) return;
+
+      entry.knockoutSingleRow = Boolean(enabled);
+      renderKnockoutPopupWindow(entry);
     }
 
     function setKnockoutPopupToolbarCollapsed(windowId, collapsed) {
@@ -2953,10 +3529,13 @@
       return bestCols;
     }
 
-    function getKnockoutPopupBodyHtml(drawTrees, nonGroupGamesByDraw, drawColumns = 1) {
+    function getKnockoutPopupBodyHtml(drawTrees, nonGroupGamesByDraw, drawColumns = 1, options = {}) {
       if (drawTrees.length === 0) {
         return '<div class="knockout-draw-card"><div class="knockout-draw-title">אין עץ נוקאאוט להצגה</div><div class="p-3 text-slate-600">לא נמצאו שחקנים שעלו משלב הבתים.</div></div>';
       }
+
+      const enableDrawDrag = Boolean(options.enableDrawDrag);
+      const drawDragWindowId = Number.parseInt(String(options.windowId), 10);
 
       const drawCardsHtml = drawTrees.map(tree => {
         const theme = getDrawTheme(tree.drawName);
@@ -3067,9 +3646,18 @@
           `;
         }).join('');
 
+        const drawKey = String(tree.drawName || '');
+        const drawKeyToken = encodeURIComponent(drawKey);
+        const dragDropAttrs = enableDrawDrag && !Number.isNaN(drawDragWindowId)
+          ? ` ondragover="allowCombinedItemDrop(event)" ondrop="dropCombinedItem(${drawDragWindowId}, 'knockout-draw', decodeURIComponent('${drawKeyToken}'), event)"`
+          : '';
+        const dragTitleAttrs = enableDrawDrag && !Number.isNaN(drawDragWindowId)
+          ? ` draggable="true" ondragstart="startCombinedItemDrag(${drawDragWindowId}, 'knockout-draw', decodeURIComponent('${drawKeyToken}'), event)"`
+          : '';
+
         return `
-          <section class="knockout-draw-card" style="--round-count:${tree.rounds.length}; border-color:${escapeHtml(theme.borderColor)};">
-            <div class="knockout-draw-title" style="background:${escapeHtml(theme.titleBg)}; border-bottom-color:${escapeHtml(theme.borderColor)}; color:${escapeHtml(theme.titleColor)};">${escapeHtml(tree.drawName)}</div>
+          <section class="knockout-draw-card"${dragDropAttrs} style="--round-count:${tree.rounds.length}; border-color:${escapeHtml(theme.borderColor)};">
+            <div class="knockout-draw-title${enableDrawDrag ? ' knockout-draw-drag-handle' : ''}"${dragTitleAttrs} style="background:${escapeHtml(theme.titleBg)}; border-bottom-color:${escapeHtml(theme.borderColor)}; color:${escapeHtml(theme.titleColor)};">${escapeHtml(tree.drawName)}</div>
             <div class="knockout-rounds">${roundsHtml}</div>
           </section>
         `;
@@ -3103,6 +3691,7 @@
       return new Promise(resolve => {
         knockoutDrawSelectionState = {
           names,
+          mode: 'knockout',
           resolve
         };
 
@@ -3117,6 +3706,62 @@
       });
     }
 
+    function openCombinedSelector(groupDrawNames, knockoutDrawNames, savedSelection = null) {
+      const groupNames = Array.isArray(groupDrawNames) ? groupDrawNames.slice() : [];
+      const koNames = Array.isArray(knockoutDrawNames) ? knockoutDrawNames.slice() : [];
+      const hasSavedGroups = Array.isArray(savedSelection?.groupDraws);
+      const hasSavedKnockout = Array.isArray(savedSelection?.knockoutDraws);
+      const selectedGroupsSet = new Set(hasSavedGroups ? savedSelection.groupDraws : []);
+      const selectedKnockoutSet = new Set(hasSavedKnockout ? savedSelection.knockoutDraws : []);
+
+      const overlay = document.getElementById('knockout-draw-selector');
+      const list = document.getElementById('knockout-draw-selector-list');
+      if (!overlay || !list) {
+        return Promise.resolve({
+          groupDraws: groupNames,
+          knockoutDraws: koNames
+        });
+      }
+
+      return new Promise(resolve => {
+        knockoutDrawSelectionState = {
+          mode: 'combined',
+          resolve
+        };
+
+        const groupsOptionsHtml = groupNames.length > 0
+          ? groupNames.map(drawName => `
+            <label class="draw-selector-item">
+              <input type="checkbox" class="combined-group-option" value="${escapeHtml(drawName)}" ${hasSavedGroups ? (selectedGroupsSet.has(drawName) ? 'checked' : '') : 'checked'}>
+              <span>בתים: ${escapeHtml(drawName)}</span>
+            </label>
+          `).join('')
+          : '<div class="text-slate-500 text-sm">אין בתים זמינים</div>';
+
+        const knockoutOptionsHtml = koNames.length > 0
+          ? koNames.map(drawName => `
+            <label class="draw-selector-item">
+              <input type="checkbox" class="combined-knockout-draw-option" value="${escapeHtml(drawName)}" ${hasSavedKnockout ? (selectedKnockoutSet.has(drawName) ? 'checked' : '') : 'checked'}>
+              <span>נוקאאוט: ${escapeHtml(drawName)}</span>
+            </label>
+          `).join('')
+          : '<div class="text-slate-500 text-sm">אין קטגוריות נוקאאוט זמינות</div>';
+
+        list.innerHTML = `
+          <section class="draw-selector-list">
+            <h4 class="font-bold text-slate-700 m-0">בתים להצגה</h4>
+            ${groupsOptionsHtml}
+          </section>
+          <section class="draw-selector-list">
+            <h4 class="font-bold text-slate-700 m-0">קטגוריות נוקאאוט להצגה</h4>
+            ${knockoutOptionsHtml}
+          </section>
+        `;
+
+        overlay.classList.add('show');
+      });
+    }
+
     function closeKnockoutDrawSelector() {
       const overlay = document.getElementById('knockout-draw-selector');
       if (overlay) {
@@ -3125,7 +3770,11 @@
     }
 
     function setAllKnockoutDrawSelections(checked) {
-      document.querySelectorAll('#knockout-draw-selector .knockout-draw-option').forEach(input => {
+      const mode = knockoutDrawSelectionState?.mode || 'knockout';
+      const selector = mode === 'combined'
+        ? '#knockout-draw-selector input[type="checkbox"]'
+        : '#knockout-draw-selector .knockout-draw-option';
+      document.querySelectorAll(selector).forEach(input => {
         input.checked = Boolean(checked);
       });
     }
@@ -3140,6 +3789,30 @@
 
     function confirmKnockoutDrawSelection() {
       if (!knockoutDrawSelectionState) return;
+
+      if (knockoutDrawSelectionState.mode === 'combined') {
+        const groupDraws = Array.from(document.querySelectorAll('#knockout-draw-selector .combined-group-option:checked'))
+          .map(input => input.value)
+          .filter(Boolean);
+        const knockoutDraws = Array.from(document.querySelectorAll('#knockout-draw-selector .combined-knockout-draw-option:checked'))
+          .map(input => input.value)
+          .filter(Boolean);
+
+        if (groupDraws.length === 0 && knockoutDraws.length === 0) {
+          const errorMsg = document.getElementById('error-message');
+          if (errorMsg) {
+            errorMsg.textContent = 'בחר לפחות בית אחד או קטגוריית נוקאאוט אחת.';
+            errorMsg.classList.remove('hidden');
+          }
+          return;
+        }
+
+        const { resolve } = knockoutDrawSelectionState;
+        knockoutDrawSelectionState = null;
+        closeKnockoutDrawSelector();
+        resolve({ groupDraws, knockoutDraws });
+        return;
+      }
 
       const selected = Array.from(document.querySelectorAll('#knockout-draw-selector .knockout-draw-option:checked'))
         .map(input => input.value)
@@ -3167,11 +3840,19 @@
       }
 
       const nonGroupGamesByDraw = getNonGroupGamesByDraw(gamesData || []);
-      const visibleDrawNames = (Array.isArray(entry.drawNames) && entry.drawNames.length > 0
-        ? entry.drawNames.filter(drawName => nonGroupGamesByDraw.has(drawName))
-        : Array.from(nonGroupGamesByDraw.keys())
-      );
-      const filteredDrawMap = new Map(visibleDrawNames.map(drawName => [drawName, nonGroupGamesByDraw.get(drawName) || []]));
+      const hasExplicitDrawSelection = Array.isArray(entry.drawNames);
+      const visibleDrawNames = entry.mode === 'combined'
+        ? (hasExplicitDrawSelection
+          ? entry.drawNames.filter(drawName => nonGroupGamesByDraw.has(drawName))
+          : [])
+        : (hasExplicitDrawSelection && entry.drawNames.length > 0
+          ? entry.drawNames.filter(drawName => nonGroupGamesByDraw.has(drawName))
+          : Array.from(nonGroupGamesByDraw.keys())
+        );
+      const filteredDrawMap = new Map(visibleDrawNames.map(drawName => {
+        const drawGames = nonGroupGamesByDraw.get(drawName) || [];
+        return [drawName, drawGames];
+      }));
       const drawTrees = Array.from(filteredDrawMap.entries()).map(([drawName, drawGames]) => ({
         drawName,
         rounds: buildKnockoutTreeFromGames(drawGames)
@@ -3182,10 +3863,89 @@
 
       const estimatedBodyWidth = Math.max(600, (entry.win.innerWidth || 1200) - 48);
       const estimatedBodyHeight = Math.max(400, (entry.win.innerHeight || 900) - 110);
-      const drawColumns = chooseKnockoutDrawColumns(drawTrees, estimatedBodyWidth, estimatedBodyHeight);
-      const bodyHtml = getKnockoutPopupBodyHtml(drawTrees, filteredDrawMap, drawColumns);
+      let drawColumns = chooseKnockoutDrawColumns(drawTrees, estimatedBodyWidth, estimatedBodyHeight);
+      let orderedDrawTrees = drawTrees.slice();
+      if (entry.mode === 'combined') {
+        const drawKeys = orderedDrawTrees.map(tree => String(tree.drawName || ''));
+        const baseOrder = Array.isArray(entry.combinedKnockoutOrder)
+          ? entry.combinedKnockoutOrder.filter(key => drawKeys.includes(key))
+          : [];
+        const finalOrder = baseOrder.concat(drawKeys.filter(key => !baseOrder.includes(key)));
+        entry.combinedKnockoutOrder = finalOrder;
+        const byName = new Map(orderedDrawTrees.map(tree => [String(tree.drawName || ''), tree]));
+        orderedDrawTrees = finalOrder.map(name => byName.get(name)).filter(Boolean);
+      }
+      if (entry.knockoutSingleRow) {
+        drawColumns = Math.max(1, orderedDrawTrees.length);
+      }
+
+      let bodyHtml = getKnockoutPopupBodyHtml(
+        orderedDrawTrees,
+        filteredDrawMap,
+        drawColumns,
+        { enableDrawDrag: entry.mode === 'combined', windowId: entry.id }
+      );
+      let windowTitle = getKnockoutWindowTitle(visibleDrawNames);
+      entry._hasCombinedGroupsSection = false;
+      entry._hasCombinedKnockoutSection = entry.mode !== 'combined';
+      if (entry.mode === 'combined') {
+        const standings = buildGroupStandings(gamesData || []);
+        const allowedGroupDraws = new Set(Array.isArray(entry.groupDraws) ? entry.groupDraws : []);
+        const groupsToRender = standings.filter(group => allowedGroupDraws.has(group.draw));
+        const groupKeys = groupsToRender.map(group => String(group.groupKey || ''));
+        const groupsBaseOrder = Array.isArray(entry.combinedGroupOrder)
+          ? entry.combinedGroupOrder.filter(key => groupKeys.includes(key))
+          : [];
+        const groupsFinalOrder = groupsBaseOrder.concat(groupKeys.filter(key => !groupsBaseOrder.includes(key)));
+        entry.combinedGroupOrder = groupsFinalOrder;
+        const groupsByKey = new Map(groupsToRender.map(group => [String(group.groupKey || ''), group]));
+        const orderedGroups = groupsFinalOrder.map(key => groupsByKey.get(key)).filter(Boolean);
+
+        const hasGroupsSection = orderedGroups.length > 0;
+        const hasKnockoutSection = orderedDrawTrees.length > 0;
+        entry._hasCombinedGroupsSection = hasGroupsSection;
+        entry._hasCombinedKnockoutSection = hasKnockoutSection;
+
+        entry._combinedGroupKeys = orderedGroups.map(group => String(group.groupKey || ''));
+        entry._combinedKnockoutKeys = orderedDrawTrees.map(tree => String(tree.drawName || ''));
+
+        const groupsContentHtml = getCombinedGroupsCardsHtml(orderedGroups, entry.id);
+        const sectionsMap = {
+          groups: hasGroupsSection ? `
+          <section class="combined-popup-section combined-popup-section-draggable combined-pane-groups" ondragover="allowCombinedSectionDrop(event)" ondrop="dropCombinedSection(${entry.id}, 'groups', event)">
+            <h3 class="combined-popup-title combined-popup-drag-handle" draggable="true" ondragstart="startCombinedSectionDrag(${entry.id}, 'groups', event)">טבלת בתים</h3>
+            <div id="combined-groups-viewport" class="combined-groups-viewport">
+              <div id="combined-groups-fit" class="combined-groups-fit">
+                ${groupsContentHtml}
+              </div>
+            </div>
+          </section>` : '',
+          knockout: hasKnockoutSection ? `
+          <section class="combined-popup-section combined-popup-section-draggable combined-pane-knockout" ondragover="allowCombinedSectionDrop(event)" ondrop="dropCombinedSection(${entry.id}, 'knockout', event)">
+            <h3 class="combined-popup-title combined-popup-drag-handle" draggable="true" ondragstart="startCombinedSectionDrag(${entry.id}, 'knockout', event)">עץ נוקאאוט</h3>
+            <div id="combined-knockout-viewport" class="combined-knockout-viewport">${bodyHtml}</div>
+          </section>` : ''
+        };
+        const rawOrder = Array.isArray(entry.combinedSectionOrder)
+          ? entry.combinedSectionOrder.filter(key => key === 'groups' || key === 'knockout')
+          : ['groups', 'knockout'];
+        const sectionOrder = Array.from(new Set(rawOrder));
+        if (!sectionOrder.includes('groups')) sectionOrder.push('groups');
+        if (!sectionOrder.includes('knockout')) sectionOrder.push('knockout');
+        const availableSections = sectionOrder.filter(key => (key === 'groups' && hasGroupsSection) || (key === 'knockout' && hasKnockoutSection));
+        entry.combinedSectionOrder = availableSections;
+        const sectionHtml = availableSections.map(key => sectionsMap[key]).filter(Boolean).join('');
+        const panePercent = clampCombinedPanePercent(entry.combinedGroupsPanePercent || 50);
+        entry.combinedGroupsPanePercent = panePercent;
+        bodyHtml = availableSections.length > 1
+          ? `<div id="combined-layout-root" class="combined-layout combined-layout-two" style="--groups-pane:${panePercent};">${sectionHtml}</div>`
+          : `<div id="combined-layout-root" class="combined-layout combined-layout-single">${sectionHtml}</div>`;
+        const titleParts = [];
+        if (hasGroupsSection) titleParts.push('בתים');
+        if (hasKnockoutSection) titleParts.push('נוקאאוט');
+        windowTitle = titleParts.length > 0 ? titleParts.join(' + ') : 'בתים + נוקאאוט';
+      }
       const popupDoc = entry.win.document;
-      const windowTitle = getKnockoutWindowTitle(visibleDrawNames);
       popupDoc.open();
       popupDoc.write(`<!doctype html>
 <html lang="he" dir="rtl">
@@ -3250,6 +4010,19 @@
       width: 120px;
       accent-color: #4f46e5;
     }
+    .zoom-tools-separator {
+      width: 1px;
+      height: 26px;
+      background: #cbd5e1;
+      margin: 0 4px;
+    }
+    .zoom-section-label {
+      font-size: 11px;
+      font-weight: 800;
+      color: #334155;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
     .knockout-zoom-value {
       min-width: 48px;
       text-align: center;
@@ -3284,12 +4057,177 @@
       cursor: pointer;
     }
     .knockout-modal-body {
-      padding: 16px;
+      padding: 6px;
       overflow: hidden;
       display: grid;
-      gap: 14px;
+      gap: 6px;
       align-content: start;
       background: #f8fafc;
+    }
+    .combined-popup-section {
+      display: grid;
+      gap: 6px;
+      align-content: start;
+      min-height: 0;
+    }
+    .combined-popup-section-draggable {
+      cursor: default;
+      border: 1px dashed #cbd5e1;
+      border-radius: 10px;
+      padding: 4px;
+      background: #f8fafc;
+      min-height: 0;
+    }
+    .combined-layout {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-height: 0;
+      height: 100%;
+    }
+    .combined-layout-single .combined-popup-section {
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+    .combined-layout-two .combined-pane-groups {
+      flex: 0 0 calc((var(--groups-pane, 50) * 1%) - 5px);
+      min-height: 120px;
+    }
+    .combined-layout-two .combined-pane-knockout {
+      flex: 0 0 calc(((100 - var(--groups-pane, 50)) * 1%) - 5px);
+      min-height: 120px;
+    }
+    .combined-popup-drag-handle {
+      cursor: grab;
+      user-select: none;
+    }
+    .combined-popup-drag-handle:active {
+      cursor: grabbing;
+    }
+    .combined-groups-viewport {
+      position: relative;
+      overflow: hidden;
+      height: min(48vh, 520px);
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #ffffff;
+      padding: 4px;
+    }
+    .combined-layout-single .combined-groups-viewport,
+    .combined-layout-two .combined-groups-viewport {
+      height: 100%;
+      min-height: 0;
+    }
+    .combined-knockout-viewport {
+      overflow: hidden;
+      min-height: 0;
+      height: 100%;
+    }
+    .combined-groups-fit {
+      width: 100%;
+      transform-origin: top right;
+      will-change: transform;
+    }
+    .combined-popup-title {
+      margin: 0;
+      padding: 8px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      background: #e2e8f0;
+      color: #0f172a;
+      font-size: 15px;
+      font-weight: 800;
+    }
+    .combined-groups-wrap {
+      display: grid;
+      gap: 8px;
+      align-content: start;
+    }
+    .combined-groups-wrap .groups-draw-section {
+      display: grid;
+      gap: 6px;
+      align-content: start;
+    }
+    .combined-groups-wrap .groups-draw-title { display: none; }
+    .combined-groups-wrap .groups-draw-grid {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 10px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      justify-content: start;
+      align-content: start;
+      padding-bottom: 2px;
+    }
+    .combined-groups-wrap .group-card {
+      border: 1px solid #d6e2ee;
+      border-radius: 14px;
+      background: #ffffff;
+      overflow-x: auto;
+      overflow-y: hidden;
+      width: 280px;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+    }
+    .combined-group-card-handle {
+      cursor: grab;
+      user-select: none;
+    }
+    .combined-group-card-handle:active {
+      cursor: grabbing;
+    }
+    .combined-groups-wrap .group-card-title {
+      padding: 10px 12px;
+      font-weight: 700;
+      color: #1e293b;
+      background: linear-gradient(180deg, #f8fbff 0%, #edf4fb 100%);
+      border-bottom: 1px solid #d6e2ee;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .combined-groups-wrap .group-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      table-layout: auto;
+      border: 1px solid #b9c8d9 !important;
+      border-top-width: 1px;
+    }
+    .combined-groups-wrap .group-table thead th {
+      background: #f6f9fd;
+      font-weight: 800;
+      color: #334155;
+      border-bottom: 1px solid #c9d6e4 !important;
+    }
+    .combined-groups-wrap .group-table th,
+    .combined-groups-wrap .group-table td {
+      border-bottom: 1px solid #d4dfeb !important;
+      border-left: 1px solid #d4dfeb !important;
+      padding: 7px 8px;
+      font-size: 13px;
+      color: #0f172a;
+      text-align: center;
+    }
+    .combined-groups-wrap .group-table th.player-col,
+    .combined-groups-wrap .group-table td.player-col { text-align: right; }
+    .combined-groups-wrap .group-table td.player-col {
+      white-space: nowrap !important;
+      overflow: visible !important;
+      text-overflow: clip !important;
+      word-break: normal !important;
+      max-width: none;
+    }
+    .combined-groups-wrap .group-table th:last-child,
+    .combined-groups-wrap .group-table td:last-child { border-left: 0; }
+    .combined-groups-wrap .group-table tbody tr:nth-child(even) td { background: #fbfdff; }
+    .combined-groups-wrap .group-table tbody tr:hover td { background: #f2f8ff; }
+    .knockout-draw-drag-handle {
+      cursor: grab;
+      user-select: none;
+    }
+    .knockout-draw-drag-handle:active {
+      cursor: grabbing;
     }
     .knockout-content-fit {
       display: grid;
@@ -3413,9 +4351,20 @@
     function onKnockoutFirstStageDragEnter(event) { if (window.opener?.onKnockoutFirstStageDragEnter) window.opener.onKnockoutFirstStageDragEnter(event); }
     function onKnockoutFirstStageDragLeave(event) { if (window.opener?.onKnockoutFirstStageDragLeave) window.opener.onKnockoutFirstStageDragLeave(event); }
     function dropKnockoutFirstStageSwap(drawToken, toIndex, stageSize, event) { if (window.opener?.dropKnockoutFirstStageSwap) window.opener.dropKnockoutFirstStageSwap(drawToken, toIndex, stageSize, event); }
+    function startCombinedSectionDrag(windowId, sectionKey, event) { if (window.opener?.startCombinedSectionDrag) window.opener.startCombinedSectionDrag(windowId, sectionKey, event); }
+    function allowCombinedSectionDrop(event) { if (window.opener?.allowCombinedSectionDrop) window.opener.allowCombinedSectionDrop(event); }
+    function dropCombinedSection(windowId, sectionKey, event) { if (window.opener?.dropCombinedSection) window.opener.dropCombinedSection(windowId, sectionKey, event); }
+    function startCombinedItemDrag(windowId, itemType, itemKey, event) { if (window.opener?.startCombinedItemDrag) window.opener.startCombinedItemDrag(windowId, itemType, itemKey, event); }
+    function allowCombinedItemDrop(event) { if (window.opener?.allowCombinedItemDrop) window.opener.allowCombinedItemDrop(event); }
+    function dropCombinedItem(windowId, itemType, itemKey, event) { if (window.opener?.dropCombinedItem) window.opener.dropCombinedItem(windowId, itemType, itemKey, event); }
     function updateKnockoutPopupZoom(windowId, value) { if (window.opener?.updateKnockoutPopupZoom) window.opener.updateKnockoutPopupZoom(windowId, value); }
     function adjustKnockoutPopupZoom(windowId, delta) { if (window.opener?.adjustKnockoutPopupZoom) window.opener.adjustKnockoutPopupZoom(windowId, delta); }
     function resetKnockoutPopupZoom(windowId) { if (window.opener?.resetKnockoutPopupZoom) window.opener.resetKnockoutPopupZoom(windowId); }
+    function updateCombinedGroupsPopupZoom(windowId, value) { if (window.opener?.updateCombinedGroupsPopupZoom) window.opener.updateCombinedGroupsPopupZoom(windowId, value); }
+    function adjustCombinedGroupsPopupZoom(windowId, delta) { if (window.opener?.adjustCombinedGroupsPopupZoom) window.opener.adjustCombinedGroupsPopupZoom(windowId, delta); }
+    function resetCombinedGroupsPopupZoom(windowId) { if (window.opener?.resetCombinedGroupsPopupZoom) window.opener.resetCombinedGroupsPopupZoom(windowId); }
+    function updateCombinedPaneSplit(windowId, value) { if (window.opener?.updateCombinedPaneSplit) window.opener.updateCombinedPaneSplit(windowId, value); }
+    function setKnockoutSingleRow(windowId, value) { if (window.opener?.setKnockoutSingleRow) window.opener.setKnockoutSingleRow(windowId, value); }
     function setKnockoutPopupToolbarCollapsed(windowId, collapsed) { if (window.opener?.setKnockoutPopupToolbarCollapsed) window.opener.setKnockoutPopupToolbarCollapsed(windowId, collapsed); }
   <\/script>
 </head>
@@ -3423,11 +4372,30 @@
   <div class="knockout-popup-shell">
     <button id="knockout-zoom-open" class="knockout-zoom-toggle${entry.zoomToolbarCollapsed ? ' is-visible' : ''}" type="button" onclick="setKnockoutPopupToolbarCollapsed(${entry.id}, false)">Zoom</button>
     <div class="knockout-zoom-tools${entry.zoomToolbarCollapsed ? ' is-hidden' : ''}">
+      ${(entry.mode !== 'combined' || entry._hasCombinedKnockoutSection) ? `
+      <span class="zoom-section-label">KO</span>
       <button type="button" onclick="adjustKnockoutPopupZoom(${entry.id}, -5)">-</button>
       <input id="knockout-zoom-slider" type="range" min="25" max="300" step="1" value="${clampKnockoutZoomPercent(entry.zoomPercent || 100)}" oninput="updateKnockoutPopupZoom(${entry.id}, this.value)">
       <button type="button" onclick="adjustKnockoutPopupZoom(${entry.id}, 5)">+</button>
       <button type="button" onclick="resetKnockoutPopupZoom(${entry.id})">Fit</button>
+      <button type="button" onclick="setKnockoutSingleRow(${entry.id}, ${entry.knockoutSingleRow ? 'false' : 'true'})">${entry.knockoutSingleRow ? 'KO Auto' : 'KO Row'}</button>
       <span id="knockout-zoom-value" class="knockout-zoom-value">${clampKnockoutZoomPercent(entry.zoomPercent || 100)}%</span>
+      ` : ''}
+      ${(entry.mode === 'combined' && entry._hasCombinedKnockoutSection && entry._hasCombinedGroupsSection) ? '<span class="zoom-tools-separator"></span>' : ''}
+      ${(entry.mode === 'combined' && entry._hasCombinedKnockoutSection && entry._hasCombinedGroupsSection) ? `
+      <span class="zoom-section-label">Layout</span>
+      <input id="combined-pane-slider" type="range" min="20" max="80" step="1" value="${clampCombinedPanePercent(entry.combinedGroupsPanePercent || 50)}" oninput="updateCombinedPaneSplit(${entry.id}, this.value)">
+      <span id="combined-pane-value" class="knockout-zoom-value">${clampCombinedPanePercent(entry.combinedGroupsPanePercent || 50)}%</span>
+      ` : ''}
+      ${(entry.mode === 'combined' && entry._hasCombinedKnockoutSection && entry._hasCombinedGroupsSection) ? '<span class="zoom-tools-separator"></span>' : ''}
+      ${(entry.mode === 'combined' && entry._hasCombinedGroupsSection) ? `
+      <span class="zoom-section-label">Groups</span>
+      <button type="button" onclick="adjustCombinedGroupsPopupZoom(${entry.id}, -5)">-</button>
+      <input id="groups-zoom-slider" type="range" min="25" max="300" step="1" value="${clampCombinedGroupsZoomPercent(entry.groupsZoomPercent || 100)}" oninput="updateCombinedGroupsPopupZoom(${entry.id}, this.value)">
+      <button type="button" onclick="adjustCombinedGroupsPopupZoom(${entry.id}, 5)">+</button>
+      <button type="button" onclick="resetCombinedGroupsPopupZoom(${entry.id})">Fit</button>
+      <span id="groups-zoom-value" class="knockout-zoom-value">${clampCombinedGroupsZoomPercent(entry.groupsZoomPercent || 100)}%</span>
+      ` : ''}
       <button type="button" onclick="setKnockoutPopupToolbarCollapsed(${entry.id}, true)">Hide</button>
     </div>
     <div id="knockout-modal-body" class="knockout-modal-body">${bodyHtml}</div>
@@ -3436,7 +4404,17 @@
 </html>`);
       popupDoc.close();
 
-      entry.win.requestAnimationFrame(() => applyKnockoutContentFit(popupDoc, entry.zoomPercent || 100));
+      if (entry.mode === 'combined') {
+        const groupsFit = popupDoc.getElementById('combined-groups-fit');
+        if (groupsFit) {
+          bindGroupRowDragAndDrop(groupsFit, popupDoc);
+        }
+      }
+
+      entry.win.requestAnimationFrame(() => {
+        applyKnockoutContentFit(popupDoc, entry.zoomPercent || 100);
+        applyCombinedGroupsContentFit(popupDoc, entry.groupsZoomPercent || 100);
+      });
     }
 
     function getKnockoutTotalRows(rounds) {
@@ -3452,21 +4430,81 @@
       return ((2 ** (roundIndex - 1)) - 0.5) + (matchIndex * (2 ** roundIndex));
     }
 
+    async function openCombinedPopup() {
+      const standings = buildGroupStandings(gamesData || []);
+      const groupDrawNames = Array.from(new Set(standings.map(group => group.draw))).sort((a, b) => a.localeCompare(b, 'he'));
+      const nonGroupGamesByDraw = getNonGroupGamesByDraw(gamesData || []);
+      const knockoutDrawNames = Array.from(nonGroupGamesByDraw.keys()).sort((a, b) => a.localeCompare(b, 'he'));
+      const savedSelection = loadCombinedSelection();
+
+      const selection = await openCombinedSelector(groupDrawNames, knockoutDrawNames, savedSelection);
+      if (!selection) return;
+      saveCombinedSelection(selection);
+
+      const width = Math.max(1200, Math.floor(window.screen.availWidth * 0.93));
+      const height = Math.max(780, Math.floor(window.screen.availHeight * 0.96));
+      const offsetIndex = getLiveKnockoutPopupWindows().length;
+      const left = Math.max(0, window.screenX + 4 + (offsetIndex * 10));
+      const top = Math.max(0, window.screenY + 4 + (offsetIndex * 10));
+      const features = `popup=yes,resizable=yes,scrollbars=yes,width=${width},height=${height},left=${left},top=${top}`;
+      const entry = {
+        id: nextKnockoutPopupWindowId,
+        mode: 'combined',
+        groupDraws: Array.isArray(selection.groupDraws) ? selection.groupDraws.slice() : [],
+        drawNames: Array.isArray(selection.knockoutDraws) ? selection.knockoutDraws.slice() : [],
+        combinedSectionOrder: ['groups', 'knockout'],
+        combinedGroupOrder: [],
+        combinedKnockoutOrder: [],
+        combinedGroupsPanePercent: 50,
+        knockoutSingleRow: false,
+        zoomPercent: 100,
+        groupsZoomPercent: 100,
+        zoomToolbarCollapsed: false,
+        resizeTimer: null,
+        win: window.open('', `combinedTreeWindow_${nextKnockoutPopupWindowId}`, features)
+      };
+      nextKnockoutPopupWindowId += 1;
+
+      if (!entry.win) {
+        const errorMsg = document.getElementById('error-message');
+        if (errorMsg) {
+          errorMsg.textContent = 'הדפדפן חסם פתיחת חלון משולב. אפשר חלונות קופצים ונסה שוב.';
+          errorMsg.classList.remove('hidden');
+        }
+        return;
+      }
+
+      knockoutPopupWindows.push(entry);
+      entry.win.addEventListener('beforeunload', () => {
+        knockoutPopupWindows = knockoutPopupWindows.filter(item => item !== entry);
+      });
+      entry.win.addEventListener('resize', () => {
+        if (entry.resizeTimer) clearTimeout(entry.resizeTimer);
+        entry.resizeTimer = setTimeout(() => {
+          renderKnockoutPopupWindow(entry);
+        }, 120);
+      });
+
+      renderKnockoutPopupWindow(entry);
+      try { entry.win.focus(); } catch {}
+    }
+
     async function openKnockoutPopup() {
       const nonGroupGamesByDraw = getNonGroupGamesByDraw(gamesData || []);
       const availableDrawNames = Array.from(nonGroupGamesByDraw.keys()).sort((a, b) => a.localeCompare(b, 'he'));
       const selectedDrawNames = await openKnockoutDrawSelector(availableDrawNames);
       if (selectedDrawNames == null) return;
 
-      const width = Math.max(1100, Math.floor(window.screen.availWidth * 0.65));
-      const height = Math.max(760, Math.floor(window.screen.availHeight * 0.9));
+      const width = Math.max(1200, Math.floor(window.screen.availWidth * 0.93));
+      const height = Math.max(780, Math.floor(window.screen.availHeight * 0.96));
       const offsetIndex = getLiveKnockoutPopupWindows().length;
-      const left = Math.max(0, window.screenX + 70 + (offsetIndex * 24));
-      const top = Math.max(0, window.screenY + 50 + (offsetIndex * 24));
+      const left = Math.max(0, window.screenX + 4 + (offsetIndex * 10));
+      const top = Math.max(0, window.screenY + 4 + (offsetIndex * 10));
       const features = `popup=yes,resizable=yes,scrollbars=yes,width=${width},height=${height},left=${left},top=${top}`;
       const entry = {
         id: nextKnockoutPopupWindowId,
         drawNames: selectedDrawNames.slice(),
+        knockoutSingleRow: false,
         zoomPercent: 100,
         zoomToolbarCollapsed: false,
         resizeTimer: null,
@@ -3513,6 +4551,10 @@
       const id = String(playerId || '').trim();
       if (!id) return '';
       return `https://www.tttm.co.il/playerPict/${id}/${id}.jpg`;
+    }
+
+    function formatGroupsPlayerDisplayName(name) {
+      return String(name || '').trim();
     }
 
     function setAnnouncementPhoto(imgEl, primaryUrl) {
@@ -3659,6 +4701,10 @@
       const playersInProgress = new Set();
       games.forEach(game => {
         if (game.status === 'IN_PROGRESS') {
+          if (isValidPlayer(game.playerFullNameA)) playersInProgress.add(game.playerFullNameA.trim());
+          if (isValidPlayer(game.playerFullNameX)) playersInProgress.add(game.playerFullNameX.trim());
+        }
+        if (isManuallyInProgressGame(game) && game.status !== 'FINISHED') {
           if (isValidPlayer(game.playerFullNameA)) playersInProgress.add(game.playerFullNameA.trim());
           if (isValidPlayer(game.playerFullNameX)) playersInProgress.add(game.playerFullNameX.trim());
         }
@@ -3935,10 +4981,10 @@
         return 0;
       });
     }
-    function buildUpcomingGameNumberMap(upcomingGames) {
+    function buildUpcomingGameNumberMap(gamesForDisplay, gamesForAssignment = gamesForDisplay) {
       const numberMap = new Map();
-      ensureGameNumbersForGames(upcomingGames);
-      upcomingGames.forEach((game) => {
+      ensureGameNumbersForGames(gamesForAssignment || []);
+      (gamesForDisplay || []).forEach((game) => {
         const stableKey = getStableGameKey(game);
         if (!stableKey) return;
         const gameNumber = Number(gameNumberByKey[stableKey]);
@@ -4192,7 +5238,7 @@
         ...inProgressGames,
         ...sortedFinishedGames
       ];
-      const upcomingGameNumberMap = buildUpcomingGameNumberMap(gamesForStableNumbering);
+      const upcomingGameNumberMap = buildUpcomingGameNumberMap(gamesForStableNumbering, upcomingGames);
       // Apply filters
       let filteredUpcoming = filterByPlayer(upcomingGames, upcomingPlayerFilter);
       filteredUpcoming = filterByCategory(filteredUpcoming, upcomingCategoryFilter);
