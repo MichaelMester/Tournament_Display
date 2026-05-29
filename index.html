@@ -5444,6 +5444,14 @@
         const roundText = game.groupNo && game.turn_no
           ? `בית ${escapeHtml(game.groupNo)} | סיבוב ${escapeHtml(game.turn_no)}`
           : escapeHtml(roundLabels[game.turn] || `סיבוב ${game.turn_no || '-'}`);
+        const tableText = String(game.table || '').trim() ? `שולחן ${escapeHtml(game.table)}` : 'שולחן _____';
+        let startTimeText = 'שעה _____';
+        if (typeof game.startTime === 'string' && game.startTime.trim()) {
+          const parts = game.startTime.trim().split(':');
+          if (parts.length >= 2) {
+            startTimeText = `שעה ${escapeHtml(`${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`)}`;
+          }
+        }
         const stableKey = getStableGameKey(game);
         const gameNumber = gameNumberMap && gameNumberMap.has(stableKey)
           ? gameNumberMap.get(stableKey)
@@ -5461,7 +5469,7 @@
         return `
           <div class="print-game-card">
             <div>
-              <div class="print-game-meta">משחק ${gameNumber} | ${category} | ${roundText}</div>
+              <div class="print-game-meta">משחק ${gameNumber} | ${category} | ${roundText} | ${tableText} | ${startTimeText}</div>
             </div>
             <table class="print-score-table">
               <thead>
