@@ -1277,6 +1277,10 @@
     let nextKnockoutPopupWindowId = 1;
     let knockoutDrawSelectionState = null;
     let groupsRowDragState = { groupKey: '', playerKey: '' };
+    let gameNumberByKey = {};
+    let nextGameNumber = 1;
+    let gameNumberStorageScope = '';
+    let gameNumberStorageKey = '';
     let groupsRowOrderOverrides = (() => {
       try {
         return JSON.parse(localStorage.getItem('groupsRowOrderOverrides') || '{}') || {};
@@ -1425,6 +1429,76 @@
     function getUpcomingGameKey(game) {
       if (!game) return '';
       return String(game.id || `${game.playerFullNameA || game.playerA || ''}|${game.playerFullNameX || game.playerX || ''}|${game.turn_no || ''}|${game.table || ''}|${game.date || ''}|${game.startTime || ''}`);
+    }
+
+    function getStableGameKey(game) {
+      if (!game) return '';
+      if (game.id !== undefined && game.id !== null && String(game.id).trim() !== '') {
+        return `id:${String(game.id).trim()}`;
+      }
+      return `fallback:${game.draw || ''}|${game.groupNo || ''}|${game.turn || ''}|${game.turn_no || ''}|${game.playerFullNameA || game.playerA || ''}|${game.playerFullNameX || game.playerX || ''}|${game.date || ''}|${game.startTime || ''}`;
+    }
+
+    function setGameNumberScope(eventId, env) {
+      const normalizedEventId = String(eventId || '').trim();
+      const normalizedEnv = String(env || 'prod').trim() || 'prod';
+      const scope = `${normalizedEnv}:${normalizedEventId}`;
+      if (!normalizedEventId) {
+        gameNumberByKey = {};
+        nextGameNumber = 1;
+        gameNumberStorageScope = '';
+        gameNumberStorageKey = '';
+        return;
+      }
+      if (scope === gameNumberStorageScope) return;
+
+      gameNumberStorageScope = scope;
+      gameNumberStorageKey = `stableGameNumbers:${scope}`;
+      gameNumberByKey = {};
+      nextGameNumber = 1;
+      try {
+        const raw = localStorage.getItem(gameNumberStorageKey);
+        if (raw) {
+          const parsed = JSON.parse(raw) || {};
+          if (parsed && typeof parsed === 'object' && parsed.numbers && typeof parsed.numbers === 'object') {
+            gameNumberByKey = parsed.numbers;
+            const maxNumber = Object.values(gameNumberByKey)
+              .map(v => Number(v) || 0)
+              .reduce((max, value) => Math.max(max, value), 0);
+            const parsedNext = Number(parsed.next) || 0;
+            nextGameNumber = Math.max(maxNumber + 1, parsedNext || 1);
+          }
+        }
+      } catch {
+        gameNumberByKey = {};
+        nextGameNumber = 1;
+      }
+    }
+
+    function saveGameNumbersIfScoped() {
+      if (!gameNumberStorageKey) return;
+      try {
+        localStorage.setItem(gameNumberStorageKey, JSON.stringify({
+          numbers: gameNumberByKey,
+          next: nextGameNumber
+        }));
+      } catch {}
+    }
+
+    function ensureGameNumbersForGames(games) {
+      let changed = false;
+      games.forEach(game => {
+        const stableKey = getStableGameKey(game);
+        if (!stableKey) return;
+        if (!Object.prototype.hasOwnProperty.call(gameNumberByKey, stableKey)) {
+          gameNumberByKey[stableKey] = nextGameNumber;
+          nextGameNumber += 1;
+          changed = true;
+        }
+      });
+      if (changed) {
+        saveGameNumbersIfScoped();
+      }
     }
 
     function updateUpcomingSelectionUI() {
@@ -3391,7 +3465,7 @@
     }
 
     // Create game card HTML
-    function createGameCard(game, type, isGrayed = false) {
+    function createGameCard(game, type, isGrayed = false, gameNumberMap = null) {
       // Timer for in-progress games
       let timerHtml = '';
         if (type === 'inprogress') {
@@ -3416,6 +3490,9 @@
       let upcomingDataAttrs = '';
       let announceButtonHtml = '';
       let selectionButtonHtml = '';
+      let gameNumberHtml = '';
+      const stableKey = getStableGameKey(game);
+      const stableGameNumber = gameNumberMap && gameNumberMap.has(stableKey) ? gameNumberMap.get(stableKey) : null;
       if (type === 'upcoming') {
         const gameKey = getUpcomingGameKey(game);
         const playerAEncoded = encodeURIComponent(game.playerFullNameA || '');
@@ -3429,6 +3506,9 @@
         if (isUpcomingPrintSelectionEnabled) {
           selectionButtonHtml = `<button type="button" class="selection-btn ${isSelected ? 'selected' : ''}" aria-label="בחירת משחק להדפסה" title="בחר להדפסה" onclick="event.stopPropagation(); toggleUpcomingSelection(decodeURIComponent(this.closest('.game-card').getAttribute('data-game-key') || ''))">${isSelected ? '✓' : ''}</button>`;
         }
+      }
+      if (stableGameNumber !== null) {
+        gameNumberHtml = `משחק ${stableGameNumber} | `;
       }
       
       let resultHtml = '';
@@ -3531,6 +3611,7 @@
           ${timerHtml}
           <div class="flex justify-between items-center mb-1">
             <span class="text-slate-500 text-xs w-full text-right block">
+              ${gameNumberHtml}
               ${(game.draw || 'ללא קטגוריה')} | 
               ${
                 game.groupNo
@@ -3654,7 +3735,20 @@
         return 0;
       });
     }
-    function buildPrintableUpcomingGames(games) {
+    function buildUpcomingGameNumberMap(upcomingGames) {
+      const numberMap = new Map();
+      ensureGameNumbersForGames(upcomingGames);
+      upcomingGames.forEach((game) => {
+        const stableKey = getStableGameKey(game);
+        if (!stableKey) return;
+        const gameNumber = Number(gameNumberByKey[stableKey]);
+        if (gameNumber > 0 && !numberMap.has(stableKey)) {
+          numberMap.set(stableKey, gameNumber);
+        }
+      });
+      return numberMap;
+    }
+    function buildPrintableUpcomingGames(games, gameNumberMap = null) {
       const roundLabels = {
         'F': 'גמר',
         'SF': 'חצי גמר',
@@ -3671,6 +3765,10 @@
         const roundText = game.groupNo && game.turn_no
           ? `בית ${escapeHtml(game.groupNo)} | סיבוב ${escapeHtml(game.turn_no)}`
           : escapeHtml(roundLabels[game.turn] || `סיבוב ${game.turn_no || '-'}`);
+        const stableKey = getStableGameKey(game);
+        const gameNumber = gameNumberMap && gameNumberMap.has(stableKey)
+          ? gameNumberMap.get(stableKey)
+          : (index + 1);
         const category = escapeHtml(game.draw || 'ללא קטגוריה');
         const playerA = escapeHtml(game.playerFullNameA || game.playerA || 'לא ידוע');
         const playerX = escapeHtml(game.playerFullNameX || game.playerX || 'לא ידוע');
@@ -3684,7 +3782,7 @@
         return `
           <div class="print-game-card">
             <div>
-              <div class="print-game-meta">משחק ${index + 1} | ${category} | ${roundText}</div>
+              <div class="print-game-meta">משחק ${gameNumber} | ${category} | ${roundText}</div>
             </div>
             <table class="print-score-table">
               <thead>
@@ -3706,6 +3804,7 @@
         game.status !== 'FINISHED' && game.status !== 'IN_PROGRESS' &&
         (isValidPlayer(game.playerFullNameA) || isValidPlayer(game.playerFullNameX))
       ));
+      const gameNumberMap = buildUpcomingGameNumberMap(allUpcomingGames);
       const upcomingGames = selectedUpcomingGameKeys.size > 0
         ? allUpcomingGames.filter(game => selectedUpcomingGameKeys.has(getUpcomingGameKey(game)))
         : allUpcomingGames;
@@ -3718,7 +3817,7 @@
         return;
       }
 
-      const cards = buildPrintableUpcomingGames(upcomingGames);
+      const cards = buildPrintableUpcomingGames(upcomingGames, gameNumberMap);
       const pages = [];
       for (let index = 0; index < cards.length; index += 6) {
         const pageCards = cards.slice(index, index + 6).join('');
@@ -3887,6 +3986,12 @@
         });
       }
       upcomingGames = sortUpcomingGames(upcomingGames);
+      const gamesForStableNumbering = [
+        ...upcomingGames,
+        ...inProgressGames,
+        ...sortedFinishedGames
+      ];
+      const upcomingGameNumberMap = buildUpcomingGameNumberMap(gamesForStableNumbering);
       // Apply filters
       let filteredUpcoming = filterByPlayer(upcomingGames, upcomingPlayerFilter);
       filteredUpcoming = filterByCategory(filteredUpcoming, upcomingCategoryFilter);
@@ -3906,7 +4011,7 @@
         const upcomingHtml = filteredUpcoming.map(game => {
           const isGrayed = hasPlayerInProgress(game, playersInProgress) ||
             (isValidPlayer(game.playerFullNameA) !== isValidPlayer(game.playerFullNameX));
-          return createGameCard(game, 'upcoming', isGrayed);
+          return createGameCard(game, 'upcoming', isGrayed, upcomingGameNumberMap);
         }).join('');
         upcomingContainer.innerHTML = upcomingHtml;
       } else {
@@ -3916,7 +4021,7 @@
       // Render finished games
       const finishedContainer = document.getElementById('finished-games');
       if (filteredFinished.length > 0) {
-        finishedContainer.innerHTML = filteredFinished.map(game => createGameCard(game, 'finished')).join('');
+        finishedContainer.innerHTML = filteredFinished.map(game => createGameCard(game, 'finished', false, upcomingGameNumberMap)).join('');
       } else {
         finishedContainer.innerHTML = '<p class="text-slate-400 text-center py-8">אין משחקים להצגה</p>';
       }
@@ -3924,7 +4029,7 @@
       // Render in-progress games
       const inProgressContainer = document.getElementById('inprogress-games');
       if (filteredInProgress.length > 0) {
-        inProgressContainer.innerHTML = filteredInProgress.map(game => createGameCard(game, 'inprogress')).join('');
+        inProgressContainer.innerHTML = filteredInProgress.map(game => createGameCard(game, 'inprogress', false, upcomingGameNumberMap)).join('');
         setupGameTimersForInProgress(filteredInProgress);
       } else {
         inProgressContainer.innerHTML = '<p class="text-slate-400 text-center py-8">אין משחקים להצגה</p>';
@@ -4109,6 +4214,8 @@
       } else {
         url = `https://tttm.co.il/api.1.0/event/${eventId}/games`;
       }
+
+      setGameNumberScope(eventId, env);
 
       // Show loading state
       btnText.textContent = 'טוען...';
