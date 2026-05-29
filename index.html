@@ -54,7 +54,7 @@
       border: 1px solid #cbd5e1;
       background: #ffffff;
       color: #2563eb;
-      font-size: 11px;
+      font-size: 13px;
       line-height: 1;
       display: inline-flex;
       align-items: center;
@@ -344,14 +344,32 @@
     .group-finished-badge {
       display: inline-flex;
       align-items: center;
-      padding: 2px 8px;
+      gap: 6px;
+      padding: 5px 12px;
       border-radius: 9999px;
-      background: #22a35a;
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      border: 1px solid #15803d;
       color: #ffffff;
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 800;
-      line-height: 1.4;
+      line-height: 1;
       white-space: nowrap;
+      box-shadow: 0 2px 8px rgba(22, 163, 74, 0.35);
+    }
+    .group-finished-badge::before {
+      content: '✓';
+      width: 14px;
+      height: 14px;
+      border-radius: 9999px;
+      background: #dcfce7;
+      color: #166534;
+      font-size: 10px;
+      font-weight: 900;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.28);
+      flex: 0 0 auto;
     }
     .group-table {
       width: 100%;
@@ -676,6 +694,10 @@
       font-weight: 700;
       color: #0f172a;
       border-bottom: 1px solid #cbd5e1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
     }
     .knockout-rounds {
       display: grid;
@@ -1270,8 +1292,8 @@
         </select>
         <button id="reload-btn" onclick="fetchGames()" class="px-3 py-2 text-sm whitespace-nowrap bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"> <span id="btn-text">טען מחדש</span>
           <div id="btn-spinner" class="loading-spinner hidden"></div></button>
-        <button id="auto-reload-btn" onclick="toggleAutoReload()" class="px-3 py-2 text-sm whitespace-nowrap bg-gray-300 hover:bg-gray-400 text-slate-700 font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">הפעל רענון אוטומטי</button>
-        <button id="print-upcoming-btn" onclick="printUpcomingGames()" class="px-3 py-2 text-sm whitespace-nowrap bg-slate-700 hover:bg-slate-800 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">הדפס משחקים הבאים</button>
+        <button id="auto-reload-btn" onclick="toggleAutoReload()" class="px-3 py-2 text-sm whitespace-nowrap bg-gray-300 hover:bg-gray-400 text-slate-700 font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">הפעל רענון</button>
+        <button id="print-upcoming-btn" onclick="printUpcomingGames()" class="px-3 py-2 text-sm whitespace-nowrap bg-slate-700 hover:bg-slate-800 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">הדפס משחקים</button>
         <button id="reset-game-numbers-btn" onclick="resetGameNumbers()" class="px-3 py-2 text-sm whitespace-nowrap font-semibold rounded-lg transition-colors flex items-center justify-center gap-2" style="background:#be123c;color:#ffffff;">איפוס מספרי משחקים</button>
         <button id="groups-standings-btn" onclick="openCombinedPopup()" class="px-3 py-2 text-sm whitespace-nowrap bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">בתים + נוקאאוט</button>
       </div>
@@ -1420,7 +1442,7 @@
             autoReloadTimerInterval = null;
             autoReloadSecondsLeft = 30;
             updateAutoReloadTimerDisplay();
-            btn.textContent = 'הפעל רענון אוטומטי';
+            btn.textContent = 'הפעל רענון';
             btn.classList.remove('bg-red-500', 'text-white');
             btn.classList.add('bg-gray-300', 'text-slate-700');
           } else {
@@ -1438,7 +1460,7 @@
                 updateAutoReloadTimerDisplay();
               }
             }, 1000);
-            btn.textContent = 'עצור רענון אוטומטי';
+            btn.textContent = 'עצור רענון';
             btn.classList.remove('bg-gray-300', 'text-slate-700');
             btn.classList.add('bg-red-500', 'text-white');
           }
@@ -2159,6 +2181,7 @@
           draw: group.draw,
           groupNo: group.groupNo,
           isFinishedGroup,
+          gamesPerPlayer: expectedGamesPerPlayer,
           canManualReorder,
           players
         };
@@ -2249,7 +2272,7 @@
               <tr${dragAttrs}>
                 <td>${index + 1}</td>
                 <td class="player-col" title="${escapeHtml(player.name)}">${escapeHtml(displayName)}</td>
-                <td>${player.gamesPlayed}</td>
+                <td>${player.gamesPlayed}/${group.gamesPerPlayer}</td>
                 <td class="font-bold">${player.points}</td>
               </tr>
             `;
@@ -2312,7 +2335,7 @@
               <tr${dragAttrs}>
                 <td>${index + 1}</td>
                 <td class="player-col" title="${escapeHtml(player.name)}">${escapeHtml(displayName)}</td>
-                <td>${player.gamesPlayed}</td>
+                <td>${player.gamesPlayed}/${group.gamesPerPlayer}</td>
                 <td class="font-bold">${player.points}</td>
               </tr>
             `;
@@ -2438,14 +2461,32 @@
     .group-finished-badge {
       display: inline-flex;
       align-items: center;
-      padding: 2px 8px;
+      gap: 6px;
+      padding: 5px 12px;
       border-radius: 9999px;
-      background: #22a35a;
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      border: 1px solid #15803d;
       color: #ffffff;
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 800;
-      line-height: 1.4;
+      line-height: 1;
       white-space: nowrap;
+      box-shadow: 0 2px 8px rgba(22, 163, 74, 0.35);
+    }
+    .group-finished-badge::before {
+      content: '✓';
+      width: 14px;
+      height: 14px;
+      border-radius: 9999px;
+      background: #dcfce7;
+      color: #166534;
+      font-size: 10px;
+      font-weight: 900;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.28);
+      flex: 0 0 auto;
     }
     .group-table {
       width: 100%;
@@ -3514,6 +3555,22 @@
       return status === 'FINISHED' || status === 'ENDED' || status === 'DONE';
     }
 
+    function isKnockoutDrawFinished(tree, drawGames) {
+      const rounds = Array.isArray(tree?.rounds) ? tree.rounds : [];
+      if (!rounds.length) return false;
+
+      const finalRound = rounds[rounds.length - 1];
+      const finalMatch = Array.isArray(finalRound?.matches) ? finalRound.matches[0] : null;
+      if (!finalMatch) return false;
+
+      const finalGame = finalMatch.game || findKnockoutGameForPlayers(drawGames, finalMatch.playerA, finalMatch.playerX);
+      if (!finalGame || !isGameEnded(finalGame)) return false;
+
+      const finalScore = parseMatchScore(finalGame);
+      if (!finalScore) return false;
+      return finalScore.scoreA !== finalScore.scoreX;
+    }
+
     function findKnockoutGameForPlayers(drawGames, playerA, playerX) {
       if (!Array.isArray(drawGames) || !playerA || !playerX) return null;
       const wantedAName = getKnockoutPlayerName(playerA);
@@ -3909,6 +3966,7 @@
       const drawCardsHtml = drawTrees.map(tree => {
         const theme = getDrawTheme(tree.drawName);
         const drawGames = nonGroupGamesByDraw.get(tree.drawName) || [];
+        const isFinishedDraw = isKnockoutDrawFinished(tree, drawGames);
         const totalRows = getKnockoutTotalRows(tree.rounds);
         const drawToken = encodeURIComponent(tree.drawName);
         const firstStageCount = Array.isArray(tree.rounds[0]?.matches) ? tree.rounds[0].matches.length : 0;
@@ -4026,7 +4084,7 @@
 
         return `
           <section class="knockout-draw-card"${dragDropAttrs} style="--round-count:${tree.rounds.length}; border-color:${escapeHtml(theme.borderColor)};">
-            <div class="knockout-draw-title${enableDrawDrag ? ' knockout-draw-drag-handle' : ''}"${dragTitleAttrs} onclick="openDrawColorPickerForDraw(decodeURIComponent('${drawKeyToken}'))" title="שנה צבע קטגוריה" style="background:${escapeHtml(theme.titleBg)}; border-bottom-color:${escapeHtml(theme.borderColor)}; color:${escapeHtml(theme.titleColor)}; cursor:pointer;">${escapeHtml(tree.drawName)}</div>
+            <div class="knockout-draw-title${enableDrawDrag ? ' knockout-draw-drag-handle' : ''}"${dragTitleAttrs} onclick="openDrawColorPickerForDraw(decodeURIComponent('${drawKeyToken}'))" title="שנה צבע קטגוריה" style="background:${escapeHtml(theme.titleBg)}; border-bottom-color:${escapeHtml(theme.borderColor)}; color:${escapeHtml(theme.titleColor)}; cursor:pointer;"><span>${escapeHtml(tree.drawName)}</span>${isFinishedDraw ? '<span class="group-finished-badge">הסתיים</span>' : ''}</div>
             <div class="knockout-rounds">${roundsHtml}</div>
           </section>
         `;
@@ -4560,6 +4618,36 @@
       justify-content: space-between;
       gap: 8px;
     }
+    .group-finished-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 9999px;
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      border: 1px solid #15803d;
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1;
+      white-space: nowrap;
+      box-shadow: 0 2px 8px rgba(22, 163, 74, 0.35);
+    }
+    .group-finished-badge::before {
+      content: '✓';
+      width: 14px;
+      height: 14px;
+      border-radius: 9999px;
+      background: #dcfce7;
+      color: #166534;
+      font-size: 10px;
+      font-weight: 900;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.28);
+      flex: 0 0 auto;
+    }
     .combined-groups-wrap .group-table {
       width: 100%;
       border-collapse: separate;
@@ -4663,6 +4751,10 @@
       font-weight: 700;
       color: #0f172a;
       border-bottom: 1px solid #cbd5e1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
     }
     .knockout-rounds {
       display: grid;
@@ -5193,7 +5285,7 @@
         const isSelected = selectedUpcomingGameKeys.has(gameKey);
         const canManualStart = !isGrayed;
         upcomingDataAttrs = `data-player-a="${playerAEncoded}" data-player-x="${playerXEncoded}" data-player-aid="${playerAid}" data-player-xid="${playerXid}" data-game-key="${encodedGameKey}"`;
-        announceButtonHtml = `<button type="button" class="announce-btn" aria-label="הכרזת משחק" title="השמע הכרזה" onclick="event.stopPropagation(); announcePlayersFromCard(this.closest('.game-card'))">▶</button>`;
+        announceButtonHtml = `<button type="button" class="announce-btn" aria-label="הכרזת משחק" title="השמע הכרזה" onclick="event.stopPropagation(); announcePlayersFromCard(this.closest('.game-card'))">&#128483;</button>`;
         manualProgressButtonHtml = `<button type="button" class="manual-progress-btn start" aria-label="התחלת משחק" title="${canManualStart ? 'העבר למשחקים עכשיו' : 'לא ניתן להתחיל משחק אפור'}" ${canManualStart ? '' : 'disabled'} onclick="if (typeof event !== 'undefined' && event && event.stopPropagation) event.stopPropagation(); ${canManualStart ? `startGameByStableKey('${encodedStableKey}')` : ''}">התחל</button>`;
         if (isUpcomingPrintSelectionEnabled) {
           selectionButtonHtml = `<button type="button" class="selection-btn ${isSelected ? 'selected' : ''}" aria-label="בחירת משחק להדפסה" title="בחר להדפסה" onclick="event.stopPropagation(); toggleUpcomingSelection(decodeURIComponent(this.closest('.game-card').getAttribute('data-game-key') || ''))">${isSelected ? '✓' : ''}</button>`;
