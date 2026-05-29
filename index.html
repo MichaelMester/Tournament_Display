@@ -587,10 +587,14 @@
       display: none;
     }
     .print-page {
+      --print-spacing: 4mm;
+      --print-frame-pad: var(--print-spacing);
       display: grid;
       grid-template-rows: 1fr;
       height: calc(210mm - 24mm);
       max-height: calc(210mm - 24mm);
+      padding: var(--print-frame-pad);
+      box-sizing: border-box;
       overflow: hidden;
       page-break-after: always;
     }
@@ -598,15 +602,17 @@
       page-break-after: auto;
     }
     .print-grid {
-      --print-gap: 4mm;
+      --print-gap: var(--print-spacing);
       display: grid;
       grid-template-columns: 1fr 1fr;
-      grid-template-rows: repeat(3, 1fr);
-      align-content: start;
+      grid-template-rows: repeat(3, minmax(0, 1fr));
+      align-content: stretch;
       gap: var(--print-gap);
       height: 100%;
+      width: 100%;
       position: relative;
       background-image:
+        linear-gradient(#64748b, #64748b),
         linear-gradient(#64748b, #64748b),
         linear-gradient(#64748b, #64748b),
         linear-gradient(#64748b, #64748b);
@@ -614,27 +620,32 @@
       background-size:
         1px 100%,
         100% 1px,
+        100% 1px,
         100% 1px;
       background-position:
         50% 0,
         0 calc(33.333% - (var(--print-gap) / 6)),
-        0 calc(66.666% + (var(--print-gap) / 6));
+        0 calc(66.666% + (var(--print-gap) / 6)),
+        0 calc(100% + (var(--print-frame-pad) / 2));
     }
     @media print {
       .print-grid {
         background-image:
           repeating-linear-gradient(to bottom, #64748b 0 2mm, transparent 2mm 4mm),
           repeating-linear-gradient(to right, #64748b 0 2mm, transparent 2mm 4mm),
+          repeating-linear-gradient(to right, #64748b 0 2mm, transparent 2mm 4mm),
           repeating-linear-gradient(to right, #64748b 0 2mm, transparent 2mm 4mm);
         background-repeat: no-repeat;
         background-size:
           1px 100%,
           100% 1px,
+          100% 1px,
           100% 1px;
         background-position:
           50% 0,
           0 calc(33.333% - (var(--print-gap) / 6)),
-          0 calc(66.666% + (var(--print-gap) / 6));
+          0 calc(66.666% + (var(--print-gap) / 6)),
+          0 calc(100% + (var(--print-frame-pad) / 2));
       }
     }
     .print-game-card {
@@ -644,9 +655,13 @@
       background: #ffffff;
       color: #0f172a;
       break-inside: avoid;
-      display: block;
-      height: auto;
-      overflow: visible;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      height: 100%;
+      min-height: 0;
+      box-sizing: border-box;
+      overflow: hidden;
     }
     .print-game-meta {
       font-size: 11px;
@@ -694,7 +709,10 @@
         size: A4 landscape;
         margin: 12mm;
       }
+      html,
       body {
+        margin: 0 !important;
+        padding: 0 !important;
         background: #ffffff !important;
         overflow: visible !important;
       }
@@ -703,6 +721,8 @@
       }
       .print-container {
         display: block !important;
+        margin: 0 !important;
+        padding: 0 !important;
       }
     }
   </style>
