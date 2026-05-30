@@ -1302,6 +1302,10 @@
           <input id="enable-upcoming-print-selection" type="checkbox" onchange="setUpcomingPrintSelectionEnabled(this.checked)">
           אפשר בחירת משחקים להדפסה
         </label>
+        <label for="print-empty-games">
+          <input id="print-empty-games" type="checkbox">
+          הדפס משחקים ריקים (ללא שמות)
+        </label>
         <div id="upcoming-print-selection-tools" class="print-selection-tools hidden">
           <label for="select-all-upcoming-print">
             <input id="select-all-upcoming-print" type="checkbox" onchange="toggleSelectAllUpcoming(this.checked)">
@@ -5519,7 +5523,8 @@
       });
       return numberMap;
     }
-    function buildPrintableUpcomingGames(games, gameNumberMap = null) {
+    function buildPrintableUpcomingGames(games, gameNumberMap = null, options = {}) {
+      const printWithoutNames = Boolean(options?.withoutNames);
       const roundLabels = {
         'F': 'גמר',
         'SF': 'חצי גמר',
@@ -5549,8 +5554,12 @@
           ? gameNumberMap.get(stableKey)
           : (index + 1);
         const category = escapeHtml(game.draw || 'ללא קטגוריה');
-        const playerA = escapeHtml(game.playerFullNameA || game.playerA || 'לא ידוע');
-        const playerX = escapeHtml(game.playerFullNameX || game.playerX || 'לא ידוע');
+        const playerA = printWithoutNames
+          ? ''
+          : escapeHtml(game.playerFullNameA || game.playerA || 'לא ידוע');
+        const playerX = printWithoutNames
+          ? ''
+          : escapeHtml(game.playerFullNameX || game.playerX || 'לא ידוע');
         const scoreRows = Array.from({ length: 5 }, (_, setIndex) => `
           <tr>
             <td>${setIndex + 1}</td>
@@ -5561,7 +5570,7 @@
         return `
           <div class="print-game-card">
             <div>
-              <div class="print-game-meta">משחק ${gameNumber} | ${category} | ${roundText} | ${tableText} | ${startTimeText}</div>
+              <div class="print-game-meta">${printWithoutNames ? `${tableText} | ${startTimeText}` : `משחק ${gameNumber} | ${category} | ${roundText} | ${tableText} | ${startTimeText}`}</div>
             </div>
             <table class="print-score-table">
               <thead>
@@ -5579,11 +5588,20 @@
     }
     function printUpcomingGames() {
       const printContainer = document.getElementById('print-container');
+      const printEmptyGames = Boolean(document.getElementById('print-empty-games')?.checked);
       const allUpcomingGames = getDisplayUpcomingGames(gamesData);
       const gameNumberMap = buildUpcomingGameNumberMap(allUpcomingGames);
-      const upcomingGames = selectedUpcomingGameKeys.size > 0
+      let upcomingGames = selectedUpcomingGameKeys.size > 0
         ? allUpcomingGames.filter(game => selectedUpcomingGameKeys.has(getUpcomingGameKey(game)))
         : allUpcomingGames;
+
+      if (printEmptyGames && upcomingGames.length === 0) {
+        upcomingGames = Array.from({ length: 6 }, () => ({
+          table: '',
+          startTime: ''
+        }));
+      }
+
       if (!printContainer || upcomingGames.length === 0) {
         const errorMsg = document.getElementById('error-message');
         if (errorMsg) {
@@ -5593,7 +5611,9 @@
         return;
       }
 
-      const cards = buildPrintableUpcomingGames(upcomingGames, gameNumberMap);
+      const cards = buildPrintableUpcomingGames(upcomingGames, gameNumberMap, {
+        withoutNames: printEmptyGames
+      });
       const pages = [];
       for (let index = 0; index < cards.length; index += 6) {
         const pageCards = cards.slice(index, index + 6).join('');
