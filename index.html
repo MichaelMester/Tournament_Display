@@ -3895,15 +3895,13 @@
     }
 
     function getKnockoutRoundPalette(roundIndex) {
-      const palettes = [
-        { from: '#eef2ff', to: '#e0e7ff', border: '#a5b4fc', titleBg: '#c7d2fe', titleColor: '#312e81' },
-        { from: '#ecfeff', to: '#cffafe', border: '#67e8f9', titleBg: '#a5f3fc', titleColor: '#155e75' },
-        { from: '#ecfdf5', to: '#d1fae5', border: '#6ee7b7', titleBg: '#a7f3d0', titleColor: '#065f46' },
-        { from: '#fff7ed', to: '#ffedd5', border: '#fdba74', titleBg: '#fed7aa', titleColor: '#9a3412' },
-        { from: '#fef2f2', to: '#fee2e2', border: '#fca5a5', titleBg: '#fecaca', titleColor: '#991b1b' },
-        { from: '#faf5ff', to: '#f3e8ff', border: '#d8b4fe', titleBg: '#e9d5ff', titleColor: '#6b21a8' }
-      ];
-      return palettes[roundIndex % palettes.length];
+      return {
+        from: '#f8fafc',
+        to: '#eef2f7',
+        border: '#cbd5e1',
+        titleBg: '#e2e8f0',
+        titleColor: '#334155'
+      };
     }
 
     function estimateKnockoutDrawSize(tree) {
