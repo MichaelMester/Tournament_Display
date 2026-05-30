@@ -991,18 +991,18 @@
       </div>
     </div>
     <div id="groups-overlay" class="groups-overlay" onclick="if (event.target === this) closeGroupsPopup()">
-      <div class="groups-modal" role="dialog" aria-modal="true" aria-label="טבלת בתים">
+      <div class="groups-modal" role="dialog" aria-modal="true" aria-label="בתים">
         <div class="groups-modal-header">
-          <h2 class="text-xl font-bold m-0">טבלת בתים</h2>
+          <h2 class="text-xl font-bold m-0">בתים</h2>
           <button type="button" onclick="closeGroupsPopup()" class="px-3 py-1 bg-white text-slate-800 rounded-lg font-semibold hover:bg-slate-100">סגור</button>
         </div>
         <div id="groups-modal-body" class="groups-modal-body"></div>
       </div>
     </div>
     <div id="knockout-overlay" class="knockout-overlay" onclick="if (event.target === this) closeKnockoutPopup()">
-      <div class="knockout-modal" role="dialog" aria-modal="true" aria-label="עץ נוקאאוט">
+      <div class="knockout-modal" role="dialog" aria-modal="true" aria-label="נוקאאוטים">
         <div class="knockout-modal-header">
-          <h2 class="text-xl font-bold m-0">עץ נוקאאוט</h2>
+          <h2 class="text-xl font-bold m-0">נוקאאוטים</h2>
           <button type="button" onclick="closeKnockoutPopup()" class="px-3 py-1 bg-white text-slate-800 rounded-lg font-semibold hover:bg-slate-100">סגור</button>
         </div>
         <div id="knockout-modal-body" class="knockout-modal-body"></div>
@@ -2394,7 +2394,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>טבלת בתים</title>
+  <title>בתים</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -2592,7 +2592,7 @@
 <body>
   <div class="groups-popup-shell">
     <div class="groups-popup-header">
-      <h2>טבלת בתים</h2>
+      <h2>בתים</h2>
       <button type="button" class="groups-close-btn" onclick="window.close()">סגור</button>
     </div>
     <div id="groups-modal-body" class="groups-modal-body">${bodyHtml}</div>
@@ -4344,7 +4344,7 @@
         const sectionsMap = {
           groups: hasGroupsSection ? `
           <section class="combined-popup-section combined-popup-section-draggable combined-pane-groups" ondragover="allowCombinedSectionDrop(event)" ondrop="dropCombinedSection(${entry.id}, 'groups', event)">
-            <h3 class="combined-popup-title combined-popup-drag-handle" draggable="true" ondragstart="startCombinedSectionDrag(${entry.id}, 'groups', event)">טבלת בתים</h3>
+            <h3 class="combined-popup-title combined-popup-drag-handle" draggable="true" ondragstart="startCombinedSectionDrag(${entry.id}, 'groups', event)">בתים</h3>
             <div id="combined-groups-viewport" class="combined-groups-viewport">
               <div id="combined-groups-fit" class="combined-groups-fit">
                 ${groupsContentHtml}
@@ -4353,7 +4353,7 @@
           </section>` : '',
           knockout: hasKnockoutSection ? `
           <section class="combined-popup-section combined-popup-section-draggable combined-pane-knockout" ondragover="allowCombinedSectionDrop(event)" ondrop="dropCombinedSection(${entry.id}, 'knockout', event)">
-            <h3 class="combined-popup-title combined-popup-drag-handle" draggable="true" ondragstart="startCombinedSectionDrag(${entry.id}, 'knockout', event)">עץ נוקאאוט</h3>
+            <h3 class="combined-popup-title combined-popup-drag-handle" draggable="true" ondragstart="startCombinedSectionDrag(${entry.id}, 'knockout', event)">נוקאאוטים</h3>
             <div id="combined-knockout-viewport" class="combined-knockout-viewport">${bodyHtml}</div>
           </section>` : ''
         };
@@ -4373,8 +4373,8 @@
           : `<div id="combined-layout-root" class="combined-layout combined-layout-single">${sectionHtml}</div>`;
         const titleParts = [];
         if (hasGroupsSection) titleParts.push('בתים');
-        if (hasKnockoutSection) titleParts.push('נוקאאוט');
-        windowTitle = titleParts.length > 0 ? titleParts.join(' + ') : 'בתים + נוקאאוט';
+        if (hasKnockoutSection) titleParts.push('נוקאאוטים');
+        windowTitle = titleParts.length > 0 ? titleParts.join(' + ') : 'בתים + נוקאאוטים';
       }
       const popupDoc = entry.win.document;
       popupDoc.open();
@@ -4383,7 +4383,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>עץ נוקאאוט - ${escapeHtml(windowTitle)}</title>
+  <title>נוקאאוטים - ${escapeHtml(windowTitle)}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
