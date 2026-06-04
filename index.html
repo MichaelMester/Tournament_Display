@@ -137,6 +137,215 @@
       color: #1e3a8a;
       background: #eff6ff;
     }
+    .manual-progress-btn.score {
+      top: 10px;
+      left: 66px;
+      border-color: #0891b2;
+      color: #0e7490;
+      background: #ecfeff;
+    }
+    .manual-progress-btn.score-single {
+      left: 8px;
+    }
+    .score-entry-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10030;
+      background: rgba(15, 23, 42, 0.74);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 14px;
+    }
+    .score-entry-overlay.show {
+      display: flex;
+    }
+    .score-entry-modal {
+      width: min(640px, 96vw);
+      max-height: 90vh;
+      background: #ffffff;
+      border-radius: 14px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      overflow: hidden;
+    }
+    .score-entry-header {
+      padding: 14px 16px;
+      background: linear-gradient(135deg, #0f172a, #1e293b);
+      color: #ffffff;
+      display: grid;
+      gap: 6px;
+    }
+    .score-entry-header h3 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 800;
+    }
+    .score-entry-header p {
+      margin: 0;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.86);
+    }
+    .score-entry-body {
+      padding: 14px 16px;
+      overflow: auto;
+      background: #f8fafc;
+      display: grid;
+      gap: 10px;
+    }
+    .score-entry-summary {
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 10px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .score-entry-summary small {
+      display: block;
+      color: #475569;
+      font-size: 11px;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+    .score-entry-player-col-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+    .score-entry-player-col-name {
+      font-size: 12px;
+      font-weight: 800;
+      color: #334155;
+      line-height: 1.15;
+      cursor: pointer;
+      user-select: none;
+    }
+    .score-entry-player-col-name:hover {
+      color: #0f766e;
+      text-decoration: underline;
+    }
+    .score-entry-col-total {
+      font-size: 30px;
+      line-height: 1;
+      font-weight: 900;
+      color: #0f766e;
+    }
+    .score-entry-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .score-entry-table th,
+    .score-entry-table td {
+      border-bottom: 1px solid #e2e8f0;
+      border-left: 1px solid #e2e8f0;
+      padding: 9px 8px;
+      text-align: center;
+      font-size: 13px;
+      color: #0f172a;
+    }
+    .score-entry-table th:last-child,
+    .score-entry-table td:last-child {
+      border-left: 0;
+    }
+    .score-entry-table tr:last-child td {
+      border-bottom: 0;
+    }
+    .score-entry-table thead th {
+      background: #f1f5f9;
+      font-size: 12px;
+      font-weight: 800;
+      color: #334155;
+    }
+    .score-entry-input {
+      width: 74px;
+      max-width: 100%;
+      text-align: center;
+      border: 1px solid #94a3b8;
+      border-radius: 10px;
+      padding: 7px 6px;
+      font-size: 15px;
+      font-weight: 700;
+      color: #0f172a;
+      background: #ffffff;
+      outline: none;
+    }
+    .score-entry-input.winner-set {
+      font-weight: 900;
+      color: #166534;
+      border-color: #22c55e;
+      background: #f0fdf4;
+    }
+    .score-entry-input:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+    }
+    .score-entry-set-status {
+      font-size: 12px;
+      font-weight: 700;
+      color: #64748b;
+      min-width: 120px;
+    }
+    .score-entry-set-status-icon {
+      font-size: 18px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 24px;
+    }
+    .score-entry-footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 16px;
+      border-top: 1px solid #e2e8f0;
+      background: #ffffff;
+    }
+    .score-entry-footer-left {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .score-entry-footer button {
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      border: 1px solid transparent;
+      cursor: pointer;
+    }
+    .score-entry-cancel {
+      background: #e2e8f0;
+      color: #0f172a;
+      border-color: #cbd5e1;
+    }
+    .score-entry-clear {
+      background: #fee2e2;
+      color: #991b1b;
+      border-color: #fecaca;
+    }
+    .score-entry-save {
+      background: #2563eb;
+      color: #ffffff;
+    }
+    .score-entry-save:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
     .print-selection-bar {
       display: flex;
       flex-wrap: wrap;
@@ -1041,6 +1250,75 @@
         </div>
       </div>
     </div>
+    <div id="score-entry-overlay" class="score-entry-overlay" onclick="if (event.target === this) closeScoreEntryModal()">
+      <div class="score-entry-modal" role="dialog" aria-modal="true" aria-label="הזנת תוצאת משחק">
+        <div class="score-entry-header">
+          <h3>הזנת תוצאה</h3>
+          <p id="score-entry-game-title">--</p>
+        </div>
+        <div class="score-entry-body">
+          <table class="score-entry-table">
+            <thead>
+              <tr>
+                <th>סט</th>
+                <th>
+                  <div class="score-entry-player-col-header">
+                    <span id="score-entry-player-a-name" class="score-entry-player-col-name" title="לחץ למילוי ניצחון 3:0" onclick="applyStraightSetsWin('A')">שחקן א</span>
+                    <span id="score-entry-player-a-total" class="score-entry-col-total">0</span>
+                  </div>
+                </th>
+                <th>
+                  <div class="score-entry-player-col-header">
+                    <span id="score-entry-player-x-name" class="score-entry-player-col-name" title="לחץ למילוי ניצחון 3:0" onclick="applyStraightSetsWin('X')">שחקן ב</span>
+                    <span id="score-entry-player-x-total" class="score-entry-col-total">0</span>
+                  </div>
+                </th>
+                <th>סטטוס</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td><input id="score-set-a-1" class="score-entry-input" inputmode="text" autocomplete="off" maxlength="3" oninput="handleScoreSetInput(1,'A', this.value)" onblur="handleScoreSetBlur(1,'A')" onkeydown="handleScoreInputKeydown(event,1,'A')"></td>
+                <td><input id="score-set-x-1" class="score-entry-input" inputmode="text" autocomplete="off" maxlength="3" oninput="handleScoreSetInput(1,'X', this.value)" onblur="handleScoreSetBlur(1,'X')" onkeydown="handleScoreInputKeydown(event,1,'X')"></td>
+                <td><span id="score-set-status-1" class="score-entry-set-status">לא הוזן</span></td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td><input id="score-set-a-2" class="score-entry-input" inputmode="text" autocomplete="off" maxlength="3" oninput="handleScoreSetInput(2,'A', this.value)" onblur="handleScoreSetBlur(2,'A')" onkeydown="handleScoreInputKeydown(event,2,'A')"></td>
+                <td><input id="score-set-x-2" class="score-entry-input" inputmode="text" autocomplete="off" maxlength="3" oninput="handleScoreSetInput(2,'X', this.value)" onblur="handleScoreSetBlur(2,'X')" onkeydown="handleScoreInputKeydown(event,2,'X')"></td>
+                <td><span id="score-set-status-2" class="score-entry-set-status">לא הוזן</span></td>
+              </tr>
+              <tr>
+                <td>3</td>
+                <td><input id="score-set-a-3" class="score-entry-input" inputmode="text" autocomplete="off" maxlength="3" oninput="handleScoreSetInput(3,'A', this.value)" onblur="handleScoreSetBlur(3,'A')" onkeydown="handleScoreInputKeydown(event,3,'A')"></td>
+                <td><input id="score-set-x-3" class="score-entry-input" inputmode="text" autocomplete="off" maxlength="3" oninput="handleScoreSetInput(3,'X', this.value)" onblur="handleScoreSetBlur(3,'X')" onkeydown="handleScoreInputKeydown(event,3,'X')"></td>
+                <td><span id="score-set-status-3" class="score-entry-set-status">לא הוזן</span></td>
+              </tr>
+              <tr>
+                <td>4</td>
+                <td><input id="score-set-a-4" class="score-entry-input" inputmode="text" autocomplete="off" maxlength="3" oninput="handleScoreSetInput(4,'A', this.value)" onblur="handleScoreSetBlur(4,'A')" onkeydown="handleScoreInputKeydown(event,4,'A')"></td>
+                <td><input id="score-set-x-4" class="score-entry-input" inputmode="text" autocomplete="off" maxlength="3" oninput="handleScoreSetInput(4,'X', this.value)" onblur="handleScoreSetBlur(4,'X')" onkeydown="handleScoreInputKeydown(event,4,'X')"></td>
+                <td><span id="score-set-status-4" class="score-entry-set-status">לא הוזן</span></td>
+              </tr>
+              <tr>
+                <td>5</td>
+                <td><input id="score-set-a-5" class="score-entry-input" inputmode="text" autocomplete="off" maxlength="3" oninput="handleScoreSetInput(5,'A', this.value)" onblur="handleScoreSetBlur(5,'A')" onkeydown="handleScoreInputKeydown(event,5,'A')"></td>
+                <td><input id="score-set-x-5" class="score-entry-input" inputmode="text" autocomplete="off" maxlength="3" oninput="handleScoreSetInput(5,'X', this.value)" onblur="handleScoreSetBlur(5,'X')" onkeydown="handleScoreInputKeydown(event,5,'X')"></td>
+                <td><span id="score-set-status-5" class="score-entry-set-status">לא הוזן</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="score-entry-footer">
+          <div class="score-entry-footer-left">
+            <button type="button" class="score-entry-cancel" onclick="closeScoreEntryModal()">סגור</button>
+            <button type="button" class="score-entry-clear" onclick="clearScoreEntryModal()">נקה</button>
+          </div>
+          <button id="score-entry-save-btn" type="button" class="score-entry-save" onclick="confirmScoreEntryModal()" disabled>אישור</button>
+        </div>
+      </div>
+    </div>
   <div id="print-container" class="print-container"></div>
   <div id="app-container" class="h-full w-full p-4 md:p-6"><!-- Header -->
     <script>
@@ -1589,6 +1867,10 @@
     let drawColorStorageScope = '';
     let drawColorStorageKey = '';
     let drawColorInputEl = null;
+    let scoreEntryByGameKey = {};
+    let scoreEntryStorageScope = '';
+    let scoreEntryStorageKey = '';
+    let currentScoreEntryState = null;
 
     function getCombinedSelectionScope() {
       const eventId = String(document.getElementById('event-id-input')?.value || '').trim();
@@ -1953,6 +2235,34 @@
       }
     }
 
+    function setScoreEntryScope(eventId, env) {
+      const normalizedEventId = String(eventId || '').trim();
+      const normalizedEnv = String(env || 'prod').trim() || 'prod';
+      const scope = `${normalizedEnv}:${normalizedEventId}`;
+      if (!normalizedEventId) {
+        scoreEntryByGameKey = {};
+        scoreEntryStorageScope = '';
+        scoreEntryStorageKey = '';
+        return;
+      }
+      if (scope === scoreEntryStorageScope) return;
+
+      scoreEntryStorageScope = scope;
+      scoreEntryStorageKey = `manualScoreEntryResults:${scope}`;
+      scoreEntryByGameKey = {};
+      try {
+        const raw = localStorage.getItem(scoreEntryStorageKey);
+        if (raw) {
+          const parsed = JSON.parse(raw) || {};
+          if (parsed && typeof parsed === 'object') {
+            scoreEntryByGameKey = parsed;
+          }
+        }
+      } catch {
+        scoreEntryByGameKey = {};
+      }
+    }
+
     function saveManualInProgressIfScoped() {
       if (!manualInProgressStorageKey) return;
       try {
@@ -1965,6 +2275,42 @@
       try {
         localStorage.setItem(manualFinishedStorageKey, JSON.stringify(manualFinishedByKey));
       } catch {}
+    }
+
+    function saveScoreEntryIfScoped() {
+      if (!scoreEntryStorageKey) return;
+      try {
+        localStorage.setItem(scoreEntryStorageKey, JSON.stringify(scoreEntryByGameKey));
+      } catch {}
+    }
+
+    function getStoredScoreEntry(stableKey) {
+      const key = String(stableKey || '').trim();
+      if (!key) return null;
+      const stored = scoreEntryByGameKey[key];
+      if (!stored || !Array.isArray(stored.sets)) return null;
+      return stored;
+    }
+
+    function setStoredScoreEntry(stableKey, sets) {
+      const key = String(stableKey || '').trim();
+      if (!key) return;
+      scoreEntryByGameKey[key] = {
+        sets: Array.isArray(sets) ? sets.slice(0, 5).map(set => ({
+          a: String(set?.a || '').trim(),
+          x: String(set?.x || '').trim()
+        })) : [],
+        updatedAt: new Date().toISOString()
+      };
+      saveScoreEntryIfScoped();
+    }
+
+    function clearStoredScoreEntry(stableKey) {
+      const key = String(stableKey || '').trim();
+      if (!key) return;
+      if (!Object.prototype.hasOwnProperty.call(scoreEntryByGameKey, key)) return;
+      delete scoreEntryByGameKey[key];
+      saveScoreEntryIfScoped();
     }
 
     function isManuallyInProgressGame(game) {
@@ -2148,6 +2494,331 @@
         clearGameFinishedAt(game.id);
       }
       renderGames(gamesData);
+    }
+
+    function getScoreInputElement(setIndex, side) {
+      const suffix = String(side || '').toUpperCase() === 'A' ? 'a' : 'x';
+      return document.getElementById(`score-set-${suffix}-${setIndex}`);
+    }
+
+    function sanitizeScoreValue(rawValue) {
+      const clean = String(rawValue ?? '').replace(/[^0-9]/g, '').slice(0, 2);
+      if (clean === '') return null;
+      const num = Number(clean);
+      if (!Number.isFinite(num)) return null;
+      return Math.max(0, Math.min(99, num));
+    }
+
+    function readSetValues(setIndex) {
+      const inputA = getScoreInputElement(setIndex, 'A');
+      const inputX = getScoreInputElement(setIndex, 'X');
+      const a = sanitizeScoreValue(inputA?.value || '');
+      const x = sanitizeScoreValue(inputX?.value || '');
+      return { a, x, inputA, inputX };
+    }
+
+    function isValidCompletedSet(a, x) {
+      if (a === null || x === null) return false;
+      if (a === x) return false;
+      const high = Math.max(a, x);
+      const low = Math.min(a, x);
+      return high >= 11 && (high - low) >= 2;
+    }
+
+    function buildSetStatusText(setIndex) {
+      const { a, x } = readSetValues(setIndex);
+      const inputA = getScoreInputElement(setIndex, 'A');
+      const inputX = getScoreInputElement(setIndex, 'X');
+      const statusEl = document.getElementById(`score-set-status-${setIndex}`);
+      if (!statusEl) return;
+      if (inputA) inputA.classList.remove('winner-set');
+      if (inputX) inputX.classList.remove('winner-set');
+      if (a === null && x === null) {
+        statusEl.innerHTML = '<span class="score-entry-set-status-icon" title="לא הוזן">•</span>';
+        return;
+      }
+      if (isValidCompletedSet(a, x)) {
+        if (a > x) {
+          if (inputA) inputA.classList.add('winner-set');
+        } else {
+          if (inputX) inputX.classList.add('winner-set');
+        }
+        statusEl.innerHTML = '<span class="score-entry-set-status-icon" title="הסט הוזן בהצלחה">✅</span>';
+        return;
+      }
+      statusEl.innerHTML = '<span class="score-entry-set-status-icon" title="סט לא חוקי">⚠️</span>';
+    }
+
+    function updateScoreEntrySummary() {
+      const totalAEl = document.getElementById('score-entry-player-a-total');
+      const totalXEl = document.getElementById('score-entry-player-x-total');
+      if (!totalAEl || !totalXEl) return;
+      let totalA = 0;
+      let totalX = 0;
+      for (let setIndex = 1; setIndex <= 5; setIndex += 1) {
+        const { a, x } = readSetValues(setIndex);
+        if (!isValidCompletedSet(a, x)) continue;
+        if (a > x) totalA += 1;
+        else totalX += 1;
+      }
+      totalAEl.textContent = String(totalA);
+      totalXEl.textContent = String(totalX);
+    }
+
+    function calculateScoreEntryProgress() {
+      let totalA = 0;
+      let totalX = 0;
+      let winnerSide = '';
+      let decisiveSet = 0;
+      for (let setIndex = 1; setIndex <= 5; setIndex += 1) {
+        const { a, x } = readSetValues(setIndex);
+        if (!isValidCompletedSet(a, x)) continue;
+        if (a > x) totalA += 1;
+        else totalX += 1;
+        if (!winnerSide && (totalA >= 3 || totalX >= 3)) {
+          winnerSide = totalA >= 3 ? 'A' : 'X';
+          decisiveSet = setIndex;
+        }
+      }
+      return { totalA, totalX, winnerSide, decisiveSet };
+    }
+
+    function setScoreEntrySaveEnabled(enabled) {
+      const saveButton = document.getElementById('score-entry-save-btn');
+      if (!saveButton) return;
+      const wasDisabled = saveButton.disabled;
+      saveButton.disabled = !enabled;
+      if (enabled && wasDisabled) {
+        saveButton.focus();
+      }
+    }
+
+    function applyScoreEntryLocks() {
+      let progress = calculateScoreEntryProgress();
+      let changed = false;
+      for (let setIndex = 1; setIndex <= 5; setIndex += 1) {
+        const inputA = getScoreInputElement(setIndex, 'A');
+        const inputX = getScoreInputElement(setIndex, 'X');
+        if (!inputA || !inputX) continue;
+        const locked = Boolean(progress.winnerSide) && setIndex > progress.decisiveSet;
+        inputA.disabled = locked;
+        inputX.disabled = locked;
+        if (locked && (String(inputA.value || '').trim() || String(inputX.value || '').trim())) {
+          inputA.value = '';
+          inputX.value = '';
+          changed = true;
+        }
+      }
+      if (changed) {
+        progress = calculateScoreEntryProgress();
+      }
+      setScoreEntrySaveEnabled(Boolean(progress.winnerSide));
+      return progress;
+    }
+
+    function refreshScoreEntryUI() {
+      const progress = applyScoreEntryLocks();
+      for (let setIndex = 1; setIndex <= 5; setIndex += 1) {
+        const statusEl = document.getElementById(`score-set-status-${setIndex}`);
+        const isLocked = Boolean(progress.winnerSide) && setIndex > progress.decisiveSet;
+        if (isLocked) {
+          if (statusEl) statusEl.innerHTML = '<span class="score-entry-set-status-icon" title="נעול לאחר הכרעה">🔒</span>';
+          continue;
+        }
+        buildSetStatusText(setIndex);
+      }
+      updateScoreEntrySummary();
+    }
+
+    function autoFillOppositeSetScore(setIndex, side) {
+      const ownInput = getScoreInputElement(setIndex, side);
+      const oppositeSide = String(side || '').toUpperCase() === 'A' ? 'X' : 'A';
+      const oppositeInput = getScoreInputElement(setIndex, oppositeSide);
+      if (!ownInput || !oppositeInput) return false;
+      const rawOwn = String(ownInput.value || '').trim();
+      const isNegativeOwn = rawOwn.startsWith('-');
+      const ownValue = sanitizeScoreValue(rawOwn);
+      const oppositeValue = sanitizeScoreValue(oppositeInput.value);
+      if (ownValue === null || oppositeValue !== null) return false;
+
+      if (isNegativeOwn) {
+        const loserPoints = ownValue;
+        const winnerPoints = Math.max(11, loserPoints + 2);
+        ownInput.value = String(winnerPoints);
+        oppositeInput.value = String(loserPoints);
+        return true;
+      }
+
+      const winnerScore = Math.max(11, ownValue + 2);
+      oppositeInput.value = String(winnerScore);
+      return true;
+    }
+
+    function focusScoreInput(setIndex, side) {
+      if (setIndex < 1 || setIndex > 5) return;
+      const input = getScoreInputElement(setIndex, side);
+      if (!input) return;
+      if (input.disabled) return;
+      input.focus();
+      input.select();
+    }
+
+    function applyStraightSetsWin(side) {
+      const winnerSide = String(side || '').toUpperCase() === 'X' ? 'X' : 'A';
+      const loserSide = winnerSide === 'A' ? 'X' : 'A';
+      for (let setIndex = 1; setIndex <= 5; setIndex += 1) {
+        const winnerInput = getScoreInputElement(setIndex, winnerSide);
+        const loserInput = getScoreInputElement(setIndex, loserSide);
+        if (!winnerInput || !loserInput) continue;
+        if (setIndex <= 3) {
+          winnerInput.value = '11';
+          loserInput.value = '0';
+        } else {
+          winnerInput.value = '';
+          loserInput.value = '';
+        }
+      }
+      refreshScoreEntryUI();
+      const saveButton = document.getElementById('score-entry-save-btn');
+      if (saveButton && !saveButton.disabled) {
+        saveButton.focus();
+      }
+    }
+
+    function collectScoreEntrySetsFromInputs() {
+      const sets = [];
+      for (let setIndex = 1; setIndex <= 5; setIndex += 1) {
+        const inputA = getScoreInputElement(setIndex, 'A');
+        const inputX = getScoreInputElement(setIndex, 'X');
+        sets.push({
+          a: String(inputA?.value || '').trim(),
+          x: String(inputX?.value || '').trim()
+        });
+      }
+      return sets;
+    }
+
+    function applyStoredScoreEntryToInputs(storedEntry) {
+      const sets = Array.isArray(storedEntry?.sets) ? storedEntry.sets : [];
+      for (let setIndex = 1; setIndex <= 5; setIndex += 1) {
+        const inputA = getScoreInputElement(setIndex, 'A');
+        const inputX = getScoreInputElement(setIndex, 'X');
+        if (!inputA || !inputX) continue;
+        const set = sets[setIndex - 1] || {};
+        inputA.value = String(set.a || '').trim();
+        inputX.value = String(set.x || '').trim();
+      }
+    }
+
+    function handleScoreSetInput(setIndex, side, value) {
+      const input = getScoreInputElement(setIndex, side);
+      if (!input) return;
+      const oppositeSide = String(side || '').toUpperCase() === 'A' ? 'X' : 'A';
+      const oppositeInput = getScoreInputElement(setIndex, oppositeSide);
+      const raw = String(value ?? '');
+      const hasMinus = raw.trim().startsWith('-');
+      const digits = raw.replace(/[^0-9]/g, '').slice(0, 2);
+      const cleaned = hasMinus ? (digits ? `-${digits}` : '-') : digits;
+      if (input.value !== cleaned) input.value = cleaned;
+      if (cleaned === '' && oppositeInput && String(oppositeInput.value || '').trim() !== '') {
+        oppositeInput.value = '';
+      }
+      refreshScoreEntryUI();
+    }
+
+    function handleScoreSetBlur(setIndex, side) {
+      autoFillOppositeSetScore(setIndex, side);
+      refreshScoreEntryUI();
+    }
+
+    function handleScoreInputKeydown(event, setIndex, side) {
+      if (!event) return;
+      if (event.key === 'Tab') {
+        event.preventDefault();
+        autoFillOppositeSetScore(setIndex, side);
+        refreshScoreEntryUI();
+        const targetSet = event.shiftKey ? (setIndex - 1) : (setIndex + 1);
+        focusScoreInput(targetSet, side);
+        return;
+      }
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        autoFillOppositeSetScore(setIndex, side);
+        refreshScoreEntryUI();
+        focusScoreInput(setIndex + 1, side);
+        return;
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeScoreEntryModal();
+      }
+    }
+
+    function openScoreEntryModal(encodedKey) {
+      const stableKey = decodeStableGameKey(encodedKey);
+      if (!stableKey) return;
+      const game = (gamesData || []).find(g => getStableGameKey(g) === stableKey);
+      if (!game) return;
+
+      currentScoreEntryState = { stableKey };
+      const overlay = document.getElementById('score-entry-overlay');
+      const title = document.getElementById('score-entry-game-title');
+      const nameA = game.playerFullNameA || 'שחקן א';
+      const nameX = game.playerFullNameX || 'שחקן ב';
+      const draw = game.draw || 'ללא קטגוריה';
+      if (title) title.textContent = `${draw} | ${nameA} נגד ${nameX}`;
+
+      const summaryAName = document.getElementById('score-entry-player-a-name');
+      const summaryXName = document.getElementById('score-entry-player-x-name');
+      if (summaryAName) summaryAName.textContent = nameA;
+      if (summaryXName) summaryXName.textContent = nameX;
+
+      const storedEntry = getStoredScoreEntry(stableKey);
+      if (storedEntry) {
+        applyStoredScoreEntryToInputs(storedEntry);
+      } else {
+        for (let setIndex = 1; setIndex <= 5; setIndex += 1) {
+          const inputA = getScoreInputElement(setIndex, 'A');
+          const inputX = getScoreInputElement(setIndex, 'X');
+          if (inputA) inputA.value = '';
+          if (inputX) inputX.value = '';
+        }
+      }
+      refreshScoreEntryUI();
+      if (overlay) overlay.classList.add('show');
+      setTimeout(() => focusScoreInput(1, 'A'), 0);
+    }
+
+    function confirmScoreEntryModal() {
+      const saveButton = document.getElementById('score-entry-save-btn');
+      if (saveButton && saveButton.disabled) return;
+      const stableKey = String(currentScoreEntryState?.stableKey || '').trim();
+      if (stableKey) {
+        const sets = collectScoreEntrySetsFromInputs();
+        setStoredScoreEntry(stableKey, sets);
+      }
+      closeScoreEntryModal();
+    }
+
+    function clearScoreEntryModal() {
+      const stableKey = String(currentScoreEntryState?.stableKey || '').trim();
+      if (stableKey) {
+        clearStoredScoreEntry(stableKey);
+      }
+      for (let setIndex = 1; setIndex <= 5; setIndex += 1) {
+        const inputA = getScoreInputElement(setIndex, 'A');
+        const inputX = getScoreInputElement(setIndex, 'X');
+        if (inputA) inputA.value = '';
+        if (inputX) inputX.value = '';
+      }
+      refreshScoreEntryUI();
+      focusScoreInput(1, 'A');
+    }
+
+    function closeScoreEntryModal() {
+      const overlay = document.getElementById('score-entry-overlay');
+      if (overlay) overlay.classList.remove('show');
+      currentScoreEntryState = null;
     }
 
     function updateUpcomingSelectionUI() {
@@ -5385,7 +6056,7 @@
       let timerHtml = '';
         if (type === 'inprogress' || type === 'finished') {
             timerHtml = `<div class="game-timer bg-white bg-opacity-80 rounded px-2 py-1 text-blue-700 font-bold text-xs shadow flex items-center justify-center gap-1" data-game-id="${game.id || ''}" style="direction:ltr; min-width:44px; text-align:center; z-index:10;">
-              <span class="timer-value">00:00</span><span class="hidden md:inline-block">:זמן</span>
+              <span class="timer-value">00:00</span><span class="hidden md:inline-block">:זמן משחק</span>
             </div>`;
         }
             // Map for special round labels
@@ -5436,7 +6107,12 @@
       }
       if (type === 'finished' && isManuallyFinishedGame(game)) {
         const isApiFinished = isApiFinishedStatus(game.status);
-        manualProgressButtonsHtml = `<button type="button" class="manual-progress-btn reopen" aria-label="החזרת משחק לפעיל" title="${isApiFinished ? 'לא ניתן להחזיר משחק שהסתיים במערכת' : 'החזר למשחקים כעת'}" ${isApiFinished ? 'disabled' : ''} onclick="if (typeof event !== 'undefined' && event && event.stopPropagation) event.stopPropagation(); ${isApiFinished ? '' : `reopenFinishedGameByStableKey('${encodedStableKey}')`}">החזר</button>`;
+        const reopenButtonHtml = `<button type="button" class="manual-progress-btn reopen" aria-label="החזרת משחק לפעיל" title="${isApiFinished ? 'לא ניתן להחזיר משחק שהסתיים במערכת' : 'החזר למשחקים כעת'}" ${isApiFinished ? 'disabled' : ''} onclick="if (typeof event !== 'undefined' && event && event.stopPropagation) event.stopPropagation(); ${isApiFinished ? '' : `reopenFinishedGameByStableKey('${encodedStableKey}')`}">החזר</button>`;
+        const scoreButtonHtml = `<button type="button" class="manual-progress-btn score" aria-label="הזנת תוצאת משחק" title="הזן תוצאה" onclick="if (typeof event !== 'undefined' && event && event.stopPropagation) event.stopPropagation(); openScoreEntryModal('${encodedStableKey}')">הזן תוצאה</button>`;
+        manualProgressButtonsHtml = `${scoreButtonHtml}${reopenButtonHtml}`;
+      }
+      if (type === 'finished' && !isManuallyFinishedGame(game)) {
+        manualProgressButtonsHtml = `<button type="button" class="manual-progress-btn score score-single" aria-label="הזנת תוצאת משחק" title="הזן תוצאה" onclick="if (typeof event !== 'undefined' && event && event.stopPropagation) event.stopPropagation(); openScoreEntryModal('${encodedStableKey}')">הזן תוצאה</button>`;
       }
       if (stableGameNumber !== null) {
         gameNumberHtml = `משחק ${stableGameNumber} | `;
@@ -6171,6 +6847,7 @@
       setGameNumberScope(eventId, env);
       setManualInProgressScope(eventId, env);
       setManualFinishedScope(eventId, env);
+      setScoreEntryScope(eventId, env);
       setDrawColorScope(eventId, env);
 
       // Show loading state
