@@ -118,10 +118,24 @@
     }
     .manual-progress-btn.stop {
       top: 10px;
-      left: 118px;
+      left: 55px;
       border-color: #dc2626;
       color: #991b1b;
       background: #fef2f2;
+    }
+    .manual-progress-btn.finish {
+      top: 10px;
+      left: 10px;
+      border-color: #16a34a;
+      color: #166534;
+      background: #f0fdf4;
+    }
+    .manual-progress-btn.reopen {
+      top: 10px;
+      left: 8px;
+      border-color: #2563eb;
+      color: #1e3a8a;
+      background: #eff6ff;
     }
     .print-selection-bar {
       display: flex;
@@ -1566,6 +1580,9 @@
     let manualInProgressByKey = {};
     let manualInProgressStorageScope = '';
     let manualInProgressStorageKey = '';
+    let manualFinishedByKey = {};
+    let manualFinishedStorageScope = '';
+    let manualFinishedStorageKey = '';
     const COMBINED_SELECTION_STORAGE_PREFIX = 'combinedDisplaySelection';
     const DRAW_COLOR_STORAGE_PREFIX = 'drawDisplayColors';
     let drawColorOverrides = {};
@@ -1908,6 +1925,34 @@
       }
     }
 
+    function setManualFinishedScope(eventId, env) {
+      const normalizedEventId = String(eventId || '').trim();
+      const normalizedEnv = String(env || 'prod').trim() || 'prod';
+      const scope = `${normalizedEnv}:${normalizedEventId}`;
+      if (!normalizedEventId) {
+        manualFinishedByKey = {};
+        manualFinishedStorageScope = '';
+        manualFinishedStorageKey = '';
+        return;
+      }
+      if (scope === manualFinishedStorageScope) return;
+
+      manualFinishedStorageScope = scope;
+      manualFinishedStorageKey = `manualFinishedGames:${scope}`;
+      manualFinishedByKey = {};
+      try {
+        const raw = localStorage.getItem(manualFinishedStorageKey);
+        if (raw) {
+          const parsed = JSON.parse(raw) || {};
+          if (parsed && typeof parsed === 'object') {
+            manualFinishedByKey = parsed;
+          }
+        }
+      } catch {
+        manualFinishedByKey = {};
+      }
+    }
+
     function saveManualInProgressIfScoped() {
       if (!manualInProgressStorageKey) return;
       try {
@@ -1915,10 +1960,36 @@
       } catch {}
     }
 
+    function saveManualFinishedIfScoped() {
+      if (!manualFinishedStorageKey) return;
+      try {
+        localStorage.setItem(manualFinishedStorageKey, JSON.stringify(manualFinishedByKey));
+      } catch {}
+    }
+
     function isManuallyInProgressGame(game) {
       const stableKey = getStableGameKey(game);
       if (!stableKey) return false;
       return Boolean(manualInProgressByKey[stableKey]);
+    }
+
+    function isManuallyFinishedGame(game) {
+      const stableKey = getStableGameKey(game);
+      if (!stableKey) return false;
+      return Boolean(manualFinishedByKey[stableKey]);
+    }
+
+    function isApiFinishedStatus(status) {
+      return String(status || '').toUpperCase() === 'FINISHED';
+    }
+
+    function decodeStableGameKey(encodedKey) {
+      if (!encodedKey) return '';
+      try {
+        return decodeURIComponent(encodedKey);
+      } catch {
+        return encodedKey;
+      }
     }
 
     function syncManualInProgressOverrides(games) {
@@ -1935,7 +2006,7 @@
       Object.keys(manualInProgressByKey).forEach(stableKey => {
         const existsInCurrentData = existingKeys.has(stableKey);
         const status = statusByKey.get(stableKey);
-        if (!existsInCurrentData || status === 'FINISHED') {
+        if (!existsInCurrentData || isApiFinishedStatus(status) || manualFinishedByKey[stableKey]) {
           delete manualInProgressByKey[stableKey];
           changed = true;
         }
@@ -1945,11 +2016,36 @@
       }
     }
 
+    function syncManualFinishedOverrides(games) {
+      const statusByKey = new Map();
+      const existingKeys = new Set();
+      games.forEach(game => {
+        const stableKey = getStableGameKey(game);
+        if (!stableKey) return;
+        existingKeys.add(stableKey);
+        statusByKey.set(stableKey, game.status || '');
+      });
+
+      let changed = false;
+      Object.keys(manualFinishedByKey).forEach(stableKey => {
+        const existsInCurrentData = existingKeys.has(stableKey);
+        const status = statusByKey.get(stableKey);
+        if (!existsInCurrentData || isApiFinishedStatus(status)) {
+          delete manualFinishedByKey[stableKey];
+          changed = true;
+        }
+      });
+      if (changed) {
+        saveManualFinishedIfScoped();
+      }
+    }
+
     function getDisplayUpcomingGames(games) {
       return sortUpcomingGames((games || []).filter(game =>
         game.status !== 'FINISHED' && game.status !== 'IN_PROGRESS' &&
         (isValidPlayer(game.playerFullNameA) || isValidPlayer(game.playerFullNameX)) &&
-        !isManuallyInProgressGame(game)
+        !isManuallyInProgressGame(game) &&
+        !isManuallyFinishedGame(game)
       ));
     }
 
@@ -1971,13 +2067,12 @@
 
     function startGameByStableKey(encodedKey) {
       if (!encodedKey) return;
-      let stableKey = '';
-      try {
-        stableKey = decodeURIComponent(encodedKey);
-      } catch {
-        stableKey = encodedKey;
-      }
+      const stableKey = decodeStableGameKey(encodedKey);
       if (!stableKey) return;
+      if (Object.prototype.hasOwnProperty.call(manualFinishedByKey, stableKey)) {
+        delete manualFinishedByKey[stableKey];
+        saveManualFinishedIfScoped();
+      }
       manualInProgressByKey[stableKey] = true;
       saveManualInProgressIfScoped();
       renderGames(gamesData);
@@ -2003,16 +2098,54 @@
 
     function stopGameByStableKey(encodedKey) {
       if (!encodedKey) return;
-      let stableKey = '';
-      try {
-        stableKey = decodeURIComponent(encodedKey);
-      } catch {
-        stableKey = encodedKey;
-      }
+      const stableKey = decodeStableGameKey(encodedKey);
       if (!stableKey) return;
       if (Object.prototype.hasOwnProperty.call(manualInProgressByKey, stableKey)) {
         delete manualInProgressByKey[stableKey];
         saveManualInProgressIfScoped();
+      }
+      renderGames(gamesData);
+    }
+
+    function finishGameByStableKey(encodedKey) {
+      if (!encodedKey) return;
+      const stableKey = decodeStableGameKey(encodedKey);
+      if (!stableKey) return;
+
+      const game = (gamesData || []).find(g => getStableGameKey(g) === stableKey);
+      if (isApiFinishedStatus(game?.status)) return;
+
+      if (Object.prototype.hasOwnProperty.call(manualInProgressByKey, stableKey)) {
+        delete manualInProgressByKey[stableKey];
+        saveManualInProgressIfScoped();
+      }
+      manualFinishedByKey[stableKey] = true;
+      saveManualFinishedIfScoped();
+
+      if (game?.id) {
+        stopGameTimer(game.id);
+        setGameFinishedAt(game.id, new Date());
+      }
+      renderGames(gamesData);
+    }
+
+    function reopenFinishedGameByStableKey(encodedKey) {
+      if (!encodedKey) return;
+      const stableKey = decodeStableGameKey(encodedKey);
+      if (!stableKey) return;
+
+      const game = (gamesData || []).find(g => getStableGameKey(g) === stableKey);
+      if (isApiFinishedStatus(game?.status)) return;
+
+      if (Object.prototype.hasOwnProperty.call(manualFinishedByKey, stableKey)) {
+        delete manualFinishedByKey[stableKey];
+        saveManualFinishedIfScoped();
+      }
+      manualInProgressByKey[stableKey] = true;
+      saveManualInProgressIfScoped();
+
+      if (game?.id) {
+        clearGameFinishedAt(game.id);
       }
       renderGames(gamesData);
     }
@@ -5227,11 +5360,11 @@
     function getPlayersInProgress(games) {
       const playersInProgress = new Set();
       games.forEach(game => {
-        if (game.status === 'IN_PROGRESS') {
+        if (game.status === 'IN_PROGRESS' && !isManuallyFinishedGame(game)) {
           if (isValidPlayer(game.playerFullNameA)) playersInProgress.add(game.playerFullNameA.trim());
           if (isValidPlayer(game.playerFullNameX)) playersInProgress.add(game.playerFullNameX.trim());
         }
-        if (isManuallyInProgressGame(game) && game.status !== 'FINISHED') {
+        if (isManuallyInProgressGame(game) && !isManuallyFinishedGame(game) && game.status !== 'FINISHED') {
           if (isValidPlayer(game.playerFullNameA)) playersInProgress.add(game.playerFullNameA.trim());
           if (isValidPlayer(game.playerFullNameX)) playersInProgress.add(game.playerFullNameX.trim());
         }
@@ -5250,9 +5383,9 @@
     function createGameCard(game, type, isGrayed = false, gameNumberMap = null) {
       // Timer for in-progress games
       let timerHtml = '';
-        if (type === 'inprogress') {
-            timerHtml = `<div class="game-timer absolute top-2 left-2 bg-white bg-opacity-80 rounded px-2 py-1 text-blue-700 font-bold text-xs shadow flex items-center gap-1" data-game-id="${game.id || ''}" style="direction:ltr; min-width:44px; text-align:center; z-index:10;">
-              <span class="timer-value">00:00</span><span class="hidden md:inline-block">:זמן משחק</span>
+        if (type === 'inprogress' || type === 'finished') {
+            timerHtml = `<div class="game-timer bg-white bg-opacity-80 rounded px-2 py-1 text-blue-700 font-bold text-xs shadow flex items-center justify-center gap-1" data-game-id="${game.id || ''}" style="direction:ltr; min-width:44px; text-align:center; z-index:10;">
+              <span class="timer-value">00:00</span><span class="hidden md:inline-block">:זמן</span>
             </div>`;
         }
             // Map for special round labels
@@ -5272,7 +5405,7 @@
       let upcomingDataAttrs = '';
       let announceButtonHtml = '';
       let selectionButtonHtml = '';
-      let manualProgressButtonHtml = '';
+      let manualProgressButtonsHtml = '';
       let gameNumberHtml = '';
       const stableKey = getStableGameKey(game);
       const encodedStableKey = encodeURIComponent(stableKey || '');
@@ -5288,14 +5421,22 @@
         const canManualStart = !isGrayed;
         upcomingDataAttrs = `data-player-a="${playerAEncoded}" data-player-x="${playerXEncoded}" data-player-aid="${playerAid}" data-player-xid="${playerXid}" data-game-key="${encodedGameKey}"`;
         announceButtonHtml = `<button type="button" class="announce-btn" aria-label="הכרזת משחק" title="השמע הכרזה" onclick="event.stopPropagation(); announcePlayersFromCard(this.closest('.game-card'))">&#128483;</button>`;
-        manualProgressButtonHtml = `<button type="button" class="manual-progress-btn start" aria-label="התחלת משחק" title="${canManualStart ? 'העבר למשחקים עכשיו' : 'לא ניתן להתחיל משחק אפור'}" ${canManualStart ? '' : 'disabled'} onclick="if (typeof event !== 'undefined' && event && event.stopPropagation) event.stopPropagation(); ${canManualStart ? `startGameByStableKey('${encodedStableKey}')` : ''}">התחל</button>`;
+        manualProgressButtonsHtml = `<button type="button" class="manual-progress-btn start" aria-label="התחלת משחק" title="${canManualStart ? 'העבר למשחקים עכשיו' : 'לא ניתן להתחיל משחק אפור'}" ${canManualStart ? '' : 'disabled'} onclick="if (typeof event !== 'undefined' && event && event.stopPropagation) event.stopPropagation(); ${canManualStart ? `startGameByStableKey('${encodedStableKey}')` : ''}">התחל</button>`;
         if (isUpcomingPrintSelectionEnabled) {
           selectionButtonHtml = `<button type="button" class="selection-btn ${isSelected ? 'selected' : ''}" aria-label="בחירת משחק להדפסה" title="בחר להדפסה" onclick="event.stopPropagation(); toggleUpcomingSelection(decodeURIComponent(this.closest('.game-card').getAttribute('data-game-key') || ''))">${isSelected ? '✓' : ''}</button>`;
         }
       }
-      if (type === 'inprogress' && isManuallyInProgressGame(game)) {
+      if (type === 'inprogress') {
         const isApiInProgress = String(game.status || '').toUpperCase() === 'IN_PROGRESS';
-        manualProgressButtonHtml = `<button type="button" class="manual-progress-btn stop" aria-label="עצירת משחק" title="${isApiInProgress ? 'לא ניתן לעצור משחק שבסטטוס משחק כעת מהמערכת' : 'בטל התחלה ידנית'}" ${isApiInProgress ? 'disabled' : ''} onclick="if (typeof event !== 'undefined' && event && event.stopPropagation) event.stopPropagation(); ${isApiInProgress ? '' : `stopGameByStableKey('${encodedStableKey}')`}">עצור</button>`;
+        const stopButtonHtml = isManuallyInProgressGame(game)
+          ? `<button type="button" class="manual-progress-btn stop" aria-label="עצירת משחק" title="${isApiInProgress ? 'לא ניתן לעצור משחק שבסטטוס משחק כעת מהמערכת' : 'בטל התחלה ידנית'}" ${isApiInProgress ? 'disabled' : ''} onclick="if (typeof event !== 'undefined' && event && event.stopPropagation) event.stopPropagation(); ${isApiInProgress ? '' : `stopGameByStableKey('${encodedStableKey}')`}">עצור</button>`
+          : '';
+        const finishButtonHtml = `<button type="button" class="manual-progress-btn finish" aria-label="סיום משחק" title="העבר למשחקים שהסתיימו" onclick="if (typeof event !== 'undefined' && event && event.stopPropagation) event.stopPropagation(); finishGameByStableKey('${encodedStableKey}')">סיים</button>`;
+        manualProgressButtonsHtml = `${finishButtonHtml}${stopButtonHtml}`;
+      }
+      if (type === 'finished' && isManuallyFinishedGame(game)) {
+        const isApiFinished = isApiFinishedStatus(game.status);
+        manualProgressButtonsHtml = `<button type="button" class="manual-progress-btn reopen" aria-label="החזרת משחק לפעיל" title="${isApiFinished ? 'לא ניתן להחזיר משחק שהסתיים במערכת' : 'החזר למשחקים כעת'}" ${isApiFinished ? 'disabled' : ''} onclick="if (typeof event !== 'undefined' && event && event.stopPropagation) event.stopPropagation(); ${isApiFinished ? '' : `reopenFinishedGameByStableKey('${encodedStableKey}')`}">החזר</button>`;
       }
       if (stableGameNumber !== null) {
         gameNumberHtml = `משחק ${stableGameNumber} | `;
@@ -5323,16 +5464,19 @@
             finishTime = `${hh}:${mm}`;
           }
         }
-          finishedTimeHtml = finishTime ? `<div class="absolute top-2 left-2 md:left-1/2 md:-translate-x-1/2 bg-white bg-opacity-80 rounded px-2 py-1 text-green-700 font-bold text-xs shadow" style="direction:ltr; min-width:100px; text-align:center; z-index:10;">הסתיים בשעה: ${finishTime}</div>` : '';
+          finishedTimeHtml = finishTime ? `<div class="absolute top-0 left-2 md:left-1/2 md:-translate-x-1/2 bg-white bg-opacity-80 rounded px-1 py-0 text-green-700 font-semibold shadow" style="direction:ltr; min-width:82px; text-align:center; z-index:10; font-size:9px; line-height:1.05;">הסתיים בשעה: ${finishTime}</div>` : '';
         // Use flex row with fixed width for sets, so sets are always aligned
         resultHtml = `
           ${finishedTimeHtml}
           <div class="flex items-center justify-between mt-1 relative" style="min-height: 2.5rem;">
             <span class="text-slate-700 text-lg ${playerFullNameABold} flex-1 text-right pr-2 truncate">${game.playerFullNameA || 'לא ידוע'}</span>
-            <span class="absolute left-1/2 -translate-x-1/2 flex items-center gap-1 min-w-[70px] justify-center">
-              <span class="text-green-600 font-bold text-xl ${playerFullNameABold}">${scoreA}</span>
-              <span class="text-slate-600 text-lg">-</span>
-              <span class="text-green-600 font-bold text-xl ${playerFullNameXBold}">${scoreX}</span>
+            <span class="absolute left-1/2 -translate-x-1/2 flex flex-col items-center gap-0 min-w-[70px] justify-center">
+              <span class="flex items-center gap-1 min-w-[70px] justify-center">
+                <span class="text-green-600 font-bold text-xl ${playerFullNameABold}">${scoreA}</span>
+                <span class="text-slate-600 text-lg">-</span>
+                <span class="text-green-600 font-bold text-xl ${playerFullNameXBold}">${scoreX}</span>
+              </span>
+              ${timerHtml}
             </span>
             <span class="text-slate-700 text-lg ${playerFullNameXBold} flex-1 text-left pl-2 truncate">${game.playerFullNameX || 'לא ידוע'}</span>
           </div>
@@ -5380,8 +5524,7 @@
         <div class="game-card bg-slate-50 rounded-lg p-2 border border-slate-200 text-sm ${grayClass} relative" data-stable-game-key="${encodedStableKey}" ${upcomingDataAttrs}>
           ${announceButtonHtml}
           ${selectionButtonHtml}
-          ${manualProgressButtonHtml}
-          ${timerHtml}
+          ${manualProgressButtonsHtml}
           <div class="flex justify-between items-center mb-1">
             <span class="text-slate-500 text-xs w-full text-right block">
               ${gameNumberHtml}
@@ -5399,8 +5542,9 @@
             ${tableHtml}
             <div class="flex items-center justify-between mt-1 relative" style="min-height: 2.5rem;">
               <span class="font-medium text-slate-700 text-lg flex-1 text-right pr-2 truncate">${game.playerFullNameA || 'לא ידוע'}</span>
-              <span class="absolute left-1/2 -translate-x-1/2 flex items-center gap-1 min-w-[40px] justify-center">
+              <span class="absolute left-1/2 -translate-x-1/2 flex flex-col items-center gap-0 min-w-[64px] justify-center">
                 <span class="text-slate-600 text-xl font-bold">VS</span>
+                ${type === 'inprogress' ? timerHtml : ''}
               </span>
               <span class="font-medium text-slate-700 text-lg flex-1 text-left pl-2 truncate">${game.playerFullNameX || 'לא ידוע'}</span>
             </div>
@@ -5636,16 +5780,17 @@
         }
       });
     }
-    function setupGameTimersForInProgress(games) {
+    function setupGameTimersForInProgress(games, allGames = []) {
       // Clear previous intervals
       Object.values(timerIntervals).forEach(clearInterval);
       timerIntervals = {};
       // Start/restore timers for in-progress games
       const timers = getGameTimers();
       const inProgressIds = games.map(g => g.id).filter(Boolean);
-      // Remove timers for games no longer in progress
+      const activeGameIds = new Set((allGames || []).map(g => g.id).filter(Boolean));
+      // Remove timers only for games that no longer exist in current data
       Object.keys(timers).forEach(id => {
-        if (!inProgressIds.includes(id)) {
+        if (!activeGameIds.has(id)) {
           clearGameTimer(id);
         }
       });
@@ -5668,6 +5813,7 @@
     function renderGames(games) {
       setupPlayerTimers(games);
       syncManualInProgressOverrides(games);
+      syncManualFinishedOverrides(games);
       const playersInProgress = getPlayersInProgress(games);
       // For finished/in-progress: both players must exist. For upcoming: at least one player must exist.
       const validGames = games.filter(game => isValidPlayer(game.playerFullNameA) && isValidPlayer(game.playerFullNameX));
@@ -5678,15 +5824,23 @@
       // Get previous in-progress and finished game ids
       const prevInProgressIds = (window._prevInProgressIds || []);
       const prevFinishedIds = (window._prevFinishedIds || []);
-      let inProgressGames = validGames.filter(g => g.status === 'IN_PROGRESS');
+      let inProgressGames = validGames.filter(g => g.status === 'IN_PROGRESS' && !isManuallyFinishedGame(g));
       let finishedGames = validGames.filter(g => g.status === 'FINISHED');
-      const manuallyStartedGames = allUpcomingByStatus.filter(game => isManuallyInProgressGame(game));
+      const manuallyStartedGames = allUpcomingByStatus.filter(game => isManuallyInProgressGame(game) && !isManuallyFinishedGame(game));
       const inProgressStableKeys = new Set(inProgressGames.map(getStableGameKey).filter(Boolean));
       manuallyStartedGames.forEach(game => {
         const stableKey = getStableGameKey(game);
         if (!stableKey || inProgressStableKeys.has(stableKey)) return;
         inProgressGames.push(game);
         inProgressStableKeys.add(stableKey);
+      });
+      const finishedStableKeys = new Set(finishedGames.map(getStableGameKey).filter(Boolean));
+      validGames.forEach(game => {
+        if (!isManuallyFinishedGame(game) || isApiFinishedStatus(game.status)) return;
+        const stableKey = getStableGameKey(game);
+        if (!stableKey || finishedStableKeys.has(stableKey)) return;
+        finishedGames.push(game);
+        finishedStableKeys.add(stableKey);
       });
       let upcomingGames = getDisplayUpcomingGames(games);
       syncUpcomingSelection(upcomingGames);
@@ -5723,9 +5877,9 @@
         const turnB = parseInt(b.turn_no) || 0;
         return turnB - turnA;
       });
-      // Clear timers for finished games
+      // Stop timers for finished games so elapsed time remains visible
       finishedGames.forEach(game => {
-        if (game.id) clearGameTimer(game.id);
+        if (game.id) stopGameTimer(game.id);
       });
       // --- FILTERS ---
       const upcomingPlayerFilter = (document.getElementById('upcoming-player-filter') || {}).value || '';
@@ -5828,7 +5982,7 @@
       const inProgressContainer = document.getElementById('inprogress-games');
       if (filteredInProgress.length > 0) {
         inProgressContainer.innerHTML = filteredInProgress.map(game => createGameCard(game, 'inprogress', false, upcomingGameNumberMap)).join('');
-        setupGameTimersForInProgress(filteredInProgress);
+        setupGameTimersForInProgress(filteredInProgress, games);
       } else {
         inProgressContainer.innerHTML = '<p class="text-slate-400 text-center py-8">אין משחקים להצגה</p>';
         // Clear all timers if no games in progress
@@ -5836,6 +5990,7 @@
         timerIntervals = {};
       }
       document.getElementById('inprogress-count').textContent = `${filteredInProgress.length} משחקים`;
+      updateAllGameTimers();
     }
 
     // --- FILTER DROPDOWNS DYNAMIC UPDATE ---
@@ -6015,6 +6170,7 @@
 
       setGameNumberScope(eventId, env);
       setManualInProgressScope(eventId, env);
+      setManualFinishedScope(eventId, env);
       setDrawColorScope(eventId, env);
 
       // Show loading state
