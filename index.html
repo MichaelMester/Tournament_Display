@@ -6629,6 +6629,14 @@
       filteredInProgress = filterByCategory(filteredInProgress, inprogressCategoryFilter);
       filteredInProgress = filterByGroup(filteredInProgress, inprogressGroupFilter);
       filteredInProgress = filterByTurn(filteredInProgress, inprogressTurnFilter);
+      filteredInProgress = filteredInProgress.slice().sort((a, b) => {
+        const elapsedA = getGameElapsed(a.id);
+        const elapsedB = getGameElapsed(b.id);
+        if (elapsedB !== elapsedA) return elapsedB - elapsedA;
+        const turnA = parseInt(a.turn_no) || 0;
+        const turnB = parseInt(b.turn_no) || 0;
+        return turnA - turnB;
+      });
       let filteredFinished = filterByPlayer(sortedFinishedGames, finishedPlayerFilter);
       filteredFinished = filterByCategory(filteredFinished, finishedCategoryFilter);
       filteredFinished = filterByGroup(filteredFinished, finishedGroupFilter);
