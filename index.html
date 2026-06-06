@@ -2760,7 +2760,10 @@
       const game = (gamesData || []).find(g => getStableGameKey(g) === stableKey);
       if (!game) return;
 
-      currentScoreEntryState = { stableKey };
+      currentScoreEntryState = {
+        stableKey,
+        gameId: String(game.id || '').trim()
+      };
       const overlay = document.getElementById('score-entry-overlay');
       const title = document.getElementById('score-entry-game-title');
       const nameA = game.playerFullNameA || 'שחקן א';
@@ -2789,15 +2792,111 @@
       setTimeout(() => focusScoreInput(1, 'A'), 0);
     }
 
-    function confirmScoreEntryModal() {
+    function getScoreApiBaseUrl() {
+      const env = String(document.getElementById('env-select')?.value || 'prod').trim();
+      return env === 'dev' ? 'https://dev.tttm.co.il' : 'https://tttm.co.il';
+    }
+
+    function buildScoreApiSetPayloads() {
+      const payloads = [];
+      for (let setIndex = 1; setIndex <= 5; setIndex += 1) {
+        const { a, x } = readSetValues(setIndex);
+        if (!isValidCompletedSet(a, x)) continue;
+        if (a > x) {
+          payloads.push({ pos: 'X', set: setIndex, score: String(x) });
+        } else {
+          payloads.push({ pos: 'A', set: setIndex, score: String(a) });
+        }
+      }
+      return payloads;
+    }
+
+    async function sendScoreToServer(gameId, setPayloads) {
+      const baseUrl = getScoreApiBaseUrl();
+      const normalizedGameId = String(gameId || '').trim();
+      if (!normalizedGameId) {
+        throw new Error('חסר מזהה משחק לשליחת תוצאה.');
+      }
+      for (const payload of (setPayloads || [])) {
+        const response = await fetch(`${baseUrl}/api.1.0/game/${encodeURIComponent(normalizedGameId)}/score`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify([payload])
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        await response.json().catch(() => null);
+      }
+      await sendGamePostScoreMessage(baseUrl, normalizedGameId, 'confirmation');
+      await sendGamePostScoreMessage(baseUrl, normalizedGameId, 'manage');
+    }
+
+    async function sendGamePostScoreMessage(baseUrl, gameId, action) {
+      const response = await fetch(`${baseUrl}/api.1.0/game/${encodeURIComponent(gameId)}/${encodeURIComponent(action)}`, {
+        method: 'GET'
+      });
+      if (!response.ok) {
+        throw new Error(`${action}: HTTP ${response.status}`);
+      }
+      await response.json().catch(() => null);
+    }
+
+    async function confirmScoreEntryModal() {
       const saveButton = document.getElementById('score-entry-save-btn');
       if (saveButton && saveButton.disabled) return;
-      const stableKey = String(currentScoreEntryState?.stableKey || '').trim();
-      if (stableKey) {
-        const sets = collectScoreEntrySetsFromInputs();
-        setStoredScoreEntry(stableKey, sets);
+
+      const errorMsg = document.getElementById('error-message');
+      const successMsg = document.getElementById('success-message');
+      if (errorMsg) errorMsg.classList.add('hidden');
+      if (successMsg) successMsg.classList.add('hidden');
+
+      const setPayloads = buildScoreApiSetPayloads();
+      if (!setPayloads.length) {
+        if (errorMsg) {
+          errorMsg.textContent = 'לא נמצאו סטים חוקיים לשליחה.';
+          errorMsg.classList.remove('hidden');
+        }
+        return;
       }
-      closeScoreEntryModal();
+
+      const stableKey = String(currentScoreEntryState?.stableKey || '').trim();
+      const gameId = String(currentScoreEntryState?.gameId || '').trim();
+      const originalButtonText = saveButton ? saveButton.textContent : 'אישור';
+      if (saveButton) {
+        saveButton.disabled = true;
+        saveButton.textContent = 'שולח...';
+      }
+
+      try {
+        await sendScoreToServer(gameId, setPayloads);
+        if (stableKey) {
+          const sets = collectScoreEntrySetsFromInputs();
+          setStoredScoreEntry(stableKey, sets);
+        }
+        if (successMsg) {
+          successMsg.textContent = 'התוצאה נשלחה בהצלחה לשרת.';
+          successMsg.classList.remove('hidden');
+        }
+        closeScoreEntryModal();
+      } catch (error) {
+        if (errorMsg) {
+          errorMsg.textContent = `שגיאה בשליחת התוצאה: ${error?.message || 'שגיאה לא ידועה'}`;
+          errorMsg.classList.remove('hidden');
+        }
+      } finally {
+        if (saveButton) {
+          saveButton.textContent = originalButtonText;
+        }
+        const overlay = document.getElementById('score-entry-overlay');
+        const isModalOpen = Boolean(overlay && overlay.classList.contains('show'));
+        if (isModalOpen) {
+          const progress = calculateScoreEntryProgress();
+          setScoreEntrySaveEnabled(Boolean(progress.winnerSide));
+        }
+      }
     }
 
     function clearScoreEntryModal() {
