@@ -1722,11 +1722,15 @@
           }
         }
 
-        function handleAutoReloadTimerClick() {
-          if (!autoReloadInterval) return;
+        function triggerImmediateGamesRefresh() {
           fetchGames();
           autoReloadSecondsLeft = 30;
           updateAutoReloadTimerDisplay();
+        }
+
+        function handleAutoReloadTimerClick() {
+          if (!autoReloadInterval) return;
+          triggerImmediateGamesRefresh();
         }
 
         function toggleAutoReload() {
@@ -2881,6 +2885,7 @@
           successMsg.classList.remove('hidden');
         }
         closeScoreEntryModal();
+        triggerImmediateGamesRefresh();
       } catch (error) {
         if (errorMsg) {
           errorMsg.textContent = `שגיאה בשליחת התוצאה: ${error?.message || 'שגיאה לא ידועה'}`;
