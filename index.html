@@ -144,6 +144,11 @@
       color: #0e7490;
       background: #ecfeff;
     }
+    .manual-progress-btn.score.score-done {
+      border-color: #16a34a;
+      color: #166534;
+      background: #f0fdf4;
+    }
     .manual-progress-btn.score-single {
       left: 8px;
     }
@@ -6382,6 +6387,15 @@
       let gameNumberHtml = '';
       const stableKey = getStableGameKey(game);
       const encodedStableKey = encodeURIComponent(stableKey || '');
+      const storedScoreEntry = getStoredScoreEntry(stableKey);
+      const hasStoredScoreEntry = Boolean(
+        storedScoreEntry
+        && Array.isArray(storedScoreEntry.sets)
+        && storedScoreEntry.sets.some(set => String(set?.a || '').trim() !== '' || String(set?.x || '').trim() !== '')
+      );
+      const scoreButtonLabel = hasStoredScoreEntry ? 'הסתיים' : 'הזן תוצאה';
+      const scoreButtonTitle = hasStoredScoreEntry ? 'תוצאה הוזנה (לחץ לעריכה)' : 'הזן תוצאה';
+      const scoreButtonDoneClass = hasStoredScoreEntry ? ' score-done' : '';
       const stableGameNumber = gameNumberMap && gameNumberMap.has(stableKey) ? gameNumberMap.get(stableKey) : null;
       if (type === 'upcoming') {
         const gameKey = getUpcomingGameKey(game);
@@ -6410,11 +6424,11 @@
       if (type === 'finished' && isManuallyFinishedGame(game)) {
         const isApiFinished = isApiFinishedStatus(game.status);
         const reopenButtonHtml = `<button type="button" class="manual-progress-btn reopen" aria-label="החזרת משחק לפעיל" title="${isApiFinished ? 'לא ניתן להחזיר משחק שהסתיים במערכת' : 'החזר למשחקים כעת'}" ${isApiFinished ? 'disabled' : ''} onclick="if (typeof event !== 'undefined' && event && event.stopPropagation) event.stopPropagation(); ${isApiFinished ? '' : `reopenFinishedGameByStableKey('${encodedStableKey}')`}">החזר</button>`;
-        const scoreButtonHtml = `<button type="button" class="manual-progress-btn score" aria-label="הזנת תוצאת משחק" title="הזן תוצאה" onclick="if (typeof event !== 'undefined' && event && event.stopPropagation) event.stopPropagation(); openScoreEntryModal('${encodedStableKey}')">הזן תוצאה</button>`;
+        const scoreButtonHtml = `<button type="button" class="manual-progress-btn score${scoreButtonDoneClass}" aria-label="הזנת תוצאת משחק" title="${scoreButtonTitle}" onclick="if (typeof event !== 'undefined' && event && event.stopPropagation) event.stopPropagation(); openScoreEntryModal('${encodedStableKey}')">${scoreButtonLabel}</button>`;
         manualProgressButtonsHtml = `${scoreButtonHtml}${reopenButtonHtml}`;
       }
       if (type === 'finished' && !isManuallyFinishedGame(game)) {
-        manualProgressButtonsHtml = `<button type="button" class="manual-progress-btn score score-single" aria-label="הזנת תוצאת משחק" title="הזן תוצאה" onclick="if (typeof event !== 'undefined' && event && event.stopPropagation) event.stopPropagation(); openScoreEntryModal('${encodedStableKey}')">הזן תוצאה</button>`;
+        manualProgressButtonsHtml = `<button type="button" class="manual-progress-btn score score-single${scoreButtonDoneClass}" aria-label="הזנת תוצאת משחק" title="${scoreButtonTitle}" onclick="if (typeof event !== 'undefined' && event && event.stopPropagation) event.stopPropagation(); openScoreEntryModal('${encodedStableKey}')">${scoreButtonLabel}</button>`;
       }
       if (stableGameNumber !== null) {
         gameNumberHtml = `משחק ${stableGameNumber} | `;
