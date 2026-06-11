@@ -5369,24 +5369,11 @@
       font-weight: 700;
       color: #0f172a;
     }
-    .knockout-popup-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 12px 16px;
-      border-bottom: 1px solid #cbd5e1;
-      background: linear-gradient(135deg, #0f172a, #1e293b);
-      color: #ffffff;
-    }
-    .knockout-popup-header h2 { margin: 0; font-size: 22px; }
-    .knockout-popup-subtitle {
-      margin: 4px 0 0;
-      font-size: 13px;
-      color: rgba(255, 255, 255, 0.82);
-      font-weight: 500;
-    }
     .knockout-close-btn {
+      position: fixed;
+      top: 46px;
+      left: 10px;
+      z-index: 20;
       border: 1px solid #cbd5e1;
       background: #ffffff;
       color: #0f172a;
@@ -5798,11 +5785,13 @@
     function updateCombinedPaneSplit(windowId, value) { if (window.opener?.updateCombinedPaneSplit) window.opener.updateCombinedPaneSplit(windowId, value); }
     function setKnockoutSingleRow(windowId, value) { if (window.opener?.setKnockoutSingleRow) window.opener.setKnockoutSingleRow(windowId, value); }
     function setKnockoutPopupToolbarCollapsed(windowId, collapsed) { if (window.opener?.setKnockoutPopupToolbarCollapsed) window.opener.setKnockoutPopupToolbarCollapsed(windowId, collapsed); }
+    function closeKnockoutPopupWindow() { window.close(); }
   <\/script>
 </head>
 <body>
   <div class="knockout-popup-shell">
     <button id="knockout-zoom-open" class="knockout-zoom-toggle${entry.zoomToolbarCollapsed ? ' is-visible' : ''}" type="button" onclick="setKnockoutPopupToolbarCollapsed(${entry.id}, false)">Zoom</button>
+    <button type="button" class="knockout-close-btn" onclick="closeKnockoutPopupWindow()">סגור</button>
     <div class="knockout-zoom-tools${entry.zoomToolbarCollapsed ? ' is-hidden' : ''}">
       ${(entry.mode !== 'combined' || entry._hasCombinedKnockoutSection) ? `
       <span class="zoom-section-label">KO</span>
