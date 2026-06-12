@@ -152,6 +152,74 @@
     .manual-progress-btn.score-single {
       left: 8px;
     }
+    .auth-gate-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 11000;
+      background: radial-gradient(circle at top, rgba(30, 64, 175, 0.22), rgba(15, 23, 42, 0.88));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .auth-gate-card {
+      width: min(420px, 94vw);
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 14px;
+      box-shadow: 0 20px 60px rgba(2, 6, 23, 0.4);
+      padding: 18px;
+      display: grid;
+      gap: 10px;
+      text-align: right;
+    }
+    .auth-gate-title {
+      margin: 0;
+      font-size: 22px;
+      font-weight: 800;
+      color: #0f172a;
+    }
+    .auth-gate-subtitle {
+      margin: 0;
+      font-size: 13px;
+      color: #475569;
+    }
+    .auth-gate-input {
+      width: 100%;
+      border: 2px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.2s ease;
+    }
+    .auth-gate-input:focus {
+      border-color: #2563eb;
+    }
+    .auth-gate-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .auth-gate-submit {
+      border: 1px solid #1d4ed8;
+      background: #2563eb;
+      color: #ffffff;
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .auth-gate-submit:hover {
+      background: #1d4ed8;
+    }
+    .auth-gate-error {
+      margin: 0;
+      font-size: 13px;
+      color: #b91c1c;
+      min-height: 18px;
+    }
     .score-entry-overlay {
       position: fixed;
       inset: 0;
@@ -1196,6 +1264,17 @@
   <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
  </head>
  <body class="h-full bg-gradient-to-br from-slate-100 to-slate-200 overflow-auto">
+  <div id="auth-gate-overlay" class="auth-gate-overlay">
+    <div class="auth-gate-card" role="dialog" aria-modal="true" aria-label="כניסה למערכת">
+      <h2 class="auth-gate-title">כניסה למערכת</h2>
+      <p class="auth-gate-subtitle">יש להזין סיסמה כדי להמשיך.</p>
+      <input id="auth-gate-password" class="auth-gate-input" type="password" autocomplete="current-password" placeholder="סיסמה">
+      <p id="auth-gate-error" class="auth-gate-error"></p>
+      <div class="auth-gate-actions">
+        <button id="auth-gate-submit" type="button" class="auth-gate-submit" onclick="submitAuthGate()">כניסה</button>
+      </div>
+    </div>
+  </div>
   <div id="auto-reload-timer" class="fixed top-2 left-2 z-50 bg-white bg-opacity-80 rounded-lg px-4 py-2 shadow text-blue-700 font-bold text-lg hidden" style="direction:ltr;"></div>
   <div id="desktop-clock-widget" class="hidden md:flex fixed top-10 left-10 z-50 bg-white bg-opacity-90 rounded-lg px-4 py-2 shadow text-blue-700 font-bold text-lg cursor-move items-center gap-2" style="user-select:none; min-width:120px; text-align:center; resize:both; overflow:hidden;">
     <span class="inline-block text-2xl md:text-3xl mr-1" title="Clock">🕒</span>
@@ -7419,6 +7498,86 @@
         }
       });
     }
+  </script>
+  <script>
+    const AUTH_GATE_HASH = 'c775788b4db45b59989df2c70fdbf7895f0de12023618a38f5c0a417b7f3699e';
+    const AUTH_GATE_SESSION_KEY = 'tournamentDisplayAuthOk';
+
+    function setAuthGateVisible(visible) {
+      const overlay = document.getElementById('auth-gate-overlay');
+      if (!overlay) return;
+      overlay.style.display = visible ? 'flex' : 'none';
+    }
+
+    async function hashAuthGateValue(value) {
+      const data = new TextEncoder().encode(String(value || ''));
+      const digest = await crypto.subtle.digest('SHA-256', data);
+      return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function submitAuthGate() {
+      const input = document.getElementById('auth-gate-password');
+      const errorEl = document.getElementById('auth-gate-error');
+      const submitBtn = document.getElementById('auth-gate-submit');
+      if (!input || !errorEl || !submitBtn) return;
+
+      const rawValue = String(input.value || '');
+      if (!rawValue.trim()) {
+        errorEl.textContent = 'יש להזין סיסמה.';
+        input.focus();
+        return;
+      }
+
+      submitBtn.disabled = true;
+      const originalText = submitBtn.textContent;
+      submitBtn.textContent = 'בודק...';
+
+      try {
+        const hashed = await hashAuthGateValue(rawValue);
+        if (hashed === AUTH_GATE_HASH) {
+          sessionStorage.setItem(AUTH_GATE_SESSION_KEY, '1');
+          errorEl.textContent = '';
+          input.value = '';
+          setAuthGateVisible(false);
+          return;
+        }
+        errorEl.textContent = 'סיסמה שגויה.';
+        input.value = '';
+        input.focus();
+      } catch {
+        errorEl.textContent = 'אירעה שגיאה באימות הסיסמה.';
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+      }
+    }
+
+    function initAuthGate() {
+      const alreadyVerified = sessionStorage.getItem(AUTH_GATE_SESSION_KEY) === '1';
+      if (alreadyVerified) {
+        setAuthGateVisible(false);
+        return;
+      }
+      setAuthGateVisible(true);
+      const input = document.getElementById('auth-gate-password');
+      const errorEl = document.getElementById('auth-gate-error');
+      if (input && !input.dataset.authBound) {
+        input.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            submitAuthGate();
+          }
+        });
+        input.dataset.authBound = '1';
+      }
+      if (errorEl) errorEl.textContent = '';
+      if (input) {
+        input.value = '';
+        setTimeout(() => input.focus(), 0);
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', initAuthGate);
   </script>
   <script>
     // --- Collapse/Expand Columns Logic ---
