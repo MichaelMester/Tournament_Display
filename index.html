@@ -220,6 +220,11 @@
       color: #b91c1c;
       min-height: 18px;
     }
+    .upcoming-only-view .announce-btn,
+    .upcoming-only-view .manual-progress-btn.start {
+      display: none !important;
+      pointer-events: none !important;
+    }
     .score-entry-overlay {
       position: fixed;
       inset: 0;
@@ -7545,6 +7550,7 @@
 
     function applyUpcomingOnlyViewMode() {
       if (!isUpcomingOnlyView) return;
+      document.body.classList.add('upcoming-only-view');
       const title = document.getElementById('page-title');
       if (title) title.textContent = 'המשחקים הבאים';
 
