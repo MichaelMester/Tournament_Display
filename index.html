@@ -3666,6 +3666,18 @@
       popupCount.textContent = sourceCount.textContent || '';
     }
 
+    function buildUpcomingShareUrl() {
+      const eventId = String(document.getElementById('event-id-input')?.value || '').trim();
+      const env = String(document.getElementById('env-select')?.value || 'prod').trim() || 'prod';
+      const url = new URL(window.location.href);
+      if (eventId) {
+        url.searchParams.set('e', eventId);
+      }
+      url.searchParams.set('view', 'upcoming');
+      url.searchParams.set('env', env);
+      return url.toString();
+    }
+
     function openUpcomingColumnPopup() {
       if (!upcomingColumnPopupWindow || upcomingColumnPopupWindow.closed) {
         const width = Math.max(640, Math.floor(window.screen.availWidth * 0.45));
@@ -3711,6 +3723,48 @@
     }
     .popup-header h2 { margin: 0; font-size: 20px; font-weight: 800; }
     .popup-header-right { display: flex; align-items: center; gap: 10px; }
+    .popup-header-left { display: flex; align-items: center; gap: 8px; }
+    .popup-share-btn {
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      color: #0f172a;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .popup-qr-panel {
+      position: fixed;
+      top: 62px;
+      left: 12px;
+      z-index: 100;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.2);
+      padding: 8px;
+      display: none;
+      width: 172px;
+      text-align: center;
+    }
+    .popup-qr-panel.show {
+      display: block;
+    }
+    .popup-qr-image {
+      width: 156px;
+      height: 156px;
+      display: block;
+      margin: 0 auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+    }
+    .popup-qr-label {
+      margin-top: 6px;
+      font-size: 12px;
+      color: #334155;
+      font-weight: 700;
+    }
     .popup-close-btn {
       border: 1px solid #cbd5e1;
       background: #ffffff;
@@ -3814,16 +3868,51 @@
     function announcePlayersFromCard(cardEl) { if (window.opener?.announcePlayersFromCard) window.opener.announcePlayersFromCard(cardEl); }
     function startGameByStableKey(encodedKey) { if (window.opener?.startGameByStableKey) window.opener.startGameByStableKey(encodedKey); }
     function toggleUpcomingSelection(gameKey) { if (window.opener?.toggleUpcomingSelection) window.opener.toggleUpcomingSelection(gameKey); }
+    function getUpcomingShareUrl() {
+      if (window.opener?.buildUpcomingShareUrl) return window.opener.buildUpcomingShareUrl();
+      return window.location.href;
+    }
+    async function copyUpcomingShareLink() {
+      const url = getUpcomingShareUrl();
+      try {
+        await navigator.clipboard.writeText(url);
+        const btn = document.getElementById('popup-copy-link-btn');
+        if (btn) {
+          const original = btn.textContent;
+          btn.textContent = 'הועתק';
+          setTimeout(() => { btn.textContent = original; }, 1100);
+        }
+      } catch {}
+    }
+    function toggleUpcomingQrPanel() {
+      const panel = document.getElementById('popup-qr-panel');
+      const img = document.getElementById('popup-qr-image');
+      if (!panel || !img) return;
+      const willShow = !panel.classList.contains('show');
+      if (willShow) {
+        const url = getUpcomingShareUrl();
+        img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=156x156&data=' + encodeURIComponent(url);
+      }
+      panel.classList.toggle('show', willShow);
+    }
   <\/script>
 </head>
 <body>
   <div class="popup-shell">
     <div class="popup-header">
-      <h2>משחקים הבאים</h2>
+      <div class="popup-header-left">
+        <button id="popup-copy-link-btn" type="button" class="popup-share-btn" onclick="copyUpcomingShareLink()">העתק קישור</button>
+        <button type="button" class="popup-share-btn" onclick="toggleUpcomingQrPanel()">QR</button>
+        <h2>משחקים הבאים</h2>
+      </div>
       <div class="popup-header-right">
         <span id="upcoming-popup-count" class="text-sm font-bold"></span>
         <button type="button" class="popup-close-btn" onclick="closePopupWindow()">סגור</button>
       </div>
+    </div>
+    <div id="popup-qr-panel" class="popup-qr-panel">
+      <img id="popup-qr-image" class="popup-qr-image" alt="QR share">
+      <div class="popup-qr-label">סרוק לצפייה</div>
     </div>
     <div id="upcoming-popup-root" class="popup-body"></div>
   </div>
@@ -7447,9 +7536,33 @@
       return decodeURIComponent(results[2].replace(/\+/g, ' '));
     }
     const eventIdFromUrl = getQueryParam('e');
+    const envFromUrl = getQueryParam('env');
+    const viewFromUrl = String(getQueryParam('view') || '').trim().toLowerCase();
+    const isUpcomingOnlyView = viewFromUrl === 'upcoming';
     const eventIdInput = document.getElementById('event-id-input');
     const envSelect = document.getElementById('env-select');
     const urlSection = document.getElementById('url-section');
+
+    function applyUpcomingOnlyViewMode() {
+      if (!isUpcomingOnlyView) return;
+      const title = document.getElementById('page-title');
+      if (title) title.textContent = 'המשחקים הבאים';
+
+      const grid = document.querySelector('.grid.grid-cols-1.md\\:grid-cols-3.gap-4.md\\:gap-6');
+      if (grid) {
+        const columns = Array.from(grid.children || []);
+        if (columns[1]) columns[1].style.display = 'none';
+        if (columns[2]) columns[2].style.display = 'none';
+        grid.classList.remove('md:grid-cols-3');
+        grid.classList.add('md:grid-cols-1');
+      }
+
+      const upcomingCol = document.getElementById('upcoming-games')?.closest('.bg-white.rounded-xl.shadow-lg.overflow-hidden');
+      if (upcomingCol) {
+        upcomingCol.style.maxWidth = '1200px';
+        upcomingCol.style.margin = '0 auto';
+      }
+    }
     function hideClockToggleIfEventId() {
       if (eventIdFromUrl) {
         var clockToggleBtn = document.getElementById('desktop-clock-toggle');
@@ -7469,7 +7582,8 @@
       if (clockWidget) clockWidget.style.display = 'none';
       // Set eventId and env to prod, then auto-load
       if (eventIdInput) eventIdInput.value = eventIdFromUrl;
-      if (envSelect) envSelect.value = 'prod';
+      if (envSelect) envSelect.value = (envFromUrl === 'dev' ? 'dev' : 'prod');
+      applyUpcomingOnlyViewMode();
       // Auto-load games from prod
       setTimeout(() => { fetchGames(); }, 0);
       // Also ensure after DOMContentLoaded
@@ -7497,6 +7611,7 @@
           fetchGames();
         }
       });
+      applyUpcomingOnlyViewMode();
     }
   </script>
   <script>
@@ -7553,6 +7668,10 @@
     }
 
     function initAuthGate() {
+      if (typeof isUpcomingOnlyView !== 'undefined' && isUpcomingOnlyView) {
+        setAuthGateVisible(false);
+        return;
+      }
       const alreadyVerified = sessionStorage.getItem(AUTH_GATE_SESSION_KEY) === '1';
       if (alreadyVerified) {
         setAuthGateVisible(false);
