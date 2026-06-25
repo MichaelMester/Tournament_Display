@@ -3694,11 +3694,15 @@
       const popupCount = popupDoc.getElementById('upcoming-popup-count');
       const popupInProgressRoot = popupDoc.getElementById('inprogress-popup-root');
       const popupInProgressCount = popupDoc.getElementById('inprogress-popup-count');
+      const popupFinishedRoot = popupDoc.getElementById('finished-popup-root');
+      const popupFinishedCount = popupDoc.getElementById('finished-popup-count');
       const sourceContainer = document.getElementById('upcoming-games');
       const sourceCount = document.getElementById('upcoming-count');
       const sourceInProgressContainer = document.getElementById('inprogress-games');
       const sourceInProgressCount = document.getElementById('inprogress-count');
-      if (!popupRoot || !popupCount || !popupInProgressRoot || !popupInProgressCount || !sourceContainer || !sourceCount || !sourceInProgressContainer || !sourceInProgressCount) {
+      const sourceFinishedContainer = document.getElementById('finished-games');
+      const sourceFinishedCount = document.getElementById('finished-count');
+      if (!popupRoot || !popupCount || !popupInProgressRoot || !popupInProgressCount || !popupFinishedRoot || !popupFinishedCount || !sourceContainer || !sourceCount || !sourceInProgressContainer || !sourceInProgressCount || !sourceFinishedContainer || !sourceFinishedCount) {
         // The popup document may still be parsing right after open(); retry shortly.
         setTimeout(() => {
           if (upcomingColumnPopupWindow && !upcomingColumnPopupWindow.closed) {
@@ -3712,9 +3716,12 @@
       popupCount.textContent = sourceCount.textContent || '';
       syncPopupColumnContent(popupInProgressRoot, sourceInProgressContainer.innerHTML);
       popupInProgressCount.textContent = sourceInProgressCount.textContent || '';
+      syncPopupColumnContent(popupFinishedRoot, sourceFinishedContainer.innerHTML);
+      popupFinishedCount.textContent = sourceFinishedCount.textContent || '';
 
       enforceDisplayOnly(popupRoot);
       enforceDisplayOnly(popupInProgressRoot);
+      enforceDisplayOnly(popupFinishedRoot);
     }
 
     function buildUpcomingShareUrl() {
@@ -3904,10 +3911,10 @@
     .popup-body { padding: 8px; overflow: auto; }
     .popup-columns {
       display: grid;
-      grid-template-columns: 560px 560px;
+      grid-template-columns: 520px 520px 520px;
       gap: 12px;
       align-items: start;
-      min-width: 720px;
+      min-width: 1080px;
     }
     .popup-column {
       background: #ffffff;
@@ -3967,6 +3974,9 @@
     }
     .popup-column-header.inprogress {
       background: linear-gradient(135deg, #f59e0b, #d97706);
+    }
+    .popup-column-header.finished {
+      background: linear-gradient(135deg, #10b981, #059669);
     }
     .popup-column-title {
       margin: 0;
@@ -4086,11 +4096,13 @@
     const POPUP_ZOOM_KEY = 'upcomingPopupZoom';
     const POPUP_UPCOMING_WIDTH_KEY = 'upcomingPopupUpcomingWidth';
     const POPUP_INPROGRESS_WIDTH_KEY = 'upcomingPopupInProgressWidth';
+    const POPUP_FINISHED_WIDTH_KEY = 'upcomingPopupFinishedWidth';
     const POPUP_AUTO_SCROLL_ENABLED_KEY = 'upcomingPopupAutoScrollEnabled';
     const POPUP_AUTO_SCROLL_SPEED_KEY = 'upcomingPopupAutoScrollSpeed';
     let popupZoomLevel = 1;
-    let popupUpcomingWidthPx = 560;
-    let popupInProgressWidthPx = 560;
+    let popupUpcomingWidthPx = 420;
+    let popupInProgressWidthPx = 420;
+    let popupFinishedWidthPx = 420;
     let popupAutoScrollEnabled = false;
     let popupAutoScrollSpeed = 40;
     let popupAutoScrollTimer = null;
@@ -4119,26 +4131,31 @@
     function updatePopupColumnRatioLabel() {
       const label = document.getElementById('popup-width-value');
       if (!label) return;
-      label.textContent = 'ימין ' + Math.round(popupUpcomingWidthPx) + ' | שמאל ' + Math.round(popupInProgressWidthPx);
+      label.textContent = '';
     }
     function applyPopupColumnWidths() {
       const cols = getPopupColumnsEl();
       if (!cols) return;
-      cols.style.gridTemplateColumns = Math.round(popupUpcomingWidthPx) + 'px ' + Math.round(popupInProgressWidthPx) + 'px';
+      cols.style.gridTemplateColumns = Math.round(popupUpcomingWidthPx) + 'px ' + Math.round(popupInProgressWidthPx) + 'px ' + Math.round(popupFinishedWidthPx) + 'px';
       updatePopupColumnRatioLabel();
       try {
         localStorage.setItem(POPUP_UPCOMING_WIDTH_KEY, String(Math.round(popupUpcomingWidthPx)));
         localStorage.setItem(POPUP_INPROGRESS_WIDTH_KEY, String(Math.round(popupInProgressWidthPx)));
+        localStorage.setItem(POPUP_FINISHED_WIDTH_KEY, String(Math.round(popupFinishedWidthPx)));
       } catch {}
     }
     function ensurePopupColumnWidthsFromDom() {
       const upcomingCol = document.getElementById('upcoming-popup-column');
       const inProgressCol = document.getElementById('inprogress-popup-column');
+      const finishedCol = document.getElementById('finished-popup-column');
       if (upcomingCol && upcomingCol.offsetWidth > 0 && (!Number.isFinite(popupUpcomingWidthPx) || popupUpcomingWidthPx <= 1)) {
         popupUpcomingWidthPx = upcomingCol.offsetWidth;
       }
       if (inProgressCol && inProgressCol.offsetWidth > 0 && (!Number.isFinite(popupInProgressWidthPx) || popupInProgressWidthPx <= 1)) {
         popupInProgressWidthPx = inProgressCol.offsetWidth;
+      }
+      if (finishedCol && finishedCol.offsetWidth > 0 && (!Number.isFinite(popupFinishedWidthPx) || popupFinishedWidthPx <= 1)) {
+        popupFinishedWidthPx = finishedCol.offsetWidth;
       }
     }
     function changePopupColumnWidth(columnKey, deltaPx) {
@@ -4147,11 +4164,15 @@
         popupUpcomingWidthPx = clampPopupColumnWidth(popupUpcomingWidthPx + deltaPx);
       } else if (columnKey === 'inprogress') {
         popupInProgressWidthPx = clampPopupColumnWidth(popupInProgressWidthPx + deltaPx);
+      } else if (columnKey === 'finished') {
+        popupFinishedWidthPx = clampPopupColumnWidth(popupFinishedWidthPx + deltaPx);
       }
       applyPopupColumnWidths();
     }
     function markDraggingColumn(columnKey, isDragging) {
-      const id = columnKey === 'upcoming' ? 'upcoming-popup-column' : 'inprogress-popup-column';
+      const id = columnKey === 'upcoming'
+        ? 'upcoming-popup-column'
+        : (columnKey === 'inprogress' ? 'inprogress-popup-column' : 'finished-popup-column');
       const col = document.getElementById(id);
       if (!col) return;
       col.classList.toggle('dragging-column', Boolean(isDragging));
@@ -4168,7 +4189,9 @@
       popupColumnDragState.columnKey = columnKey;
       popupColumnDragState.startX = event.clientX;
       popupColumnDragState.direction = direction;
-      popupColumnDragState.startWidth = columnKey === 'upcoming' ? popupUpcomingWidthPx : popupInProgressWidthPx;
+      popupColumnDragState.startWidth = columnKey === 'upcoming'
+        ? popupUpcomingWidthPx
+        : (columnKey === 'inprogress' ? popupInProgressWidthPx : popupFinishedWidthPx);
       markDraggingColumn(columnKey, true);
       if (document.body) {
         document.body.style.userSelect = 'none';
@@ -4184,6 +4207,8 @@
         popupUpcomingWidthPx = nextWidth;
       } else if (popupColumnDragState.columnKey === 'inprogress') {
         popupInProgressWidthPx = nextWidth;
+      } else if (popupColumnDragState.columnKey === 'finished') {
+        popupFinishedWidthPx = nextWidth;
       }
       applyPopupColumnWidths();
     }
@@ -4214,8 +4239,10 @@
     function bindPopupColumnWheelControl() {
       const upcomingCol = document.getElementById('upcoming-popup-column');
       const inProgressCol = document.getElementById('inprogress-popup-column');
+      const finishedCol = document.getElementById('finished-popup-column');
       const upcomingHandle = document.getElementById('upcoming-column-handle');
       const inProgressHandle = document.getElementById('inprogress-column-handle');
+      const finishedHandle = document.getElementById('finished-column-handle');
       if (upcomingCol && upcomingCol.dataset.wheelBound !== '1') {
         upcomingCol.dataset.wheelBound = '1';
         upcomingCol.dataset.column = 'upcoming';
@@ -4226,6 +4253,11 @@
         inProgressCol.dataset.column = 'inprogress';
         inProgressCol.addEventListener('wheel', handlePopupColumnWheel, { passive: false });
       }
+      if (finishedCol && finishedCol.dataset.wheelBound !== '1') {
+        finishedCol.dataset.wheelBound = '1';
+        finishedCol.dataset.column = 'finished';
+        finishedCol.addEventListener('wheel', handlePopupColumnWheel, { passive: false });
+      }
       if (upcomingHandle && upcomingHandle.dataset.dragBound !== '1') {
         upcomingHandle.dataset.dragBound = '1';
         upcomingHandle.addEventListener('mousedown', startPopupSingleColumnDrag);
@@ -4233,6 +4265,10 @@
       if (inProgressHandle && inProgressHandle.dataset.dragBound !== '1') {
         inProgressHandle.dataset.dragBound = '1';
         inProgressHandle.addEventListener('mousedown', startPopupSingleColumnDrag);
+      }
+      if (finishedHandle && finishedHandle.dataset.dragBound !== '1') {
+        finishedHandle.dataset.dragBound = '1';
+        finishedHandle.addEventListener('mousedown', startPopupSingleColumnDrag);
       }
       if (!popupColumnDragDocBound) {
         popupColumnDragDocBound = true;
@@ -4243,13 +4279,14 @@
     }
     function initPopupColumnRatio() {
       // Start each popup session with balanced, logical defaults.
-      const columnGap = 12;
+      const columnGap = 24;
       const bodyPaddingAllowance = 40;
-      const calculatedHalf = Math.floor((window.innerWidth - bodyPaddingAllowance - columnGap) / 2);
-      const defaultColumnWidth = Math.max(320, calculatedHalf);
+      const calculatedThird = Math.floor((window.innerWidth - bodyPaddingAllowance - columnGap) / 3);
+      const defaultColumnWidth = Math.max(280, calculatedThird + 200);
 
       popupUpcomingWidthPx = clampPopupColumnWidth(defaultColumnWidth);
       popupInProgressWidthPx = clampPopupColumnWidth(defaultColumnWidth);
+      popupFinishedWidthPx = clampPopupColumnWidth(defaultColumnWidth);
       applyPopupColumnWidths();
       bindPopupColumnWheelControl();
     }
@@ -4414,6 +4451,7 @@
     window.addEventListener('resize', () => {
       popupUpcomingWidthPx = clampPopupColumnWidth(popupUpcomingWidthPx);
       popupInProgressWidthPx = clampPopupColumnWidth(popupInProgressWidthPx);
+      popupFinishedWidthPx = clampPopupColumnWidth(popupFinishedWidthPx);
       applyPopupColumnWidths();
     });
     window.addEventListener('beforeunload', () => {
@@ -4466,6 +4504,14 @@
             <span id="inprogress-popup-count" class="popup-column-count"></span>
           </div>
           <div id="inprogress-popup-root" class="popup-column-body"></div>
+        </section>
+        <section id="finished-popup-column" class="popup-column" aria-label="משחקים שנגמרו">
+          <div id="finished-column-handle" class="popup-column-resize-handle inprogress-handle" data-column="finished" data-dir="-1" title="גרור לשינוי רוחב עמודת המשחקים שנגמרו"></div>
+          <div class="popup-column-header finished">
+            <h3 class="popup-column-title">משחקים שנגמרו</h3>
+            <span id="finished-popup-count" class="popup-column-count"></span>
+          </div>
+          <div id="finished-popup-root" class="popup-column-body"></div>
         </section>
       </div>
     </div>
