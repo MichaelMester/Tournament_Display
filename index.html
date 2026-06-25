@@ -1664,7 +1664,7 @@
    <div class="mb-6">
       <div class="flex items-end justify-center gap-2 mb-4">
         <h1 id="page-title" class="text-2xl md:text-3xl font-bold text-slate-800 text-center m-0">לוח משחקים</h1>
-        <span class="text-xs md:text-sm text-slate-500 font-semibold leading-none" style="position:relative;top:4px;">V1.0.0.2</span>
+        <span class="text-xs md:text-sm text-slate-500 font-semibold leading-none" style="position:relative;top:4px;">V1.0.0.3</span>
       </div><!-- URL Input Section - Collapsible -->
       <div class="bg-white rounded-xl shadow-lg max-w-7xl mx-auto overflow-hidden"><button id="toggle-url-section" onclick="toggleUrlSection()" class="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors border-b border-slate-200"> <span class="text-slate-700 font-semibold">⚙️ הגדרות</span> <span id="toggle-icon" class="text-slate-500">▼</span> </button>
      <div id="url-section" class="p-4">
@@ -1959,6 +1959,7 @@
     let combinedPopupCycleEntry = null;
     let combinedPopupPositionLockTimer = null;
     let upcomingPopupReportedBounds = null;
+    let upcomingEmbeddedCombinedEntry = null;
     const COMBINED_CYCLE_ENABLED_KEY = 'combinedPopupCycleEnabled';
     const COMBINED_CYCLE_SHOW_SEC_KEY = 'combinedPopupCycleShowSec';
     const COMBINED_CYCLE_HIDE_SEC_KEY = 'combinedPopupCycleHideSec';
@@ -4092,6 +4093,16 @@
       cursor: pointer;
     }
     .popup-body { padding: 8px; overflow: auto; }
+    .popup-view { min-height: 0; height: 100%; }
+    .popup-view.is-hidden { display: none !important; }
+    .popup-combined-view { overflow: hidden; }
+    .popup-combined-frame {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      border-radius: 12px;
+      background: #f8fafc;
+    }
     .popup-columns {
       display: grid;
       grid-template-columns: 520px 520px 520px;
@@ -4302,7 +4313,7 @@
       if (!host) return;
       let openCombined = null;
       try {
-        openCombined = host.openCombinedPopup;
+        openCombined = host.openCombinedPopupForUpcomingCycle || host.openCombinedPopup;
       } catch {
         openCombined = null;
       }
@@ -4314,6 +4325,40 @@
         width: Number(window.outerWidth ?? window.innerWidth ?? 1200),
         height: Number(window.outerHeight ?? window.innerHeight ?? 780)
       });
+    }
+    function updatePopupViewToggleButton() {
+      const toggleBtn = document.getElementById('popup-view-toggle-btn');
+      const upcomingView = document.getElementById('popup-upcoming-view');
+      const combinedView = document.getElementById('popup-combined-cycle-view');
+      if (!toggleBtn || !upcomingView || !combinedView) return;
+      const showingCombined = !combinedView.classList.contains('is-hidden');
+      toggleBtn.textContent = showingCombined ? 'משחקים הבאים' : 'בתים + נוקאאוט';
+    }
+    function showUpcomingViewInPopup() {
+      const upcomingView = document.getElementById('popup-upcoming-view');
+      const combinedView = document.getElementById('popup-combined-cycle-view');
+      if (!upcomingView || !combinedView) return;
+      upcomingView.classList.remove('is-hidden');
+      combinedView.classList.add('is-hidden');
+      updatePopupViewToggleButton();
+    }
+    function showCombinedViewInPopup() {
+      const upcomingView = document.getElementById('popup-upcoming-view');
+      const combinedView = document.getElementById('popup-combined-cycle-view');
+      if (!upcomingView || !combinedView) return;
+      upcomingView.classList.add('is-hidden');
+      combinedView.classList.remove('is-hidden');
+      updatePopupViewToggleButton();
+    }
+    function togglePopupMainCombinedView() {
+      const combinedView = document.getElementById('popup-combined-cycle-view');
+      if (!combinedView) return;
+      const showingCombined = !combinedView.classList.contains('is-hidden');
+      if (showingCombined) {
+        showUpcomingViewInPopup();
+      } else {
+        showCombinedViewInPopup();
+      }
     }
     function toggleCombinedPopupCycleFromUpcoming() {
       const host = getUpcomingPopupHostWindow();
@@ -4725,6 +4770,7 @@
       initPopupAutoScroll();
       reportUpcomingPopupBoundsToOpener();
       window.__upcomingPopupBoundsTimer = setInterval(reportUpcomingPopupBoundsToOpener, 300);
+      updatePopupViewToggleButton();
     });
     window.addEventListener('resize', () => {
       popupUpcomingWidthPx = clampPopupColumnWidth(popupUpcomingWidthPx);
@@ -4760,6 +4806,7 @@
       <div class="popup-header-left">
         <button id="popup-copy-link-btn" type="button" class="popup-share-btn" onclick="copyUpcomingShareLink()">העתק קישור</button>
         <button type="button" class="popup-share-btn" onclick="toggleUpcomingQrPanel()">QR</button>
+        <button id="popup-view-toggle-btn" type="button" class="popup-share-btn" onclick="togglePopupMainCombinedView()">בתים + נוקאאוט</button>
         <h2>משחקים הבאים</h2>
         <span id="popup-combined-cycle-status" class="popup-cycle-status">בתים+נוקאאוט: כבוי</span>
       </div>
@@ -4791,7 +4838,7 @@
       <img id="popup-qr-image" class="popup-qr-image" alt="QR share">
       <div class="popup-qr-label">סרוק לצפייה</div>
     </div>
-    <div class="popup-body">
+    <div id="popup-upcoming-view" class="popup-body popup-view">
       <div class="popup-columns">
         <section id="upcoming-popup-column" class="popup-column" aria-label="משחקים הבאים">
           <div id="upcoming-column-handle" class="popup-column-resize-handle upcoming-handle" data-column="upcoming" data-dir="-1" title="גרור לשינוי רוחב עמודת המשחקים הבאים"></div>
@@ -4818,6 +4865,9 @@
           <div id="finished-popup-root" class="popup-column-body"></div>
         </section>
       </div>
+    </div>
+    <div id="popup-combined-cycle-view" class="popup-body popup-view popup-combined-view is-hidden">
+      <iframe id="popup-combined-cycle-frame" class="popup-combined-frame" title="בתים ונוקאאוט"></iframe>
     </div>
   </div>
 </body>
@@ -4850,6 +4900,13 @@
         upcomingColumnPopupWindow.addEventListener('beforeunload', () => {
           upcomingColumnPopupWindow = null;
           clearUpcomingPopupReportedBounds();
+          if (upcomingEmbeddedCombinedEntry) {
+            knockoutPopupWindows = knockoutPopupWindows.filter(item => item !== upcomingEmbeddedCombinedEntry);
+            if (combinedPopupCycleEntry === upcomingEmbeddedCombinedEntry) {
+              combinedPopupCycleEntry = null;
+            }
+            upcomingEmbeddedCombinedEntry = null;
+          }
         });
 
         // Ensure initial sync runs after the popup DOM is ready.
@@ -6320,7 +6377,13 @@
     }
 
     function getLiveKnockoutPopupWindows() {
-      knockoutPopupWindows = knockoutPopupWindows.filter(entry => entry && entry.win && !entry.win.closed);
+      knockoutPopupWindows = knockoutPopupWindows.filter(entry => {
+        if (!entry) return false;
+        if (entry.embeddedInUpcoming) {
+          return ensureUpcomingEmbeddedCombinedEntry(entry);
+        }
+        return Boolean(entry.win && !entry.win.closed);
+      });
       return knockoutPopupWindows;
     }
 
@@ -6349,6 +6412,52 @@
         } catch {}
       }
       return null;
+    }
+
+    function getUpcomingPopupDocument() {
+      if (!upcomingColumnPopupWindow || upcomingColumnPopupWindow.closed) return null;
+      try {
+        return upcomingColumnPopupWindow.document;
+      } catch {
+        return null;
+      }
+    }
+
+    function setUpcomingPopupDisplayMode(mode) {
+      const popupDoc = getUpcomingPopupDocument();
+      if (!popupDoc) return false;
+      const upcomingView = popupDoc.getElementById('popup-upcoming-view');
+      const combinedView = popupDoc.getElementById('popup-combined-cycle-view');
+      if (!upcomingView || !combinedView) return false;
+      const showCombined = mode === 'combined';
+      upcomingView.classList.toggle('is-hidden', showCombined);
+      combinedView.classList.toggle('is-hidden', !showCombined);
+      try {
+        upcomingColumnPopupWindow.updatePopupViewToggleButton?.();
+      } catch {}
+      return true;
+    }
+
+    function hideUpcomingEmbeddedCombinedView() {
+      setUpcomingPopupDisplayMode('upcoming');
+    }
+
+    function ensureUpcomingEmbeddedCombinedEntry(entry) {
+      if (!entry || !entry.embeddedInUpcoming) return false;
+      const popupDoc = getUpcomingPopupDocument();
+      if (!popupDoc) return false;
+      const frameEl = popupDoc.getElementById('popup-combined-cycle-frame');
+      if (!frameEl) return false;
+      let frameWin = null;
+      try {
+        frameWin = frameEl.contentWindow || null;
+      } catch {
+        frameWin = null;
+      }
+      if (!frameWin) return false;
+      entry.frameEl = frameEl;
+      entry.win = frameWin;
+      return true;
     }
 
     function attachKnockoutPopupLifecycle(entry) {
@@ -6463,6 +6572,7 @@
 
     function startCombinedPopupPositionLock(entry) {
       clearCombinedPopupPositionLock();
+      if (entry?.embeddedInUpcoming) return;
       if (!entry?.win || entry.win.closed) return;
       combinedPopupPositionLockTimer = setInterval(() => {
         if (!combinedPopupCycleEnabled || !entry?.win || entry.win.closed || entry._cycleHidden) {
@@ -6548,6 +6658,17 @@
     }
 
     function setCombinedPopupCycleError(msg) {
+      const popupDoc = getUpcomingPopupDocument();
+      if (popupDoc) {
+        try {
+          const popupStatus = popupDoc.getElementById('popup-combined-cycle-status');
+          if (popupStatus) {
+            popupStatus.textContent = msg;
+            return;
+          }
+        } catch {}
+      }
+
       const errorMsg = document.getElementById('error-message');
       const successMsg = document.getElementById('success-message');
       if (successMsg) successMsg.classList.add('hidden');
@@ -6614,6 +6735,11 @@
     }
 
     function hideCombinedPopupWindow(entry) {
+      if (entry?.embeddedInUpcoming) {
+        setUpcomingPopupDisplayMode('upcoming');
+        entry._cycleHidden = true;
+        return true;
+      }
       if (!entry?.win || entry.win.closed) return false;
       try {
         clearCombinedPopupPositionLock();
@@ -6671,6 +6797,16 @@
 
     function showCombinedPopupWindow(entry) {
       if (!entry) return false;
+      if (entry.embeddedInUpcoming) {
+        if (!ensureUpcomingEmbeddedCombinedEntry(entry)) return false;
+        renderKnockoutPopupWindow(entry);
+        setUpcomingPopupDisplayMode('combined');
+        entry._cycleMinimized = false;
+        entry._cyclePseudoHidden = false;
+        entry._cycleClosedByCycle = false;
+        entry._cycleHidden = false;
+        return true;
+      }
       if (!entry.win || entry.win.closed || entry._cycleClosedByCycle) {
         const reopened = reopenCombinedPopupWindow(entry);
         if (!reopened) return false;
@@ -6720,7 +6856,7 @@
         clearCombinedPopupCycleTimer();
         clearCombinedPopupPositionLock();
         updateCombinedPopupCycleControls();
-        setCombinedPopupCycleError('יש לפתוח חלון בתים+נוקאאוט כדי להפעיל מחזור.');
+        setCombinedPopupCycleError('יש לטעון את תצוגת בתים+נוקאאוט מתוך חלון משחקים הבאים כדי להפעיל מחזור.');
         persistCombinedPopupCycleConfig();
         return;
       }
@@ -6747,7 +6883,10 @@
       clearCombinedPopupPositionLock();
       if (restoreVisible) {
         const entry = combinedPopupCycleEntry || getLatestCombinedPopupEntry();
-        if (entry && entry._cycleHidden) {
+        if (entry?.embeddedInUpcoming) {
+          setUpcomingPopupDisplayMode('upcoming');
+          entry._cycleHidden = false;
+        } else if (entry && entry._cycleHidden) {
           showCombinedPopupWindow(entry);
         }
       }
@@ -7521,15 +7660,28 @@
         openerWin = null;
       }
 
+      let parentWin = null;
+      try {
+        parentWin = window.parent && window.parent !== window ? window.parent : null;
+      } catch {
+        parentWin = null;
+      }
+
       if (hasCallableHostMethod(openerWin, 'updateCombinedGroupsPopupZoom')
         || hasCallableHostMethod(openerWin, 'updateKnockoutPopupZoom')
         || hasCallableHostMethod(openerWin, 'dropCombinedSection')) {
         return openerWin;
       }
 
+      if (hasCallableHostMethod(parentWin, 'updateCombinedGroupsPopupZoom')
+        || hasCallableHostMethod(parentWin, 'updateKnockoutPopupZoom')
+        || hasCallableHostMethod(parentWin, 'dropCombinedSection')) {
+        return parentWin;
+      }
+
       let parentOpener = null;
       try {
-        parentOpener = openerWin?.opener || null;
+        parentOpener = openerWin?.opener || parentWin?.opener || null;
       } catch {
         parentOpener = null;
       }
@@ -7540,7 +7692,7 @@
         return parentOpener;
       }
 
-      return openerWin;
+      return openerWin || parentWin;
     }
     function startKnockoutFirstStageDrag(drawToken, fromIndex, event) { const host = getPopupHostWindow(); if (host?.startKnockoutFirstStageDrag) host.startKnockoutFirstStageDrag(drawToken, fromIndex, event); }
     function endKnockoutFirstStageDrag(event) { const host = getPopupHostWindow(); if (host?.endKnockoutFirstStageDrag) host.endKnockoutFirstStageDrag(event); }
@@ -7614,13 +7766,21 @@
     function updateCombinedPaneSplit(windowId, value) { const host = getPopupHostWindow(); if (host?.updateCombinedPaneSplit) host.updateCombinedPaneSplit(windowId, value); }
     function setKnockoutSingleRow(windowId, value) { const host = getPopupHostWindow(); if (host?.setKnockoutSingleRow) host.setKnockoutSingleRow(windowId, value); }
     function setKnockoutPopupToolbarCollapsed(windowId, collapsed) { const host = getPopupHostWindow(); if (host?.setKnockoutPopupToolbarCollapsed) host.setKnockoutPopupToolbarCollapsed(windowId, collapsed); }
-    function closeKnockoutPopupWindow() { window.close(); }
+    function closeKnockoutPopupWindow() {
+      try {
+        if (window.frameElement && window.parent?.hideUpcomingEmbeddedCombinedView) {
+          window.parent.hideUpcomingEmbeddedCombinedView();
+          return;
+        }
+      } catch {}
+      window.close();
+    }
   <\/script>
 </head>
 <body>
   <div class="knockout-popup-shell">
     <button id="knockout-zoom-open" class="knockout-zoom-toggle${entry.zoomToolbarCollapsed ? ' is-visible' : ''}" type="button" onclick="setKnockoutPopupToolbarCollapsed(${entry.id}, false)">Zoom</button>
-    <button type="button" class="knockout-close-btn" onclick="closeKnockoutPopupWindow()">סגור</button>
+    ${entry.embeddedInUpcoming ? '' : '<button type="button" class="knockout-close-btn" onclick="closeKnockoutPopupWindow()">סגור</button>'}
     <div class="knockout-zoom-tools${entry.zoomToolbarCollapsed ? ' is-hidden' : ''}">
       ${(entry.mode !== 'combined' || entry._hasCombinedKnockoutSection) ? `
       <span class="zoom-section-label">KO</span>
@@ -7788,6 +7948,81 @@
       if (combinedPopupCycleEnabled && entry.openedFrom === 'upcoming') {
         combinedPopupCyclePhase = 'show';
         runCombinedPopupCycleStep();
+      }
+    }
+
+    async function openCombinedPopupForUpcomingCycle(sourceBounds = null) {
+      if (!upcomingColumnPopupWindow || upcomingColumnPopupWindow.closed) {
+        setCombinedPopupCycleError('יש לפתוח קודם את חלון משחקים הבאים.');
+        return;
+      }
+
+      const standings = buildGroupStandings(gamesData || []);
+      const groupDrawNames = Array.from(new Set(standings.map(group => group.draw))).sort((a, b) => a.localeCompare(b, 'he'));
+      const nonGroupGamesByDraw = getNonGroupGamesByDraw(gamesData || []);
+      const knockoutDrawNames = Array.from(nonGroupGamesByDraw.keys()).sort((a, b) => a.localeCompare(b, 'he'));
+      const savedSelection = loadCombinedSelection();
+
+      const selection = await openCombinedSelector(groupDrawNames, knockoutDrawNames, savedSelection);
+      if (!selection) return;
+      saveCombinedSelection(selection);
+
+      const popupDoc = getUpcomingPopupDocument();
+      if (!popupDoc) {
+        setCombinedPopupCycleError('לא ניתן לטעון תצוגת בתים+נוקאאוט בחלון משחקים הבאים.');
+        return;
+      }
+
+      let entry = upcomingEmbeddedCombinedEntry;
+      if (!entry) {
+        entry = {
+          id: nextKnockoutPopupWindowId,
+          _windowName: `upcomingEmbeddedCombined_${nextKnockoutPopupWindowId}`,
+          mode: 'combined',
+          openedFrom: 'upcoming',
+          embeddedInUpcoming: true,
+          groupDraws: [],
+          drawNames: [],
+          combinedSectionOrder: ['groups', 'knockout'],
+          combinedGroupOrder: [],
+          combinedKnockoutOrder: [],
+          combinedGroupsPanePercent: 50,
+          knockoutSingleRow: true,
+          zoomPercent: 100,
+          groupsZoomPercent: 100,
+          lastGroupsAutoScale: 1,
+          preserveGroupsAutoScaleOnce: false,
+          zoomToolbarCollapsed: false,
+          resizeTimer: null,
+          win: null,
+          frameEl: null
+        };
+        nextKnockoutPopupWindowId += 1;
+        upcomingEmbeddedCombinedEntry = entry;
+        knockoutPopupWindows.push(entry);
+      }
+
+      entry.groupDraws = Array.isArray(selection.groupDraws) ? selection.groupDraws.slice() : [];
+      entry.drawNames = Array.isArray(selection.knockoutDraws) ? selection.knockoutDraws.slice() : [];
+      entry.openedFrom = 'upcoming';
+      entry.embeddedInUpcoming = true;
+      entry._cycleSourceBounds = sourceBounds || null;
+
+      if (!ensureUpcomingEmbeddedCombinedEntry(entry)) {
+        setCombinedPopupCycleError('לא ניתן ליצור תצוגת בתים+נוקאאוט משולבת בחלון משחקים הבאים.');
+        return;
+      }
+
+      combinedPopupCycleEntry = entry;
+      renderKnockoutPopupWindow(entry);
+      setUpcomingPopupDisplayMode('combined');
+      entry._cycleHidden = false;
+      refreshCombinedPopupCycleStatusLabel();
+      if (combinedPopupCycleEnabled) {
+        combinedPopupCyclePhase = 'show';
+        runCombinedPopupCycleStep();
+      } else {
+        setCombinedPopupCycleMessage('תצוגת בתים+נוקאאוט נטענה עבור חלון משחקים הבאים.');
       }
     }
 
