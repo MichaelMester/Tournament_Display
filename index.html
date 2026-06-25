@@ -2637,7 +2637,11 @@
       renderGames(gamesData);
     }
 
-    function handleInProgressCardDoubleClick(encodedKey) {
+    function handleInProgressCardDoubleClick(encodedKey, event) {
+      const target = event?.target;
+      if (target?.closest?.('button, input, select, textarea, a, label')) {
+        return;
+      }
       handleInProgressCardClick(encodedKey);
     }
 
@@ -3820,9 +3824,10 @@
           el.setAttribute('aria-hidden', 'true');
         });
 
-        const clickableItems = container.querySelectorAll('[onclick], .upcoming-clickable');
+        const clickableItems = container.querySelectorAll('[onclick], [ondblclick], .upcoming-clickable');
         clickableItems.forEach(el => {
           el.removeAttribute('onclick');
+          el.removeAttribute('ondblclick');
           if (el.classList.contains('upcoming-clickable')) {
             el.style.cursor = 'default';
           }
@@ -4611,10 +4616,10 @@
       if (pauseUntil && pauseUntil <= now) {
         const pendingReset = container.dataset.pendingResetToTop === '1';
         if (pendingReset) {
-          // Reached end: jump to top, then pause again before next run.
+          // Reached end: jump to top, then pause at first game before next run.
           container.scrollTop = 0;
           container.dataset.pendingResetToTop = '0';
-          container.dataset.pauseUntil = String(now + 3000);
+          container.dataset.pauseUntil = String(now + 5000);
           return;
         }
         container.dataset.pauseUntil = '0';
@@ -4624,10 +4629,10 @@
       if (max <= 1) return;
       let next = container.scrollTop + deltaPx;
       if (next >= max) {
+        // No delay at last game: mark for immediate top reset on next tick.
         container.scrollTop = max;
-        // Pause 2 seconds on last game before restarting cycle.
         container.dataset.pendingResetToTop = '1';
-        container.dataset.pauseUntil = String(now + 2000);
+        container.dataset.pauseUntil = String(now);
         return;
       }
       container.scrollTop = next;
@@ -8024,7 +8029,7 @@
     }
 
     // Create game card HTML
-    function createGameCard(game, type, isGrayed = false, gameNumberMap = null) {
+    function createGameCard(game, type, isGrayed = false, gameNumberMap = null, isPrimaryUpcoming = false) {
       // Timer for in-progress games
       let timerHtml = '';
         if (type === 'inprogress' || type === 'finished') {
@@ -8051,6 +8056,7 @@
       let selectionButtonHtml = '';
       let manualProgressButtonsHtml = '';
       let gameNumberHtml = '';
+      let nextGameBadgeHtml = '';
       let cardOnClickAttr = '';
       let cardExtraClass = '';
       let cardTitleAttr = '';
@@ -8067,6 +8073,9 @@
       const scoreButtonDoneClass = hasStoredScoreEntry ? ' score-done' : '';
       const stableGameNumber = gameNumberMap && gameNumberMap.has(stableKey) ? gameNumberMap.get(stableKey) : null;
       if (type === 'upcoming') {
+        if (isPrimaryUpcoming) {
+          nextGameBadgeHtml = '<span style="display:inline-flex;align-items:center;padding:2px 9px;margin-left:6px;border-radius:9999px;background:linear-gradient(135deg,#f59e0b,#f97316);color:#ffffff;font-weight:800;font-size:11px;box-shadow:0 1px 4px rgba(0,0,0,0.2);">המשחק הבא</span>';
+        }
         const gameKey = getUpcomingGameKey(game);
         const playerAEncoded = encodeURIComponent(game.playerFullNameA || '');
         const playerXEncoded = encodeURIComponent(game.playerFullNameX || '');
@@ -8089,7 +8098,7 @@
           : '';
         const finishButtonHtml = `<button type="button" class="manual-progress-btn finish" aria-label="סיום משחק" title="העבר למשחקים שהסתיימו" onclick="if (typeof event !== 'undefined' && event && event.stopPropagation) event.stopPropagation(); finishGameByStableKey('${encodedStableKey}')">סיים</button>`;
         manualProgressButtonsHtml = `${finishButtonHtml}${stopButtonHtml}`;
-        cardOnClickAttr = `ondblclick="handleInProgressCardDoubleClick('${encodedStableKey}')"`;
+        cardOnClickAttr = `ondblclick="handleInProgressCardDoubleClick('${encodedStableKey}', event)"`;
         cardExtraClass = ' cursor-pointer';
         cardTitleAttr = 'title="לחיצה כפולה לעדכון מספר שולחן"';
       }
@@ -8191,6 +8200,7 @@
           ${manualProgressButtonsHtml}
           <div class="flex justify-between items-center mb-1">
             <span class="text-slate-500 text-xs w-full text-right block">
+              ${nextGameBadgeHtml}
               ${gameNumberHtml}
               ${(game.draw || 'ללא קטגוריה')} | 
               ${
@@ -8634,10 +8644,10 @@
       // Render upcoming games while preserving the existing sorted order.
       const upcomingContainer = document.getElementById('upcoming-games');
       if (filteredUpcoming.length > 0) {
-        const upcomingHtml = filteredUpcoming.map(game => {
+        const upcomingHtml = filteredUpcoming.map((game, index) => {
           const isGrayed = hasPlayerInProgress(game, playersInProgress) ||
             (isValidPlayer(game.playerFullNameA) !== isValidPlayer(game.playerFullNameX));
-          return createGameCard(game, 'upcoming', isGrayed, upcomingGameNumberMap);
+          return createGameCard(game, 'upcoming', isGrayed, upcomingGameNumberMap, index === 0);
         }).join('');
         upcomingContainer.innerHTML = upcomingHtml;
       } else {
