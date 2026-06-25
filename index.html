@@ -1960,6 +1960,9 @@
     let manualFinishedByKey = {};
     let manualFinishedStorageScope = '';
     let manualFinishedStorageKey = '';
+    let tableNumberByKey = {};
+    let tableNumberStorageScope = '';
+    let tableNumberStorageKey = '';
     const COMBINED_SELECTION_STORAGE_PREFIX = 'combinedDisplaySelection';
     const DRAW_COLOR_STORAGE_PREFIX = 'drawDisplayColors';
     let drawColorOverrides = {};
@@ -2334,6 +2337,34 @@
       }
     }
 
+    function setTableNumberScope(eventId, env) {
+      const normalizedEventId = String(eventId || '').trim();
+      const normalizedEnv = String(env || 'prod').trim() || 'prod';
+      const scope = `${normalizedEnv}:${normalizedEventId}`;
+      if (!normalizedEventId) {
+        tableNumberByKey = {};
+        tableNumberStorageScope = '';
+        tableNumberStorageKey = '';
+        return;
+      }
+      if (scope === tableNumberStorageScope) return;
+
+      tableNumberStorageScope = scope;
+      tableNumberStorageKey = `manualGameTables:${scope}`;
+      tableNumberByKey = {};
+      try {
+        const raw = localStorage.getItem(tableNumberStorageKey);
+        if (raw) {
+          const parsed = JSON.parse(raw) || {};
+          if (parsed && typeof parsed === 'object') {
+            tableNumberByKey = parsed;
+          }
+        }
+      } catch {
+        tableNumberByKey = {};
+      }
+    }
+
     function setScoreEntryScope(eventId, env) {
       const normalizedEventId = String(eventId || '').trim();
       const normalizedEnv = String(env || 'prod').trim() || 'prod';
@@ -2373,6 +2404,13 @@
       if (!manualFinishedStorageKey) return;
       try {
         localStorage.setItem(manualFinishedStorageKey, JSON.stringify(manualFinishedByKey));
+      } catch {}
+    }
+
+    function saveTableNumberIfScoped() {
+      if (!tableNumberStorageKey) return;
+      try {
+        localStorage.setItem(tableNumberStorageKey, JSON.stringify(tableNumberByKey));
       } catch {}
     }
 
@@ -2483,6 +2521,111 @@
       if (changed) {
         saveManualFinishedIfScoped();
       }
+    }
+
+    function syncTableNumberOverrides(games) {
+      const existingKeys = new Set();
+      games.forEach(game => {
+        const stableKey = getStableGameKey(game);
+        if (stableKey) existingKeys.add(stableKey);
+      });
+
+      let changed = false;
+      Object.keys(tableNumberByKey).forEach(stableKey => {
+        if (!existingKeys.has(stableKey)) {
+          delete tableNumberByKey[stableKey];
+          changed = true;
+        }
+      });
+
+      if (changed) {
+        saveTableNumberIfScoped();
+      }
+    }
+
+    function applyTableNumberOverrides(games) {
+      (games || []).forEach(game => {
+        const stableKey = getStableGameKey(game);
+        if (!stableKey) return;
+        if (!Object.prototype.hasOwnProperty.call(tableNumberByKey, stableKey)) return;
+        const overriddenTable = String(tableNumberByKey[stableKey] || '').trim();
+        game.table = overriddenTable === '0' ? '' : overriddenTable;
+      });
+    }
+
+    function handleInProgressCardClick(encodedKey) {
+      const stableKey = decodeStableGameKey(encodedKey);
+      if (!stableKey) return;
+      const game = (gamesData || []).find(g => getStableGameKey(g) === stableKey);
+      if (!game) return;
+
+      const errorMsg = document.getElementById('error-message');
+      const successMsg = document.getElementById('success-message');
+      if (errorMsg) errorMsg.classList.add('hidden');
+      if (successMsg) successMsg.classList.add('hidden');
+
+      const currentTable = Object.prototype.hasOwnProperty.call(tableNumberByKey, stableKey)
+        ? String(tableNumberByKey[stableKey] || '')
+        : String(game.table || '');
+      const nextValue = window.prompt('הכנס מספר שולחן (ריק לניקוי):', currentTable);
+      if (nextValue === null) return;
+
+      const normalized = String(nextValue || '').trim();
+      if (!normalized) {
+        if (Object.prototype.hasOwnProperty.call(tableNumberByKey, stableKey)) {
+          delete tableNumberByKey[stableKey];
+          saveTableNumberIfScoped();
+        }
+      } else {
+        if (!/^\d+$/.test(normalized)) {
+          const msg = 'מספר שולחן חייב להיות מספר בלבד.';
+          if (errorMsg) {
+            errorMsg.textContent = msg;
+            errorMsg.classList.remove('hidden');
+          }
+          window.alert(msg);
+          return;
+        }
+
+        const requestedTable = String(Number.parseInt(normalized, 10));
+        if (requestedTable !== '0') {
+          const inProgressNow = (gamesData || []).filter(g => {
+            if (!g) return false;
+            if (isManuallyFinishedGame(g)) return false;
+            if (String(g.status || '').toUpperCase() === 'IN_PROGRESS') return true;
+            return isManuallyInProgressGame(g) && String(g.status || '').toUpperCase() !== 'FINISHED';
+          });
+
+          const duplicateGame = inProgressNow.find(g => {
+            const otherKey = getStableGameKey(g);
+            if (!otherKey || otherKey === stableKey) return false;
+            const tableValue = Object.prototype.hasOwnProperty.call(tableNumberByKey, otherKey)
+              ? String(tableNumberByKey[otherKey] || '').trim()
+              : String(g.table || '').trim();
+            if (!tableValue || tableValue === '0' || !/^\d+$/.test(tableValue)) return false;
+            return String(Number.parseInt(tableValue, 10)) === requestedTable;
+          });
+
+          if (duplicateGame) {
+            const msg = `שולחן ${requestedTable} כבר תפוס במשחק פעיל אחר.`;
+            if (errorMsg) {
+              errorMsg.textContent = msg;
+              errorMsg.classList.remove('hidden');
+            }
+            window.alert(msg);
+            return;
+          }
+        }
+
+        tableNumberByKey[stableKey] = requestedTable;
+        saveTableNumberIfScoped();
+      }
+
+      renderGames(gamesData);
+    }
+
+    function handleInProgressCardDoubleClick(encodedKey) {
+      handleInProgressCardClick(encodedKey);
     }
 
     function getDisplayUpcomingGames(games) {
@@ -7184,6 +7327,9 @@
       let selectionButtonHtml = '';
       let manualProgressButtonsHtml = '';
       let gameNumberHtml = '';
+      let cardOnClickAttr = '';
+      let cardExtraClass = '';
+      let cardTitleAttr = '';
       const stableKey = getStableGameKey(game);
       const encodedStableKey = encodeURIComponent(stableKey || '');
       const storedScoreEntry = getStoredScoreEntry(stableKey);
@@ -7219,6 +7365,9 @@
           : '';
         const finishButtonHtml = `<button type="button" class="manual-progress-btn finish" aria-label="סיום משחק" title="העבר למשחקים שהסתיימו" onclick="if (typeof event !== 'undefined' && event && event.stopPropagation) event.stopPropagation(); finishGameByStableKey('${encodedStableKey}')">סיים</button>`;
         manualProgressButtonsHtml = `${finishButtonHtml}${stopButtonHtml}`;
+        cardOnClickAttr = `ondblclick="handleInProgressCardDoubleClick('${encodedStableKey}')"`;
+        cardExtraClass = ' cursor-pointer';
+        cardTitleAttr = 'title="לחיצה כפולה לעדכון מספר שולחן"';
       }
       if (type === 'finished' && isManuallyFinishedGame(game)) {
         const isApiFinished = isApiFinishedStatus(game.status);
@@ -7276,7 +7425,7 @@
 
       let tableHtml = '';
       // Do not show table number for finished games
-      if (game.table && type !== 'finished') {
+      if (game.table && String(game.table).trim() !== '0' && type !== 'finished') {
         tableHtml = '';
       }
 
@@ -7312,7 +7461,7 @@
         }
       }
       return `
-        <div class="game-card bg-slate-50 rounded-lg p-2 border border-slate-200 text-sm ${grayClass} relative" data-stable-game-key="${encodedStableKey}" ${upcomingDataAttrs}>
+        <div class="game-card bg-slate-50 rounded-lg p-2 border border-slate-200 text-sm ${grayClass}${cardExtraClass} relative" data-stable-game-key="${encodedStableKey}" ${upcomingDataAttrs} ${cardOnClickAttr} ${cardTitleAttr}>
           ${announceButtonHtml}
           ${selectionButtonHtml}
           ${manualProgressButtonsHtml}
@@ -7325,7 +7474,7 @@
                   ? `בית ${game.groupNo} | סיבוב ${(game.turn_no || '|')}`
                   : (roundLabels[game.turn] ? roundLabels[game.turn] : '|')
               }
-              ${game.table ? `| שולחן ${game.table}` : ''}
+              ${(game.table && String(game.table).trim() !== '0') ? `| שולחן ${game.table}` : ''}
               ${extraDetails}
             </span>
           </div>
@@ -7605,6 +7754,8 @@
       setupPlayerTimers(games);
       syncManualInProgressOverrides(games);
       syncManualFinishedOverrides(games);
+      syncTableNumberOverrides(games);
+      applyTableNumberOverrides(games);
       const playersInProgress = getPlayersInProgress(games);
       // For finished/in-progress: both players must exist. For upcoming: at least one player must exist.
       const validGames = games.filter(game => isValidPlayer(game.playerFullNameA) && isValidPlayer(game.playerFullNameX));
@@ -7971,6 +8122,7 @@
       setGameNumberScope(eventId, env);
       setManualInProgressScope(eventId, env);
       setManualFinishedScope(eventId, env);
+      setTableNumberScope(eventId, env);
       setScoreEntryScope(eventId, env);
       setDrawColorScope(eventId, env);
 
