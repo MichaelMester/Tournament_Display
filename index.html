@@ -3673,6 +3673,22 @@
         });
       }
 
+      function syncPopupColumnContent(targetContainer, sourceHtml) {
+        if (!targetContainer) return;
+        const prevMax = Math.max(0, targetContainer.scrollHeight - targetContainer.clientHeight);
+        const prevScrollTop = targetContainer.scrollTop;
+        const prevRatio = prevMax > 0 ? (prevScrollTop / prevMax) : 0;
+
+        targetContainer.innerHTML = sourceHtml;
+
+        const nextMax = Math.max(0, targetContainer.scrollHeight - targetContainer.clientHeight);
+        if (nextMax > 0 && prevMax > 0) {
+          targetContainer.scrollTop = Math.max(0, Math.min(nextMax, Math.round(prevRatio * nextMax)));
+        } else {
+          targetContainer.scrollTop = Math.max(0, Math.min(prevScrollTop, nextMax));
+        }
+      }
+
       const popupDoc = upcomingColumnPopupWindow.document;
       const popupRoot = popupDoc.getElementById('upcoming-popup-root');
       const popupCount = popupDoc.getElementById('upcoming-popup-count');
@@ -3692,9 +3708,9 @@
         return;
       }
 
-      popupRoot.innerHTML = sourceContainer.innerHTML;
+      syncPopupColumnContent(popupRoot, sourceContainer.innerHTML);
       popupCount.textContent = sourceCount.textContent || '';
-      popupInProgressRoot.innerHTML = sourceInProgressContainer.innerHTML;
+      syncPopupColumnContent(popupInProgressRoot, sourceInProgressContainer.innerHTML);
       popupInProgressCount.textContent = sourceInProgressCount.textContent || '';
 
       enforceDisplayOnly(popupRoot);
@@ -3794,6 +3810,47 @@
       color: #ffffff;
       direction: ltr;
     }
+    .popup-scroll-controls {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      border-radius: 9999px;
+      padding: 2px 8px;
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .popup-scroll-toggle {
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      color: #0f172a;
+      border-radius: 9999px;
+      padding: 4px 8px;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .popup-scroll-toggle.active {
+      background: #16a34a;
+      border-color: #15803d;
+      color: #ffffff;
+    }
+    .popup-speed-range {
+      width: 90px;
+      accent-color: #ffffff;
+      cursor: pointer;
+    }
+    .popup-speed-value {
+      min-width: 42px;
+      text-align: center;
+      direction: ltr;
+      font-size: 12px;
+      font-weight: 800;
+      color: #ffffff;
+    }
     .popup-share-btn {
       border: 1px solid #cbd5e1;
       background: #ffffff;
@@ -3847,7 +3904,7 @@
     .popup-body { padding: 8px; overflow: auto; }
     .popup-columns {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 560px 560px;
       gap: 12px;
       align-items: start;
       min-width: 720px;
@@ -3858,6 +3915,43 @@
       border-radius: 12px;
       overflow: hidden;
       box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+      position: relative;
+    }
+    .popup-column.dragging-column {
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.28), 0 8px 20px rgba(15, 23, 42, 0.18);
+    }
+    .popup-column-resize-handle {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 12px;
+      cursor: ew-resize;
+      z-index: 40;
+      background: transparent;
+    }
+    .popup-column-resize-handle::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 4px;
+      height: 34px;
+      border-radius: 9999px;
+      background: rgba(59, 130, 246, 0.45);
+      box-shadow: 0 0 0 1px rgba(30, 64, 175, 0.2);
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+    .popup-column:hover .popup-column-resize-handle::before,
+    .popup-column.dragging-column .popup-column-resize-handle::before {
+      opacity: 1;
+    }
+    .popup-column-resize-handle.upcoming-handle {
+      left: 0;
+    }
+    .popup-column-resize-handle.inprogress-handle {
+      left: 0;
     }
     .popup-column-header {
       padding: 10px 12px;
@@ -3990,12 +4084,174 @@
     function startGameByStableKey(encodedKey) { if (window.opener?.startGameByStableKey) window.opener.startGameByStableKey(encodedKey); }
     function toggleUpcomingSelection(gameKey) { if (window.opener?.toggleUpcomingSelection) window.opener.toggleUpcomingSelection(gameKey); }
     const POPUP_ZOOM_KEY = 'upcomingPopupZoom';
+    const POPUP_UPCOMING_WIDTH_KEY = 'upcomingPopupUpcomingWidth';
+    const POPUP_INPROGRESS_WIDTH_KEY = 'upcomingPopupInProgressWidth';
+    const POPUP_AUTO_SCROLL_ENABLED_KEY = 'upcomingPopupAutoScrollEnabled';
+    const POPUP_AUTO_SCROLL_SPEED_KEY = 'upcomingPopupAutoScrollSpeed';
     let popupZoomLevel = 1;
+    let popupUpcomingWidthPx = 560;
+    let popupInProgressWidthPx = 560;
+    let popupAutoScrollEnabled = false;
+    let popupAutoScrollSpeed = 40;
+    let popupAutoScrollTimer = null;
+    let popupColumnDragDocBound = false;
+    const popupColumnDragState = {
+      active: false,
+      columnKey: '',
+      startX: 0,
+      startWidth: 0,
+      direction: 1
+    };
     function clampPopupZoom(value) {
       return Math.min(1.6, Math.max(0.7, value));
     }
+    function clampAutoScrollSpeed(value) {
+      return Math.min(140, Math.max(10, value));
+    }
+    function clampPopupColumnWidth(value) {
+      const safeValue = Math.max(1, Math.round(value));
+      const maxWidth = Math.max(1, Math.floor(window.innerWidth / 2));
+      return Math.min(maxWidth, safeValue);
+    }
     function getPopupColumnsEl() {
       return document.querySelector('.popup-columns');
+    }
+    function updatePopupColumnRatioLabel() {
+      const label = document.getElementById('popup-width-value');
+      if (!label) return;
+      label.textContent = 'ימין ' + Math.round(popupUpcomingWidthPx) + ' | שמאל ' + Math.round(popupInProgressWidthPx);
+    }
+    function applyPopupColumnWidths() {
+      const cols = getPopupColumnsEl();
+      if (!cols) return;
+      cols.style.gridTemplateColumns = Math.round(popupUpcomingWidthPx) + 'px ' + Math.round(popupInProgressWidthPx) + 'px';
+      updatePopupColumnRatioLabel();
+      try {
+        localStorage.setItem(POPUP_UPCOMING_WIDTH_KEY, String(Math.round(popupUpcomingWidthPx)));
+        localStorage.setItem(POPUP_INPROGRESS_WIDTH_KEY, String(Math.round(popupInProgressWidthPx)));
+      } catch {}
+    }
+    function ensurePopupColumnWidthsFromDom() {
+      const upcomingCol = document.getElementById('upcoming-popup-column');
+      const inProgressCol = document.getElementById('inprogress-popup-column');
+      if (upcomingCol && upcomingCol.offsetWidth > 0 && (!Number.isFinite(popupUpcomingWidthPx) || popupUpcomingWidthPx <= 1)) {
+        popupUpcomingWidthPx = upcomingCol.offsetWidth;
+      }
+      if (inProgressCol && inProgressCol.offsetWidth > 0 && (!Number.isFinite(popupInProgressWidthPx) || popupInProgressWidthPx <= 1)) {
+        popupInProgressWidthPx = inProgressCol.offsetWidth;
+      }
+    }
+    function changePopupColumnWidth(columnKey, deltaPx) {
+      ensurePopupColumnWidthsFromDom();
+      if (columnKey === 'upcoming') {
+        popupUpcomingWidthPx = clampPopupColumnWidth(popupUpcomingWidthPx + deltaPx);
+      } else if (columnKey === 'inprogress') {
+        popupInProgressWidthPx = clampPopupColumnWidth(popupInProgressWidthPx + deltaPx);
+      }
+      applyPopupColumnWidths();
+    }
+    function markDraggingColumn(columnKey, isDragging) {
+      const id = columnKey === 'upcoming' ? 'upcoming-popup-column' : 'inprogress-popup-column';
+      const col = document.getElementById(id);
+      if (!col) return;
+      col.classList.toggle('dragging-column', Boolean(isDragging));
+    }
+    function startPopupSingleColumnDrag(event) {
+      if (!event || event.button !== 0) return;
+      if (typeof event.preventDefault === 'function') event.preventDefault();
+      const handle = event.currentTarget;
+      const columnKey = String(handle?.dataset?.column || '').toLowerCase();
+      const direction = Number(handle?.dataset?.dir || '1') || 1;
+      if (!columnKey) return;
+      ensurePopupColumnWidthsFromDom();
+      popupColumnDragState.active = true;
+      popupColumnDragState.columnKey = columnKey;
+      popupColumnDragState.startX = event.clientX;
+      popupColumnDragState.direction = direction;
+      popupColumnDragState.startWidth = columnKey === 'upcoming' ? popupUpcomingWidthPx : popupInProgressWidthPx;
+      markDraggingColumn(columnKey, true);
+      if (document.body) {
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'ew-resize';
+      }
+    }
+    function handlePopupSingleColumnDragMove(event) {
+      if (!popupColumnDragState.active) return;
+      if (typeof event.preventDefault === 'function') event.preventDefault();
+      const rawDelta = (event.clientX - popupColumnDragState.startX) * popupColumnDragState.direction;
+      const nextWidth = clampPopupColumnWidth(popupColumnDragState.startWidth + rawDelta);
+      if (popupColumnDragState.columnKey === 'upcoming') {
+        popupUpcomingWidthPx = nextWidth;
+      } else if (popupColumnDragState.columnKey === 'inprogress') {
+        popupInProgressWidthPx = nextWidth;
+      }
+      applyPopupColumnWidths();
+    }
+    function stopPopupSingleColumnDrag() {
+      if (!popupColumnDragState.active) return;
+      markDraggingColumn(popupColumnDragState.columnKey, false);
+      popupColumnDragState.active = false;
+      popupColumnDragState.columnKey = '';
+      popupColumnDragState.startX = 0;
+      popupColumnDragState.startWidth = 0;
+      popupColumnDragState.direction = 1;
+      if (document.body) {
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
+      }
+    }
+    function handlePopupColumnWheel(event) {
+      if (event && typeof event.preventDefault === 'function') event.preventDefault();
+      const dy = Number(event?.deltaY || 0);
+      if (!dy) return;
+      const targetKey = String(event?.currentTarget?.dataset?.column || '').toLowerCase();
+      if (!targetKey) return;
+      const direction = dy < 0 ? 1 : -1;
+      const intensity = Math.max(1, Math.round(Math.abs(dy) / 60));
+      const delta = direction * intensity * 12;
+      changePopupColumnWidth(targetKey, delta);
+    }
+    function bindPopupColumnWheelControl() {
+      const upcomingCol = document.getElementById('upcoming-popup-column');
+      const inProgressCol = document.getElementById('inprogress-popup-column');
+      const upcomingHandle = document.getElementById('upcoming-column-handle');
+      const inProgressHandle = document.getElementById('inprogress-column-handle');
+      if (upcomingCol && upcomingCol.dataset.wheelBound !== '1') {
+        upcomingCol.dataset.wheelBound = '1';
+        upcomingCol.dataset.column = 'upcoming';
+        upcomingCol.addEventListener('wheel', handlePopupColumnWheel, { passive: false });
+      }
+      if (inProgressCol && inProgressCol.dataset.wheelBound !== '1') {
+        inProgressCol.dataset.wheelBound = '1';
+        inProgressCol.dataset.column = 'inprogress';
+        inProgressCol.addEventListener('wheel', handlePopupColumnWheel, { passive: false });
+      }
+      if (upcomingHandle && upcomingHandle.dataset.dragBound !== '1') {
+        upcomingHandle.dataset.dragBound = '1';
+        upcomingHandle.addEventListener('mousedown', startPopupSingleColumnDrag);
+      }
+      if (inProgressHandle && inProgressHandle.dataset.dragBound !== '1') {
+        inProgressHandle.dataset.dragBound = '1';
+        inProgressHandle.addEventListener('mousedown', startPopupSingleColumnDrag);
+      }
+      if (!popupColumnDragDocBound) {
+        popupColumnDragDocBound = true;
+        document.addEventListener('mousemove', handlePopupSingleColumnDragMove);
+        document.addEventListener('mouseup', stopPopupSingleColumnDrag);
+        window.addEventListener('blur', stopPopupSingleColumnDrag);
+      }
+    }
+    function initPopupColumnRatio() {
+      // Start each popup session with balanced, logical defaults.
+      const columnGap = 12;
+      const bodyPaddingAllowance = 40;
+      const calculatedHalf = Math.floor((window.innerWidth - bodyPaddingAllowance - columnGap) / 2);
+      const defaultColumnWidth = Math.max(320, calculatedHalf);
+
+      popupUpcomingWidthPx = clampPopupColumnWidth(defaultColumnWidth);
+      popupInProgressWidthPx = clampPopupColumnWidth(defaultColumnWidth);
+      applyPopupColumnWidths();
+      bindPopupColumnWheelControl();
     }
     function updatePopupZoomLabel() {
       const label = document.getElementById('popup-zoom-value');
@@ -4028,6 +4284,101 @@
       popupZoomLevel = clampPopupZoom(Number.isFinite(storedZoom) ? storedZoom : 1);
       applyPopupZoom();
     }
+    function getPopupScrollContainers() {
+      return Array.from(document.querySelectorAll('.popup-column-body'));
+    }
+    function updateAutoScrollControls() {
+      const btn = document.getElementById('popup-scroll-toggle-btn');
+      const slider = document.getElementById('popup-scroll-speed');
+      const speedValue = document.getElementById('popup-scroll-speed-value');
+      if (btn) {
+        btn.classList.toggle('active', popupAutoScrollEnabled);
+        btn.textContent = popupAutoScrollEnabled ? 'עצור גלילה' : 'הפעל גלילה';
+      }
+      if (slider) {
+        slider.value = String(Math.round(popupAutoScrollSpeed));
+      }
+      if (speedValue) {
+        speedValue.textContent = String(Math.round(popupAutoScrollSpeed));
+      }
+    }
+    function stepAutoScrollContainer(container, deltaPx) {
+      if (!container) return;
+      const now = Date.now();
+      const pauseUntil = Number(container.dataset.pauseUntil || '0');
+      if (pauseUntil > now) return;
+      if (pauseUntil && pauseUntil <= now) {
+        const pendingReset = container.dataset.pendingResetToTop === '1';
+        if (pendingReset) {
+          // Reached end: jump to top, then pause again before next run.
+          container.scrollTop = 0;
+          container.dataset.pendingResetToTop = '0';
+          container.dataset.pauseUntil = String(now + 3000);
+          return;
+        }
+        container.dataset.pauseUntil = '0';
+        return;
+      }
+      const max = Math.max(0, container.scrollHeight - container.clientHeight);
+      if (max <= 1) return;
+      let next = container.scrollTop + deltaPx;
+      if (next >= max) {
+        container.scrollTop = max;
+        // Pause 2 seconds on last game before restarting cycle.
+        container.dataset.pendingResetToTop = '1';
+        container.dataset.pauseUntil = String(now + 2000);
+        return;
+      }
+      container.scrollTop = next;
+    }
+    function stopPopupAutoScroll() {
+      if (popupAutoScrollTimer) {
+        clearInterval(popupAutoScrollTimer);
+        popupAutoScrollTimer = null;
+      }
+    }
+    function startPopupAutoScroll() {
+      stopPopupAutoScroll();
+      popupAutoScrollTimer = setInterval(() => {
+        const step = popupAutoScrollSpeed / 20;
+        getPopupScrollContainers().forEach(el => stepAutoScrollContainer(el, step));
+      }, 50);
+    }
+    function applyPopupAutoScrollState() {
+      updateAutoScrollControls();
+      if (popupAutoScrollEnabled) {
+        startPopupAutoScroll();
+      } else {
+        stopPopupAutoScroll();
+      }
+      try {
+        localStorage.setItem(POPUP_AUTO_SCROLL_ENABLED_KEY, popupAutoScrollEnabled ? '1' : '0');
+        localStorage.setItem(POPUP_AUTO_SCROLL_SPEED_KEY, String(Math.round(popupAutoScrollSpeed)));
+      } catch {}
+    }
+    function togglePopupAutoScroll() {
+      popupAutoScrollEnabled = !popupAutoScrollEnabled;
+      applyPopupAutoScrollState();
+    }
+    function handlePopupAutoScrollSpeedChange(rawValue) {
+      const parsed = Number(rawValue);
+      popupAutoScrollSpeed = clampAutoScrollSpeed(Number.isFinite(parsed) ? parsed : popupAutoScrollSpeed);
+      updateAutoScrollControls();
+      try {
+        localStorage.setItem(POPUP_AUTO_SCROLL_SPEED_KEY, String(Math.round(popupAutoScrollSpeed)));
+      } catch {}
+    }
+    function initPopupAutoScroll() {
+      let storedEnabled = '0';
+      let storedSpeed = 40;
+      try {
+        storedEnabled = String(localStorage.getItem(POPUP_AUTO_SCROLL_ENABLED_KEY) || '0');
+        storedSpeed = Number(localStorage.getItem(POPUP_AUTO_SCROLL_SPEED_KEY) || '40');
+      } catch {}
+      popupAutoScrollEnabled = storedEnabled === '1';
+      popupAutoScrollSpeed = clampAutoScrollSpeed(Number.isFinite(storedSpeed) ? storedSpeed : 40);
+      applyPopupAutoScrollState();
+    }
     function getUpcomingShareUrl() {
       if (window.opener?.buildUpcomingShareUrl) return window.opener.buildUpcomingShareUrl();
       return window.location.href;
@@ -4055,6 +4406,19 @@
       }
       panel.classList.toggle('show', willShow);
     }
+    window.addEventListener('DOMContentLoaded', () => {
+      initPopupColumnRatio();
+      initPopupZoom();
+      initPopupAutoScroll();
+    });
+    window.addEventListener('resize', () => {
+      popupUpcomingWidthPx = clampPopupColumnWidth(popupUpcomingWidthPx);
+      popupInProgressWidthPx = clampPopupColumnWidth(popupInProgressWidthPx);
+      applyPopupColumnWidths();
+    });
+    window.addEventListener('beforeunload', () => {
+      stopPopupAutoScroll();
+    });
   <\/script>
 </head>
 <body>
@@ -4066,6 +4430,12 @@
         <h2>משחקים הבאים</h2>
       </div>
       <div class="popup-header-right">
+        <div class="popup-scroll-controls" title="גלילה אוטומטית">
+          <button id="popup-scroll-toggle-btn" type="button" class="popup-scroll-toggle" onclick="togglePopupAutoScroll()">הפעל גלילה</button>
+          <span>מהירות</span>
+          <input id="popup-scroll-speed" type="range" min="10" max="140" step="1" value="40" class="popup-speed-range" oninput="handlePopupAutoScrollSpeedChange(this.value)" aria-label="מהירות גלילה">
+          <span id="popup-scroll-speed-value" class="popup-speed-value">40</span>
+        </div>
         <div class="popup-zoom-controls" title="זום">
           <button type="button" class="popup-zoom-btn" onclick="changePopupZoom(0.1)" aria-label="זום פנימה">+</button>
           <span id="popup-zoom-value" class="popup-zoom-value">100%</span>
@@ -4081,14 +4451,16 @@
     </div>
     <div class="popup-body">
       <div class="popup-columns">
-        <section class="popup-column" aria-label="משחקים הבאים">
+        <section id="upcoming-popup-column" class="popup-column" aria-label="משחקים הבאים">
+          <div id="upcoming-column-handle" class="popup-column-resize-handle upcoming-handle" data-column="upcoming" data-dir="-1" title="גרור לשינוי רוחב עמודת המשחקים הבאים"></div>
           <div class="popup-column-header upcoming">
             <h3 class="popup-column-title">משחקים הבאים</h3>
             <span id="upcoming-popup-count" class="popup-column-count"></span>
           </div>
           <div id="upcoming-popup-root" class="popup-column-body"></div>
         </section>
-        <section class="popup-column" aria-label="משחקים עכשיו">
+        <section id="inprogress-popup-column" class="popup-column" aria-label="משחקים עכשיו">
+          <div id="inprogress-column-handle" class="popup-column-resize-handle inprogress-handle" data-column="inprogress" data-dir="-1" title="גרור לשינוי רוחב עמודת המשחקים שבמהלך"></div>
           <div class="popup-column-header inprogress">
             <h3 class="popup-column-title">משחקים עכשיו</h3>
             <span id="inprogress-popup-count" class="popup-column-count"></span>
@@ -4104,12 +4476,20 @@
 
         try {
           upcomingColumnPopupWindow.addEventListener('DOMContentLoaded', () => {
-            try { upcomingColumnPopupWindow.initPopupZoom?.(); } catch {}
+            try {
+              upcomingColumnPopupWindow.initPopupColumnRatio?.();
+              upcomingColumnPopupWindow.initPopupZoom?.();
+              upcomingColumnPopupWindow.initPopupAutoScroll?.();
+            } catch {}
           });
         } catch {}
 
         setTimeout(() => {
-          try { upcomingColumnPopupWindow.initPopupZoom?.(); } catch {}
+          try {
+            upcomingColumnPopupWindow.initPopupColumnRatio?.();
+            upcomingColumnPopupWindow.initPopupZoom?.();
+            upcomingColumnPopupWindow.initPopupAutoScroll?.();
+          } catch {}
         }, 0);
 
         upcomingColumnPopupWindow.addEventListener('beforeunload', () => {
@@ -6804,7 +7184,7 @@
         manualProgressButtonsHtml = `<button type="button" class="manual-progress-btn score score-single${scoreButtonDoneClass}" aria-label="הזנת תוצאת משחק" title="${scoreButtonTitle}" onclick="if (typeof event !== 'undefined' && event && event.stopPropagation) event.stopPropagation(); openScoreEntryModal('${encodedStableKey}')">${scoreButtonLabel}</button>`;
       }
       if (stableGameNumber !== null) {
-        gameNumberHtml = `משחק ${stableGameNumber} | `;
+        gameNumberHtml = `<span class="text-green-600 font-extrabold" style="font-weight:800;">משחק ${stableGameNumber}</span> | `;
       }
       
       let resultHtml = '';
