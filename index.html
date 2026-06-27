@@ -1296,12 +1296,6 @@
     </div>
   </div>
   <div id="auto-reload-timer" class="fixed top-2 left-2 z-50 bg-white bg-opacity-80 rounded-lg px-4 py-2 shadow text-blue-700 font-bold text-lg hidden" style="direction:ltr;"></div>
-  <div id="desktop-clock-widget" class="hidden md:flex fixed top-10 left-10 z-50 bg-white bg-opacity-90 rounded-lg px-4 py-2 shadow text-blue-700 font-bold text-lg cursor-move items-center gap-2" style="user-select:none; min-width:120px; text-align:center; resize:both; overflow:hidden;">
-    <span class="inline-block text-2xl md:text-3xl mr-1" title="Clock">🕒</span>
-    <span id="desktop-clock-time">--:--</span>
-    <div id="desktop-clock-resizer" style="width:16px;height:16px;position:absolute;right:2px;bottom:2px;cursor:nwse-resize;z-index:10;"></div>
-  </div>
-  <button id="desktop-clock-toggle" class="hidden md:block fixed top-10 right-10 z-50 bg-blue-600 text-white rounded-full px-3 py-1 shadow font-bold" style="display:none;">הצג שעה</button>
     <div id="announcement-overlay" class="announcement-overlay" aria-live="polite" aria-atomic="true">
       <div class="announcement-content">
         <div class="announcement-grid">
@@ -1425,257 +1419,6 @@
     </div>
   <div id="print-container" class="print-container"></div>
   <div id="app-container" class="h-full w-full p-4 md:p-6"><!-- Header -->
-    <script>
-          // --- PLAYER TIMERS LOGIC ---
-          let playerTimersInterval = null;
-          function getAllPlayersFromGames(games) {
-            const players = new Set();
-            games.forEach(game => {
-              if (game.playerFullNameA && game.playerFullNameA.trim()) players.add(game.playerFullNameA.trim());
-              if (game.playerFullNameX && game.playerFullNameX.trim()) players.add(game.playerFullNameX.trim());
-            });
-            return Array.from(players);
-          }
-
-          // Track last game end time for each player
-          function getPlayerLastGameTimes(games) {
-            const lastTimes = {};
-            games.forEach(game => {
-              if (game.status === 'FINISHED' && game.finished_at) {
-                const t = new Date(game.finished_at).getTime();
-                if (game.playerFullNameA && (!lastTimes[game.playerFullNameA] || t > lastTimes[game.playerFullNameA])) lastTimes[game.playerFullNameA] = t;
-                if (game.playerFullNameX && (!lastTimes[game.playerFullNameX] || t > lastTimes[game.playerFullNameX])) lastTimes[game.playerFullNameX] = t;
-              }
-              // If in progress, treat as timer reset (game just started)
-              if (game.status === 'IN_PROGRESS') {
-                const now = Date.now();
-                if (game.playerFullNameA) lastTimes[game.playerFullNameA] = now;
-                if (game.playerFullNameX) lastTimes[game.playerFullNameX] = now;
-              }
-            });
-            return lastTimes;
-          }
-
-          function formatHHMMSS(seconds) {
-            const h = Math.floor(seconds / 3600);
-            const m = Math.floor((seconds % 3600) / 60);
-            const s = seconds % 60;
-            return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-          }
-
-          function updatePlayerTimersList(games) {
-            const players = getAllPlayersFromGames(games);
-            const lastTimes = getPlayerLastGameTimes(games);
-            const now = Date.now();
-            // Find players with no more games in the upcoming (right) column
-            const upcomingGames = games.filter(g => g.status !== 'FINISHED' && g.status !== 'IN_PROGRESS');
-            const playersWithUpcoming = new Set();
-            upcomingGames.forEach(g => {
-              if (g.playerFullNameA && g.playerFullNameA.trim()) playersWithUpcoming.add(g.playerFullNameA.trim());
-              if (g.playerFullNameX && g.playerFullNameX.trim()) playersWithUpcoming.add(g.playerFullNameX.trim());
-            });
-            // Find players currently playing (center column)
-            const inProgressGames = games.filter(g => g.status === 'IN_PROGRESS');
-            const playersInProgress = new Set();
-            inProgressGames.forEach(g => {
-              if (g.playerFullNameA && g.playerFullNameA.trim()) playersInProgress.add(g.playerFullNameA.trim());
-              if (g.playerFullNameX && g.playerFullNameX.trim()) playersInProgress.add(g.playerFullNameX.trim());
-            });
-            // Build array of {name, seconds, available, inProgress}
-            const timers = players.map(name => {
-              const available = playersWithUpcoming.has(name);
-              const inProgress = playersInProgress.has(name);
-              let seconds = 0;
-              if (available && !inProgress) {
-                const last = lastTimes[name] || 0;
-                seconds = last ? Math.floor((now - last) / 1000) : 0;
-              }
-              return { name, seconds, available, inProgress };
-            });
-            // Sort: running timers first, then 'במשחק', then 'לא התחיל', then 'לא זמין' last
-            timers.sort((a, b) => {
-              // 'לא זמין' (not available and not in progress) always last
-              const aUnavailable = !a.available && !a.inProgress;
-              const bUnavailable = !b.available && !b.inProgress;
-              if (aUnavailable && !bUnavailable) return 1;
-              if (!aUnavailable && bUnavailable) return -1;
-              // Running timers (not in progress, seconds > 0) first
-              const aRunning = a.available && !a.inProgress && a.seconds > 0;
-              const bRunning = b.available && !b.inProgress && b.seconds > 0;
-              if (aRunning && !bRunning) return -1;
-              if (!aRunning && bRunning) return 1;
-              // Then in progress
-              if (a.inProgress && !b.inProgress) return -1;
-              if (!a.inProgress && b.inProgress) return 1;
-              // Then not started
-              if (a.seconds === 0 && b.seconds !== 0) return -1;
-              if (a.seconds !== 0 && b.seconds === 0) return 1;
-              // Otherwise, sort by timer descending
-              return b.seconds - a.seconds;
-            });
-            // Render
-            const ul = document.getElementById('player-timers-list');
-            if (!ul) return;
-            ul.innerHTML = timers.map((t, i) => {
-              let timerText = '';
-              // Show 'לא זמין' only if not in progress and no more games left
-              if (!t.available && !t.inProgress) {
-                timerText = 'לא זמין';
-              } else if (t.inProgress) {
-                timerText = 'במשחק';
-              } else if (t.seconds === 0) {
-                timerText = 'לא התחיל';
-              } else {
-                timerText = formatHHMMSS(t.seconds);
-              }
-              return `<li class="flex justify-between items-center py-2 ${(!t.available && !t.inProgress) ? 'opacity-50' : ''}"><span class="font-medium">${i+1}. ${t.name}</span><span class="font-mono ${(t.available || t.inProgress) ? 'text-blue-700' : 'text-gray-400'}">${timerText}</span></li>`;
-            }).join('');
-          }
-
-          function setupPlayerTimers(games) {
-            if (playerTimersInterval) clearInterval(playerTimersInterval);
-            updatePlayerTimersList(games);
-            playerTimersInterval = setInterval(() => updatePlayerTimersList(gamesData), 1000);
-          }
-
-          // Collapse/expand logic for player timers
-          document.addEventListener('DOMContentLoaded', function() {
-            const toggleBtn = document.getElementById('player-timers-toggle');
-            const section = document.getElementById('player-timers-section');
-            const icon = document.getElementById('player-timers-toggle-icon');
-            if (toggleBtn && section && icon) {
-              section.classList.add('hidden');
-              icon.textContent = '▶';
-              toggleBtn.addEventListener('click', function() {
-                const isCollapsed = section.classList.contains('hidden');
-                if (isCollapsed) {
-                  section.classList.remove('hidden');
-                  icon.textContent = '▼';
-                } else {
-                  section.classList.add('hidden');
-                  icon.textContent = '▶';
-                }
-              });
-            }
-          });
-      // --- Desktop Clock Widget ---
-      function updateDesktopClock() {
-        const el = document.getElementById('desktop-clock-time');
-        if (!el) return;
-        const now = new Date();
-        const hh = String(now.getHours()).padStart(2, '0');
-        const mm = String(now.getMinutes()).padStart(2, '0');
-        el.textContent = `${hh}:${mm}`;
-      }
-      function showDesktopClock(show) {
-        const widget = document.getElementById('desktop-clock-widget');
-        const toggleBtn = document.getElementById('desktop-clock-toggle');
-        if (show) {
-          widget.style.display = 'flex';
-          toggleBtn.style.display = 'block';
-          toggleBtn.textContent = 'הסתר שעון';
-          localStorage.setItem('desktopClockVisible', '1');
-        } else {
-          widget.style.display = 'none';
-          toggleBtn.style.display = 'block';
-          toggleBtn.textContent = 'הצג שעון';
-          localStorage.setItem('desktopClockVisible', '0');
-        }
-      }
-      function setupDesktopClock() {
-        const widget = document.getElementById('desktop-clock-widget');
-        const toggleBtn = document.getElementById('desktop-clock-toggle');
-        const resizer = document.getElementById('desktop-clock-resizer');
-        // Restore position
-        const pos = JSON.parse(localStorage.getItem('desktopClockPos') || 'null');
-        if (pos && typeof pos.x === 'number' && typeof pos.y === 'number') {
-          widget.style.left = pos.x + 'px';
-          widget.style.top = pos.y + 'px';
-        }
-        // Restore size
-        const size = JSON.parse(localStorage.getItem('desktopClockSize') || 'null');
-        if (size && typeof size.w === 'number' && typeof size.h === 'number') {
-          widget.style.width = size.w + 'px';
-          widget.style.height = size.h + 'px';
-        }
-        // Restore visibility
-        const visible = localStorage.getItem('desktopClockVisible');
-        showDesktopClock(visible !== '0');
-        // Drag logic
-        let isDragging = false, dragOffsetX = 0, dragOffsetY = 0;
-        widget.addEventListener('mousedown', function(e) {
-          if (e.target === resizer) return;
-          isDragging = true;
-          dragOffsetX = e.clientX - widget.offsetLeft;
-          dragOffsetY = e.clientY - widget.offsetTop;
-          document.body.style.userSelect = 'none';
-        });
-        document.addEventListener('mousemove', function(e) {
-          if (!isDragging) return;
-          widget.style.left = (e.clientX - dragOffsetX) + 'px';
-          widget.style.top = (e.clientY - dragOffsetY) + 'px';
-        });
-        document.addEventListener('mouseup', function(e) {
-          if (isDragging) {
-            isDragging = false;
-            localStorage.setItem('desktopClockPos', JSON.stringify({ x: widget.offsetLeft, y: widget.offsetTop }));
-            document.body.style.userSelect = '';
-          }
-        });
-        // Resize logic
-        let isResizing = false, resizeStartW = 0, resizeStartH = 0, resizeStartX = 0, resizeStartY = 0;
-        const time = document.getElementById('desktop-clock-time');
-        function updateClockFontSize() {
-          // Make font size proportional to widget height, min 16px, max 64px
-          const h = widget.offsetHeight;
-          const fontSize = Math.max(16, Math.min(64, Math.round(h * 0.6)));
-          if (time) time.style.fontSize = fontSize + 'px';
-        }
-        resizer.addEventListener('mousedown', function(e) {
-          e.stopPropagation();
-          isResizing = true;
-          resizeStartW = widget.offsetWidth;
-          resizeStartH = widget.offsetHeight;
-          resizeStartX = e.clientX;
-          resizeStartY = e.clientY;
-          document.body.style.userSelect = 'none';
-        });
-        document.addEventListener('mousemove', function(e) {
-          if (!isResizing) return;
-          let newW = Math.max(100, resizeStartW + (e.clientX - resizeStartX));
-          let newH = Math.max(36, resizeStartH + (e.clientY - resizeStartY));
-          widget.style.width = newW + 'px';
-          widget.style.height = newH + 'px';
-          updateClockFontSize();
-        });
-        // Also update font size on any resize event (native CSS resize)
-        let resizeObserver = new ResizeObserver(() => { updateClockFontSize(); });
-        resizeObserver.observe(widget);
-        document.addEventListener('mouseup', function(e) {
-          if (isResizing) {
-            isResizing = false;
-            localStorage.setItem('desktopClockSize', JSON.stringify({ w: widget.offsetWidth, h: widget.offsetHeight }));
-            document.body.style.userSelect = '';
-            updateClockFontSize(); // Ensure font size updates after resize ends
-          }
-        });
-        // Set font size on load/restore and after restoring size
-        setTimeout(updateClockFontSize, 0);
-        // Toggle logic
-        toggleBtn.addEventListener('click', function() {
-          const widget = document.getElementById('desktop-clock-widget');
-          showDesktopClock(widget.style.display === 'none' || widget.style.display === '' ? true : false);
-        });
-        // Initial time update
-        updateDesktopClock();
-        setInterval(updateDesktopClock, 1000 * 60); // update every minute
-        // Also update at load in case minute just changed
-        setTimeout(updateDesktopClock, 100);
-      }
-      if (window.matchMedia('(min-width: 768px)').matches) {
-        window.addEventListener('DOMContentLoaded', setupDesktopClock);
-      }
-    </script>
    <div class="mb-6">
       <div class="flex items-end justify-center gap-2 mb-4">
         <h1 id="page-title" class="text-2xl md:text-3xl font-bold text-slate-800 text-center m-0">לוח משחקים</h1>
@@ -1719,16 +1462,6 @@
       </div>
       <p id="error-message" class="text-red-500 text-sm mt-2 hidden"></p>
       <p id="success-message" class="text-green-600 text-sm mt-2 hidden"></p>
-      <!-- Player Timers List (Collapsible) -->
-      <div class="mt-6">
-        <button id="player-timers-toggle" class="w-full px-4 py-2 flex items-center justify-between bg-slate-100 hover:bg-slate-200 rounded border border-slate-200 font-semibold text-slate-700 mb-2" type="button">
-          <span>⏱️ טיימר שחקנים</span>
-          <span id="player-timers-toggle-icon">▶</span>
-        </button>
-        <div id="player-timers-section" class="hidden bg-white rounded shadow p-3 max-h-96 overflow-y-auto">
-          <ul id="player-timers-list" class="divide-y divide-slate-200"></ul>
-        </div>
-      </div>
      </div>
     </div>
    </div><!-- Games Columns -->
@@ -1999,7 +1732,6 @@
     let tableNumberByKey = {};
     let tableNumberStorageScope = '';
     let tableNumberStorageKey = '';
-    const COMBINED_SELECTION_STORAGE_PREFIX = 'combinedDisplaySelection';
     const GROUPS_SELECTION_STORAGE_PREFIX = 'groupsDisplaySelection';
     const DRAW_COLOR_STORAGE_PREFIX = 'drawDisplayColors';
     let groupsPopupSelectedDrawNames = null;
@@ -2045,37 +1777,6 @@
       const env = String(document.getElementById('env-select')?.value || 'prod').trim() || 'prod';
       if (!eventId) return '';
       return `${env}:${eventId}`;
-    }
-
-    function getCombinedSelectionStorageKey() {
-      const scope = getCombinedSelectionScope();
-      return scope ? `${COMBINED_SELECTION_STORAGE_PREFIX}:${scope}` : '';
-    }
-
-    function loadCombinedSelection() {
-      const storageKey = getCombinedSelectionStorageKey();
-      if (!storageKey) return null;
-      try {
-        const parsed = JSON.parse(localStorage.getItem(storageKey) || 'null');
-        if (!parsed || typeof parsed !== 'object') return null;
-        return {
-          groupDraws: Array.isArray(parsed.groupDraws) ? parsed.groupDraws.map(String) : null,
-          knockoutDraws: Array.isArray(parsed.knockoutDraws) ? parsed.knockoutDraws.map(String) : null
-        };
-      } catch {
-        return null;
-      }
-    }
-
-    function saveCombinedSelection(selection) {
-      const storageKey = getCombinedSelectionStorageKey();
-      if (!storageKey) return;
-      try {
-        localStorage.setItem(storageKey, JSON.stringify({
-          groupDraws: Array.isArray(selection?.groupDraws) ? selection.groupDraws.slice() : [],
-          knockoutDraws: Array.isArray(selection?.knockoutDraws) ? selection.knockoutDraws.slice() : []
-        }));
-      } catch {}
     }
 
     function getGroupsSelectionStorageKey() {
@@ -7338,13 +7039,6 @@
       const confirmBtn = document.getElementById('draw-selector-confirm-btn');
       if (!titleEl || !subtitleEl || !confirmBtn) return;
 
-      if (mode === 'combined') {
-        titleEl.textContent = 'בחירת תצוגת בתים ונוקאאוט';
-        subtitleEl.textContent = 'בחר את הבתים וקטגוריות הנוקאאוט להצגה.';
-        confirmBtn.textContent = 'פתח חלון';
-        return;
-      }
-
       if (mode === 'groups') {
         titleEl.textContent = 'בחירת קטגוריות בתים להצגה';
         subtitleEl.textContent = 'בחר קטגוריות, וכל הבתים של כל קטגוריה שנבחרה יוצגו.';
@@ -7628,64 +7322,6 @@
       });
     }
 
-    function openCombinedSelector(groupDrawNames, knockoutDrawNames, savedSelection = null) {
-      const groupNames = Array.isArray(groupDrawNames) ? groupDrawNames.slice() : [];
-      const koNames = Array.isArray(knockoutDrawNames) ? knockoutDrawNames.slice() : [];
-      const hasSavedGroups = Array.isArray(savedSelection?.groupDraws);
-      const hasSavedKnockout = Array.isArray(savedSelection?.knockoutDraws);
-      const selectedGroupsSet = new Set(hasSavedGroups ? savedSelection.groupDraws : []);
-      const selectedKnockoutSet = new Set(hasSavedKnockout ? savedSelection.knockoutDraws : []);
-
-      const overlay = document.getElementById('knockout-draw-selector');
-      const list = document.getElementById('knockout-draw-selector-list');
-      if (!overlay || !list) {
-        return Promise.resolve({
-          groupDraws: groupNames,
-          knockoutDraws: koNames
-        });
-      }
-
-      setDrawSelectorCopy('combined');
-
-      return new Promise(resolve => {
-        knockoutDrawSelectionState = {
-          mode: 'combined',
-          resolve
-        };
-
-        const groupsOptionsHtml = groupNames.length > 0
-          ? groupNames.map(drawName => `
-            <label class="draw-selector-item">
-              <input type="checkbox" class="combined-group-option" value="${escapeHtml(drawName)}" ${hasSavedGroups ? (selectedGroupsSet.has(drawName) ? 'checked' : '') : 'checked'}>
-              <span>בתים: ${escapeHtml(drawName)}</span>
-            </label>
-          `).join('')
-          : '<div class="text-slate-500 text-sm">אין בתים זמינים</div>';
-
-        const knockoutOptionsHtml = koNames.length > 0
-          ? koNames.map(drawName => `
-            <label class="draw-selector-item">
-              <input type="checkbox" class="combined-knockout-draw-option" value="${escapeHtml(drawName)}" ${hasSavedKnockout ? (selectedKnockoutSet.has(drawName) ? 'checked' : '') : 'checked'}>
-              <span>נוקאאוט: ${escapeHtml(drawName)}</span>
-            </label>
-          `).join('')
-          : '<div class="text-slate-500 text-sm">אין קטגוריות נוקאאוט זמינות</div>';
-
-        list.innerHTML = `
-          <section class="draw-selector-list">
-            <h4 class="font-bold text-slate-700 m-0">בתים להצגה</h4>
-            ${groupsOptionsHtml}
-          </section>
-          <section class="draw-selector-list">
-            <h4 class="font-bold text-slate-700 m-0">קטגוריות נוקאאוט להצגה</h4>
-            ${knockoutOptionsHtml}
-          </section>
-        `;
-
-        overlay.classList.add('show');
-      });
-    }
-
     async function promptGroupsPopupDrawSelectionFromWindow() {
       const standings = buildGroupStandings(gamesData || []);
       const drawNames = getGroupsDrawNamesFromStandings(standings);
@@ -7793,29 +7429,6 @@
         return;
       }
 
-      if (entry.mode === 'combined') {
-        const standings = buildGroupStandings(gamesData || []);
-        const groupDrawNames = Array.from(new Set(standings.map(group => String(group.draw || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'he'));
-        const nonGroupGamesByDraw = getNonGroupGamesByDraw(gamesData || []);
-        const knockoutDrawNames = Array.from(nonGroupGamesByDraw.keys()).sort((a, b) => a.localeCompare(b, 'he'));
-        const selection = await openCombinedSelector(groupDrawNames, knockoutDrawNames, {
-          groupDraws: Array.isArray(entry.groupDraws) ? entry.groupDraws.slice() : [],
-          knockoutDraws: Array.isArray(entry.drawNames) ? entry.drawNames.slice() : []
-        });
-        if (!selection) return;
-
-        entry.groupDraws = Array.isArray(selection.groupDraws) ? selection.groupDraws.slice() : [];
-        entry.drawNames = Array.isArray(selection.knockoutDraws) ? selection.knockoutDraws.slice() : [];
-        if (entry.embeddedInUpcoming) {
-          upcomingEmbeddedGroupsDraws = entry.groupDraws.slice();
-          upcomingEmbeddedKnockoutDraws = entry.drawNames.slice();
-        }
-        saveCombinedSelection({
-          groupDraws: entry.groupDraws,
-          knockoutDraws: entry.drawNames
-        });
-        renderKnockoutPopupWindow(entry);
-      }
     }
 
     function closeKnockoutDrawSelector() {
@@ -7827,11 +7440,9 @@
 
     function setAllKnockoutDrawSelections(checked) {
       const mode = knockoutDrawSelectionState?.mode || 'knockout';
-      const selector = mode === 'combined'
-        ? '#knockout-draw-selector input[type="checkbox"]'
-        : (mode === 'groups'
-          ? '#knockout-draw-selector .groups-popup-draw-option'
-          : '#knockout-draw-selector .knockout-draw-option');
+      const selector = mode === 'groups'
+        ? '#knockout-draw-selector .groups-popup-draw-option'
+        : '#knockout-draw-selector .knockout-draw-option';
       document.querySelectorAll(selector).forEach(input => {
         input.checked = Boolean(checked);
       });
@@ -7866,30 +7477,6 @@
         knockoutDrawSelectionState = null;
         closeKnockoutDrawSelector();
         resolve(selectedDrawNames);
-        return;
-      }
-
-      if (knockoutDrawSelectionState.mode === 'combined') {
-        const groupDraws = Array.from(document.querySelectorAll('#knockout-draw-selector .combined-group-option:checked'))
-          .map(input => input.value)
-          .filter(Boolean);
-        const knockoutDraws = Array.from(document.querySelectorAll('#knockout-draw-selector .combined-knockout-draw-option:checked'))
-          .map(input => input.value)
-          .filter(Boolean);
-
-        if (groupDraws.length === 0 && knockoutDraws.length === 0) {
-          const errorMsg = document.getElementById('error-message');
-          if (errorMsg) {
-            errorMsg.textContent = 'בחר לפחות בית אחד או קטגוריית נוקאאוט אחת.';
-            errorMsg.classList.remove('hidden');
-          }
-          return;
-        }
-
-        const { resolve } = knockoutDrawSelectionState;
-        knockoutDrawSelectionState = null;
-        closeKnockoutDrawSelector();
-        resolve({ groupDraws, knockoutDraws });
         return;
       }
 
@@ -8695,187 +8282,6 @@
       return ((2 ** (roundIndex - 1)) - 0.5) + (matchIndex * (2 ** roundIndex));
     }
 
-    async function openCombinedPopup(source = 'general', sourceBounds = null) {
-      const standings = buildGroupStandings(gamesData || []);
-      const groupDrawNames = Array.from(new Set(standings.map(group => group.draw))).sort((a, b) => a.localeCompare(b, 'he'));
-      const nonGroupGamesByDraw = getNonGroupGamesByDraw(gamesData || []);
-      const knockoutDrawNames = Array.from(nonGroupGamesByDraw.keys()).sort((a, b) => a.localeCompare(b, 'he'));
-      const savedSelection = loadCombinedSelection();
-
-      const selection = await openCombinedSelector(groupDrawNames, knockoutDrawNames, savedSelection);
-      if (!selection) return;
-      saveCombinedSelection(selection);
-
-      const fallbackTargetWin = (source === 'upcoming' && upcomingColumnPopupWindow && !upcomingColumnPopupWindow.closed)
-        ? upcomingColumnPopupWindow
-        : null;
-      const reportedUpcomingBounds = source === 'upcoming' ? getPreferredUpcomingPopupBounds() : null;
-      const targetBounds = (source === 'upcoming' && sourceBounds && Number.isFinite(Number(sourceBounds.left)) && Number.isFinite(Number(sourceBounds.top)))
-        ? {
-            left: Math.round(Number(sourceBounds.left)),
-            top: Math.round(Number(sourceBounds.top)),
-            width: Math.max(420, Math.round(Number(sourceBounds.width) || 1200)),
-            height: Math.max(420, Math.round(Number(sourceBounds.height) || 780))
-          }
-        : (reportedUpcomingBounds ? {
-            left: reportedUpcomingBounds.left,
-            top: reportedUpcomingBounds.top,
-            width: reportedUpcomingBounds.width,
-            height: reportedUpcomingBounds.height
-          }
-        : (fallbackTargetWin ? {
-            left: Math.round(Number(fallbackTargetWin.screenX ?? window.screenX ?? 0)),
-            top: Math.round(Number(fallbackTargetWin.screenY ?? window.screenY ?? 0)),
-            width: Math.max(420, Math.round(Number(fallbackTargetWin.outerWidth ?? fallbackTargetWin.innerWidth ?? 1200))),
-            height: Math.max(420, Math.round(Number(fallbackTargetWin.outerHeight ?? fallbackTargetWin.innerHeight ?? 780)))
-          } : null));
-      const offsetIndex = getLiveKnockoutPopupWindows().length;
-      const defaultWidth = Math.max(1200, Math.floor(window.screen.availWidth * 0.93));
-      const defaultHeight = Math.max(780, Math.floor(window.screen.availHeight * 0.96));
-      const width = Math.max(420, targetBounds ? targetBounds.width : defaultWidth);
-      const height = Math.max(420, targetBounds ? targetBounds.height : defaultHeight);
-      const left = targetBounds
-        ? targetBounds.left
-        : Math.round((window.screenX ?? 0) + 4 + (offsetIndex * 10));
-      const top = targetBounds
-        ? targetBounds.top
-        : Math.round((window.screenY ?? 0) + 4 + (offsetIndex * 10));
-      const features = `popup=yes,resizable=yes,scrollbars=yes,width=${width},height=${height},left=${left},top=${top}`;
-      const popupHostWin = (source === 'upcoming' && upcomingColumnPopupWindow && !upcomingColumnPopupWindow.closed)
-        ? upcomingColumnPopupWindow
-        : null;
-      const entry = {
-        id: nextKnockoutPopupWindowId,
-        _windowName: `combinedTreeWindow_${nextKnockoutPopupWindowId}`,
-        mode: 'combined',
-        openedFrom: source === 'upcoming' ? 'upcoming' : 'general',
-        groupDraws: Array.isArray(selection.groupDraws) ? selection.groupDraws.slice() : [],
-        drawNames: Array.isArray(selection.knockoutDraws) ? selection.knockoutDraws.slice() : [],
-        combinedSectionOrder: ['groups', 'knockout'],
-        combinedGroupOrder: [],
-        combinedKnockoutOrder: [],
-        combinedGroupsPanePercent: 50,
-        knockoutSingleRow: true,
-        zoomPercent: 100,
-        groupsZoomPercent: 100,
-        lastGroupsAutoScale: 1,
-        preserveGroupsAutoScaleOnce: false,
-        zoomToolbarCollapsed: false,
-        resizeTimer: null,
-        win: (() => {
-          let opened = null;
-          try {
-            if (popupHostWin && typeof popupHostWin.open === 'function') {
-              opened = popupHostWin.open('', `combinedTreeWindow_${nextKnockoutPopupWindowId}`, features);
-            }
-          } catch {}
-          if (!opened) {
-            opened = window.open('', `combinedTreeWindow_${nextKnockoutPopupWindowId}`, features);
-          }
-          return opened;
-        })()
-      };
-      nextKnockoutPopupWindowId += 1;
-
-      if (!entry.win) {
-        const errorMsg = document.getElementById('error-message');
-        if (errorMsg) {
-          errorMsg.textContent = 'הדפדפן חסם פתיחת חלון משולב. אפשר חלונות קופצים ונסה שוב.';
-          errorMsg.classList.remove('hidden');
-        }
-        return;
-      }
-
-      knockoutPopupWindows.push(entry);
-      if (entry.openedFrom === 'upcoming') {
-        combinedPopupCycleEntry = entry;
-      }
-      attachKnockoutPopupLifecycle(entry);
-
-      renderKnockoutPopupWindow(entry);
-      try { entry.win.focus(); } catch {}
-
-      if (combinedPopupCycleEnabled && entry.openedFrom === 'upcoming') {
-        combinedPopupCyclePhase = 'games';
-        runCombinedPopupCycleStep();
-      }
-    }
-
-    async function openCombinedPopupForUpcomingCycle(sourceBounds = null) {
-      if (!upcomingColumnPopupWindow || upcomingColumnPopupWindow.closed) {
-        setCombinedPopupCycleError('יש לפתוח קודם את תצוגה.');
-        return;
-      }
-
-      const standings = buildGroupStandings(gamesData || []);
-      const groupDrawNames = Array.from(new Set(standings.map(group => group.draw))).sort((a, b) => a.localeCompare(b, 'he'));
-      const nonGroupGamesByDraw = getNonGroupGamesByDraw(gamesData || []);
-      const knockoutDrawNames = Array.from(nonGroupGamesByDraw.keys()).sort((a, b) => a.localeCompare(b, 'he'));
-      const savedSelection = loadCombinedSelection();
-
-      const selection = await openCombinedSelector(groupDrawNames, knockoutDrawNames, savedSelection);
-      if (!selection) return;
-      saveCombinedSelection(selection);
-
-      const popupDoc = getUpcomingPopupDocument();
-      if (!popupDoc) {
-        setCombinedPopupCycleError('לא ניתן לטעון תצוגת בתים+נוקאאוט בתצוגה.');
-        return;
-      }
-
-      let entry = upcomingEmbeddedCombinedEntry;
-      if (!entry) {
-        entry = {
-          id: nextKnockoutPopupWindowId,
-          _windowName: `upcomingEmbeddedCombined_${nextKnockoutPopupWindowId}`,
-          mode: 'combined',
-          openedFrom: 'upcoming',
-          embeddedInUpcoming: true,
-          groupDraws: [],
-          drawNames: [],
-          combinedSectionOrder: ['groups', 'knockout'],
-          combinedGroupOrder: [],
-          combinedKnockoutOrder: [],
-          combinedGroupsPanePercent: 50,
-          knockoutSingleRow: true,
-          zoomPercent: 100,
-          groupsZoomPercent: 100,
-          lastGroupsAutoScale: 1,
-          preserveGroupsAutoScaleOnce: false,
-          zoomToolbarCollapsed: false,
-          resizeTimer: null,
-          win: null,
-          frameEl: null
-        };
-        nextKnockoutPopupWindowId += 1;
-        upcomingEmbeddedCombinedEntry = entry;
-        knockoutPopupWindows.push(entry);
-      }
-
-      entry.groupDraws = Array.isArray(selection.groupDraws) ? selection.groupDraws.slice() : [];
-      entry.drawNames = Array.isArray(selection.knockoutDraws) ? selection.knockoutDraws.slice() : [];
-      entry.openedFrom = 'upcoming';
-      entry.embeddedInUpcoming = true;
-      entry._cycleSourceBounds = sourceBounds || null;
-
-      if (!ensureUpcomingEmbeddedCombinedEntry(entry)) {
-        setCombinedPopupCycleError('לא ניתן ליצור תצוגת בתים+נוקאאוט משולבת בתצוגה.');
-        return;
-      }
-
-      combinedPopupCycleEntry = entry;
-      renderKnockoutPopupWindow(entry);
-      setUpcomingPopupDisplayMode('combined');
-      entry._cycleHidden = false;
-      refreshCombinedPopupCycleStatusLabel();
-      if (combinedPopupCycleEnabled) {
-        combinedPopupCyclePhase = 'games';
-        runCombinedPopupCycleStep();
-      } else {
-        setCombinedPopupCycleMessage('תצוגת בתים+נוקאאוט נטענה עבור תצוגה.');
-      }
-    }
-
     async function openKnockoutPopup(source = 'general', sourceBounds = null) {
       const nonGroupGamesByDraw = getNonGroupGamesByDraw(gamesData || []);
       const availableDrawNames = Array.from(nonGroupGamesByDraw.keys()).sort((a, b) => a.localeCompare(b, 'he'));
@@ -9600,7 +9006,6 @@
 
     // Render games to columns
     function renderGames(games) {
-      setupPlayerTimers(games);
       syncManualInProgressOverrides(games);
       syncManualFinishedOverrides(games);
       syncTableNumberOverrides(games);
@@ -10183,23 +9588,12 @@
         upcomingCol.style.margin = '0 auto';
       }
     }
-    function hideClockToggleIfEventId() {
-      if (eventIdFromUrl) {
-        var clockToggleBtn = document.getElementById('desktop-clock-toggle');
-        if (clockToggleBtn) clockToggleBtn.style.display = 'none';
-      }
-    }
     if (eventIdFromUrl) {
       // Hide event ID input section and settings section
       if (urlSection) urlSection.style.display = 'none';
       // Hide the settings container (the parent of urlSection)
       var urlSettingsContainer = urlSection ? urlSection.closest('.bg-white.rounded-xl.shadow-lg.mx-auto.overflow-hidden') : null;
       if (urlSettingsContainer) urlSettingsContainer.style.display = 'none';
-      // Hide the desktop clock toggle button (immediate)
-      hideClockToggleIfEventId();
-      // Hide the desktop clock widget itself
-      var clockWidget = document.getElementById('desktop-clock-widget');
-      if (clockWidget) clockWidget.style.display = 'none';
       // Set eventId and env to prod, then auto-load
       if (eventIdInput) eventIdInput.value = eventIdFromUrl;
       if (envSelect) envSelect.value = (envFromUrl === 'dev' ? 'dev' : 'prod');
@@ -10207,8 +9601,6 @@
       // Auto-load games from prod
       setTimeout(() => { fetchGames(); }, 0);
       setTimeout(() => { initCombinedPopupCycleControls(); }, 0);
-      // Also ensure after DOMContentLoaded
-      window.addEventListener('DOMContentLoaded', hideClockToggleIfEventId);
     } else {
       // Restore on load
       const lastEventId = localStorage.getItem('lastEventId');
