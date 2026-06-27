@@ -1323,8 +1323,8 @@
     <div id="knockout-draw-selector" class="draw-selector-overlay" onclick="if (event.target === this) cancelKnockoutDrawSelection()">
       <div class="draw-selector-modal" role="dialog" aria-modal="true" aria-label="בחירת קטגוריות לנוקאאוט">
         <div class="draw-selector-header">
-          <h3>בחירת קטגוריות לנוקאאוט</h3>
-          <p>בחר את הקטגוריות שייפתחו בחלון הנוקאאוט החדש.</p>
+          <h3 id="draw-selector-title">בחירת קטגוריות לנוקאאוט</h3>
+          <p id="draw-selector-subtitle">בחר את הקטגוריות שייפתחו בחלון הנוקאאוט החדש.</p>
         </div>
         <div class="draw-selector-body">
           <div class="draw-selector-tools">
@@ -1335,7 +1335,7 @@
         </div>
         <div class="draw-selector-footer">
           <button type="button" class="draw-selector-cancel" onclick="cancelKnockoutDrawSelection()">ביטול</button>
-          <button type="button" class="draw-selector-confirm" onclick="confirmKnockoutDrawSelection()">פתח חלון</button>
+          <button id="draw-selector-confirm-btn" type="button" class="draw-selector-confirm" onclick="confirmKnockoutDrawSelection()">פתח חלון</button>
         </div>
       </div>
     </div>
@@ -1668,7 +1668,7 @@
       </div><!-- URL Input Section - Collapsible -->
       <div class="bg-white rounded-xl shadow-lg max-w-7xl mx-auto overflow-hidden"><button id="toggle-url-section" onclick="toggleUrlSection()" class="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors border-b border-slate-200"> <span class="text-slate-700 font-semibold">⚙️ הגדרות</span> <span id="toggle-icon" class="text-slate-500">▼</span> </button>
      <div id="url-section" class="p-4">
-      <div class="flex flex-col md:flex-row gap-3">
+      <div class="flex flex-col md:flex-row md:flex-wrap gap-3">
         <input type="text" id="event-id-input" placeholder="מזהה אירוע" class="w-28 md:w-32 px-3 py-2 border-2 border-slate-200 rounded-lg focus:border-blue-500 focus:outline-none text-right transition-colors">
         <select id="env-select" class="px-4 py-3 border-2 border-slate-200 rounded-lg focus:border-blue-500 focus:outline-none">
           <option value="dev">פיתוח</option>
@@ -1679,9 +1679,10 @@
         <button id="auto-reload-btn" onclick="toggleAutoReload()" class="px-3 py-2 text-sm whitespace-nowrap bg-gray-300 hover:bg-gray-400 text-slate-700 font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">הפעל רענון</button>
         <button id="print-upcoming-btn" onclick="printUpcomingGames()" class="px-3 py-2 text-sm whitespace-nowrap bg-slate-700 hover:bg-slate-800 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">הדפס משחקים</button>
         <button id="dingdong-btn" type="button" onclick="playDingDongOnly()" class="px-3 py-2 text-sm whitespace-nowrap font-semibold rounded-lg transition-colors flex items-center justify-center" style="background:#0e7490;color:#ffffff;border:1px solid #0c4a6e;" onmouseover="this.style.background='#155e75'" onmouseout="this.style.background='#0e7490'" title="השמע DingDong" aria-label="השמע DingDong">&#128483;</button>
-        <button id="upcoming-popup-btn" onclick="openUpcomingColumnPopup()" class="px-3 py-2 text-sm whitespace-nowrap bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">חלון משחקים הבאים</button>
+        <button id="upcoming-popup-btn" onclick="openUpcomingColumnPopup()" class="px-3 py-2 text-sm whitespace-nowrap bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">תצוגה</button>
         <button id="reset-game-numbers-btn" onclick="resetGameNumbers()" class="px-3 py-2 text-sm whitespace-nowrap font-semibold rounded-lg transition-colors flex items-center justify-center gap-2" style="background:#be123c;color:#ffffff;">איפוס מספרי משחקים</button>
-        <button id="groups-standings-btn" onclick="openCombinedPopup()" class="px-3 py-2 text-sm whitespace-nowrap bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">בתים + נוקאאוט</button>
+        <button id="groups-standings-btn" onclick="openGroupsPopup()" class="px-3 py-2 text-sm whitespace-nowrap bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">בתים</button>
+        <button id="knockout-standings-btn" onclick="openKnockoutPopup()" class="px-3 py-2 text-sm whitespace-nowrap bg-cyan-600 hover:bg-cyan-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2" style="background:#0891b2;color:#ffffff;border:1px solid #0e7490;" onmouseover="this.style.background='#0e7490'" onmouseout="this.style.background='#0891b2'">נוקאאוט</button>
       </div>
       <div class="print-selection-bar">
         <label for="enable-upcoming-print-selection">
@@ -1952,12 +1953,14 @@
     let combinedPopupCycleEnabled = false;
     let combinedPopupCycleShowMs = 5000;
     let combinedPopupCycleHideMs = 10000;
-    let combinedPopupCyclePhase = 'show';
+    let combinedPopupCyclePhase = 'groups';
     let combinedPopupCycleTimer = null;
     let combinedPopupCycleStatusTimer = null;
     let combinedPopupCycleDeadlineMs = 0;
     let combinedPopupCycleEntry = null;
     let combinedPopupPositionLockTimer = null;
+    let groupsPopupCycleState = { hidden: false, minimized: false, pseudoHidden: false, prevBounds: null };
+    let knockoutPopupCycleState = { hidden: false, minimized: false, pseudoHidden: false, prevBounds: null };
     let upcomingPopupReportedBounds = null;
     let upcomingEmbeddedCombinedEntry = null;
     const COMBINED_CYCLE_ENABLED_KEY = 'combinedPopupCycleEnabled';
@@ -1978,7 +1981,9 @@
     let tableNumberStorageScope = '';
     let tableNumberStorageKey = '';
     const COMBINED_SELECTION_STORAGE_PREFIX = 'combinedDisplaySelection';
+    const GROUPS_SELECTION_STORAGE_PREFIX = 'groupsDisplaySelection';
     const DRAW_COLOR_STORAGE_PREFIX = 'drawDisplayColors';
+    let groupsPopupSelectedDrawNames = null;
     let drawColorOverrides = {};
     let drawColorStorageScope = '';
     let drawColorStorageKey = '';
@@ -2023,6 +2028,32 @@
           groupDraws: Array.isArray(selection?.groupDraws) ? selection.groupDraws.slice() : [],
           knockoutDraws: Array.isArray(selection?.knockoutDraws) ? selection.knockoutDraws.slice() : []
         }));
+      } catch {}
+    }
+
+    function getGroupsSelectionStorageKey() {
+      const scope = getCombinedSelectionScope();
+      return scope ? `${GROUPS_SELECTION_STORAGE_PREFIX}:${scope}` : '';
+    }
+
+    function loadGroupsSelection() {
+      const storageKey = getGroupsSelectionStorageKey();
+      if (!storageKey) return null;
+      try {
+        const parsed = JSON.parse(localStorage.getItem(storageKey) || 'null');
+        if (!Array.isArray(parsed)) return null;
+        return parsed.map(String).filter(Boolean);
+      } catch {
+        return null;
+      }
+    }
+
+    function saveGroupsSelection(drawNames) {
+      const storageKey = getGroupsSelectionStorageKey();
+      if (!storageKey) return;
+      try {
+        const names = Array.isArray(drawNames) ? drawNames.map(String).filter(Boolean) : [];
+        localStorage.setItem(storageKey, JSON.stringify(names));
       } catch {}
     }
 
@@ -3546,7 +3577,12 @@
         return;
       }
 
-      const standings = buildGroupStandings(gamesData || []);
+      const allStandings = buildGroupStandings(gamesData || []);
+      let standings = allStandings;
+      if (Array.isArray(groupsPopupSelectedDrawNames) && groupsPopupSelectedDrawNames.length > 0) {
+        const selectedSet = new Set(groupsPopupSelectedDrawNames.map(String));
+        standings = allStandings.filter(group => selectedSet.has(String(group.draw || '')));
+      }
       const containerWidth = Math.max(320, (groupsPopupWindow.innerWidth || 1200) - 40);
       const groupsColumns = pickGroupsColumns(standings.length, containerWidth);
       const bodyHtml = getGroupsPopupBodyHtml(standings);
@@ -3766,12 +3802,20 @@
       popupDoc.close();
     }
 
-    function openGroupsPopup() {
+    async function openGroupsPopup(source = 'general', sourceBounds = null) {
+      const standings = buildGroupStandings(gamesData || []);
+      const savedSelection = loadGroupsSelection();
+      const selectedDrawNames = await openGroupsSelector(standings, savedSelection);
+      if (selectedDrawNames == null) return;
+      groupsPopupSelectedDrawNames = Array.isArray(selectedDrawNames) ? selectedDrawNames.slice() : [];
+      saveGroupsSelection(groupsPopupSelectedDrawNames);
+
       if (!groupsPopupWindow || groupsPopupWindow.closed) {
-        const width = Math.max(1100, Math.floor(window.screen.availWidth * 0.92));
-        const height = Math.max(760, Math.floor(window.screen.availHeight * 0.96));
-        const left = Math.max(0, window.screenX + 6);
-        const top = Math.max(0, window.screenY + 6);
+        const preferredBounds = source === 'upcoming' ? (sourceBounds || getPreferredUpcomingPopupBounds()) : null;
+        const width = Math.max(760, Math.round(Number(preferredBounds?.width) || Math.max(1100, Math.floor(window.screen.availWidth * 0.92))));
+        const height = Math.max(520, Math.round(Number(preferredBounds?.height) || Math.max(760, Math.floor(window.screen.availHeight * 0.96))));
+        const left = Number.isFinite(Number(preferredBounds?.left)) ? Math.round(Number(preferredBounds.left)) : Math.max(0, window.screenX + 6);
+        const top = Number.isFinite(Number(preferredBounds?.top)) ? Math.round(Number(preferredBounds.top)) : Math.max(0, window.screenY + 6);
         const features = `popup=yes,resizable=yes,scrollbars=yes,width=${width},height=${height},left=${left},top=${top}`;
         groupsPopupWindow = window.open('', 'groupsStandingsWindow', features);
         if (!groupsPopupWindow) {
@@ -3794,7 +3838,26 @@
         });
       }
       renderGroupsPopupWindow();
+      if (source === 'upcoming') {
+        const preferredBounds = sourceBounds || getPreferredUpcomingPopupBounds();
+        if (preferredBounds) {
+          try {
+            groupsPopupWindow.resizeTo(preferredBounds.width, preferredBounds.height);
+            groupsPopupWindow.moveTo(preferredBounds.left, preferredBounds.top);
+          } catch {}
+        }
+      }
       try { groupsPopupWindow.focus(); } catch {}
+    }
+
+    async function openGroupsPopupForUpcomingCycle(sourceBounds = null) {
+      if (!upcomingColumnPopupWindow || upcomingColumnPopupWindow.closed) {
+        setCombinedPopupCycleError('יש לפתוח קודם את תצוגה.');
+        return;
+      }
+      await openGroupsPopup('upcoming', sourceBounds || getPreferredUpcomingPopupBounds());
+      groupsPopupCycleState.hidden = false;
+      refreshCombinedPopupCycleStatusLabel();
     }
 
     function closeGroupsPopup() {
@@ -3910,7 +3973,7 @@
         if (!upcomingColumnPopupWindow) {
           const errorMsg = document.getElementById('error-message');
           if (errorMsg) {
-            errorMsg.textContent = 'הדפדפן חסם פתיחת חלון משחקים הבאים. אפשר חלונות קופצים ונסה שוב.';
+            errorMsg.textContent = 'הדפדפן חסם פתיחת תצוגה. אפשר חלונות קופצים ונסה שוב.';
             errorMsg.classList.remove('hidden');
           }
           return;
@@ -4308,18 +4371,36 @@
         height: Number(window.outerHeight ?? window.innerHeight ?? 780)
       });
     }
-    function openCombinedPopupFromUpcoming() {
+    function openGroupsPopupFromUpcoming() {
       const host = getUpcomingPopupHostWindow();
       if (!host) return;
-      let openCombined = null;
+      let openGroups = null;
       try {
-        openCombined = host.openCombinedPopupForUpcomingCycle || host.openCombinedPopup;
+        openGroups = host.openGroupsPopupForUpcomingCycle || host.openGroupsPopup;
       } catch {
-        openCombined = null;
+        openGroups = null;
       }
-      if (typeof openCombined !== 'function') return;
+      if (typeof openGroups !== 'function') return;
       reportUpcomingPopupBoundsToOpener();
-      openCombined.call(host, 'upcoming', {
+      openGroups.call(host, 'upcoming', {
+        left: Number(window.screenX ?? window.screenLeft ?? 0),
+        top: Number(window.screenY ?? window.screenTop ?? 0),
+        width: Number(window.outerWidth ?? window.innerWidth ?? 1200),
+        height: Number(window.outerHeight ?? window.innerHeight ?? 780)
+      });
+    }
+    function openKnockoutPopupFromUpcoming() {
+      const host = getUpcomingPopupHostWindow();
+      if (!host) return;
+      let openKnockout = null;
+      try {
+        openKnockout = host.openKnockoutPopupForUpcomingCycle || host.openKnockoutPopup;
+      } catch {
+        openKnockout = null;
+      }
+      if (typeof openKnockout !== 'function') return;
+      reportUpcomingPopupBoundsToOpener();
+      openKnockout.call(host, 'upcoming', {
         left: Number(window.screenX ?? window.screenLeft ?? 0),
         top: Number(window.screenY ?? window.screenTop ?? 0),
         width: Number(window.outerWidth ?? window.innerWidth ?? 1200),
@@ -4327,12 +4408,7 @@
       });
     }
     function updatePopupViewToggleButton() {
-      const toggleBtn = document.getElementById('popup-view-toggle-btn');
-      const upcomingView = document.getElementById('popup-upcoming-view');
-      const combinedView = document.getElementById('popup-combined-cycle-view');
-      if (!toggleBtn || !upcomingView || !combinedView) return;
-      const showingCombined = !combinedView.classList.contains('is-hidden');
-      toggleBtn.textContent = showingCombined ? 'משחקים הבאים' : 'בתים + נוקאאוט';
+      // View-toggle is intentionally disabled in split windows mode.
     }
     function showUpcomingViewInPopup() {
       const upcomingView = document.getElementById('popup-upcoming-view');
@@ -4806,17 +4882,17 @@
       <div class="popup-header-left">
         <button id="popup-copy-link-btn" type="button" class="popup-share-btn" onclick="copyUpcomingShareLink()">העתק קישור</button>
         <button type="button" class="popup-share-btn" onclick="toggleUpcomingQrPanel()">QR</button>
-        <button id="popup-view-toggle-btn" type="button" class="popup-share-btn" onclick="togglePopupMainCombinedView()">בתים + נוקאאוט</button>
         <h2>משחקים הבאים</h2>
-        <span id="popup-combined-cycle-status" class="popup-cycle-status">בתים+נוקאאוט: כבוי</span>
+        <span id="popup-combined-cycle-status" class="popup-cycle-status">בתים/נוקאאוט: כבוי</span>
       </div>
       <div class="popup-header-right">
-        <div class="popup-scroll-controls" title="בתים+נוקאאוט במחזור">
-          <button type="button" class="popup-share-btn" onclick="openCombinedPopupFromUpcoming()">בתים+נוקאאוט</button>
-          <span>הצג</span>
-          <input id="combined-cycle-show-seconds" type="number" min="1" max="600" step="1" value="5" class="popup-cycle-seconds" oninput="updateCombinedPopupCycleDurationsFromUpcoming()" aria-label="משך הצגה בשניות">
-          <span>הסתר</span>
-          <input id="combined-cycle-hide-seconds" type="number" min="1" max="600" step="1" value="10" class="popup-cycle-seconds" oninput="updateCombinedPopupCycleDurationsFromUpcoming()" aria-label="משך הסתרה בשניות">
+        <div class="popup-scroll-controls" title="בתים ונוקאאוט במחזור">
+          <button type="button" class="popup-share-btn" onclick="openGroupsPopupFromUpcoming()">בתים</button>
+          <button type="button" class="popup-share-btn" onclick="openKnockoutPopupFromUpcoming()">נוקאאוט</button>
+          <span>בתים</span>
+          <input id="combined-cycle-show-seconds" type="number" min="1" max="600" step="1" value="5" class="popup-cycle-seconds" oninput="updateCombinedPopupCycleDurationsFromUpcoming()" aria-label="משך תצוגת בתים בשניות">
+          <span>נוקאאוט</span>
+          <input id="combined-cycle-hide-seconds" type="number" min="1" max="600" step="1" value="10" class="popup-cycle-seconds" oninput="updateCombinedPopupCycleDurationsFromUpcoming()" aria-label="משך תצוגת נוקאאוט בשניות">
           <button id="combined-cycle-toggle-btn" type="button" class="popup-scroll-toggle" onclick="toggleCombinedPopupCycleFromUpcoming()">הפעל מחזור</button>
         </div>
         <div class="popup-scroll-controls" title="גלילה אוטומטית">
@@ -6403,6 +6479,11 @@
       return entries.length ? entries[entries.length - 1] : null;
     }
 
+    function getLatestUpcomingKnockoutPopupEntry() {
+      const entries = getLiveKnockoutPopupWindows().filter(entry => entry && entry.mode !== 'combined' && entry.openedFrom === 'upcoming');
+      return entries.length ? entries[entries.length - 1] : null;
+    }
+
     function getCombinedCycleControlElement(id) {
       const local = document.getElementById(id);
       if (local) return local;
@@ -6594,13 +6675,13 @@
 
     function refreshCombinedPopupCycleStatusLabel() {
       if (!combinedPopupCycleEnabled) {
-        updateUpcomingPopupCycleStatusLabel('בתים+נוקאאוט: כבוי');
+        updateUpcomingPopupCycleStatusLabel('בתים/נוקאאוט: כבוי');
         return;
       }
       const remainingMs = Math.max(0, combinedPopupCycleDeadlineMs - Date.now());
       const remainingSec = Math.max(0, Math.ceil(remainingMs / 1000));
-      const phaseLabel = combinedPopupCyclePhase === 'hide' ? 'מוצג' : 'ממוזער';
-      updateUpcomingPopupCycleStatusLabel(`בתים+נוקאאוט: ${phaseLabel} (${remainingSec}ש')`);
+      const phaseLabel = combinedPopupCyclePhase === 'groups' ? 'בתים' : 'נוקאאוט';
+      updateUpcomingPopupCycleStatusLabel(`מחזור: ${phaseLabel} (${remainingSec}ש')`);
     }
 
     function startCombinedPopupCycleStatusTimer() {
@@ -6618,8 +6699,7 @@
     }
 
     function getCurrentCombinedCyclePeriodMs() {
-      // phase='hide' means popup is currently shown and next action is hide.
-      return combinedPopupCyclePhase === 'hide' ? combinedPopupCycleShowMs : combinedPopupCycleHideMs;
+      return combinedPopupCyclePhase === 'groups' ? combinedPopupCycleShowMs : combinedPopupCycleHideMs;
     }
 
     function updateCombinedPopupCycleDurationsFromControls() {
@@ -6844,34 +6924,119 @@
       return ok;
     }
 
+    function hidePopupWindowForCycle(win, state) {
+      if (!win || win.closed || !state) return false;
+      try {
+        state.prevBounds = {
+          left: Number(win.screenX || 0),
+          top: Number(win.screenY || 0),
+          width: Number(win.outerWidth || 1200),
+          height: Number(win.outerHeight || 780)
+        };
+        let minimized = false;
+        try {
+          if (typeof win.minimize === 'function') {
+            win.minimize();
+            minimized = true;
+          }
+        } catch {}
+        if (!minimized) {
+          const anchor = getPreferredUpcomingPopupBounds() || state.prevBounds;
+          const miniWidth = 120;
+          const miniHeight = 80;
+          const miniLeft = Math.round((anchor?.left || 0) + Math.max(0, (anchor?.width || 1200) - miniWidth - 8));
+          const miniTop = Math.round((anchor?.top || 0) + Math.max(0, (anchor?.height || 780) - miniHeight - 8));
+          try {
+            if (win.document?.documentElement) {
+              win.document.documentElement.style.visibility = 'hidden';
+              win.document.documentElement.style.opacity = '0';
+              win.document.documentElement.style.pointerEvents = 'none';
+            }
+          } catch {}
+          try { win.resizeTo(miniWidth, miniHeight); } catch {}
+          try { win.moveTo(miniLeft, miniTop); } catch {}
+          state.pseudoHidden = true;
+        } else {
+          state.pseudoHidden = false;
+        }
+        state.minimized = minimized;
+        state.hidden = true;
+        try { win.blur(); } catch {}
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    function showPopupWindowForCycle(win, state) {
+      if (!win || win.closed || !state) return false;
+      if (state.minimized) {
+        try {
+          if (typeof win.restore === 'function') {
+            win.restore();
+          } else if (typeof win.unminimize === 'function') {
+            win.unminimize();
+          }
+        } catch {}
+      }
+      try {
+        if (win.document?.documentElement) {
+          win.document.documentElement.style.visibility = '';
+          win.document.documentElement.style.opacity = '';
+          win.document.documentElement.style.pointerEvents = '';
+        }
+      } catch {}
+      if (state.prevBounds) {
+        try {
+          win.resizeTo(state.prevBounds.width, state.prevBounds.height);
+          win.moveTo(state.prevBounds.left, state.prevBounds.top);
+        } catch {}
+      }
+      const targetBounds = getPreferredUpcomingPopupBounds();
+      if (targetBounds) {
+        try {
+          win.resizeTo(targetBounds.width, targetBounds.height);
+          win.moveTo(targetBounds.left, targetBounds.top);
+        } catch {}
+      }
+      try { win.focus(); } catch {}
+      state.minimized = false;
+      state.pseudoHidden = false;
+      state.hidden = false;
+      return true;
+    }
+
     function runCombinedPopupCycleStep() {
       if (!combinedPopupCycleEnabled) return;
-      let entry = combinedPopupCycleEntry;
-      if (!entry || entry.mode !== 'combined') {
-        entry = getLatestCombinedPopupEntry();
-        combinedPopupCycleEntry = entry || null;
-      }
-      if (!entry) {
+
+      const groupsWin = (groupsPopupWindow && !groupsPopupWindow.closed) ? groupsPopupWindow : null;
+      const knockoutEntry = getLatestUpcomingKnockoutPopupEntry();
+      const knockoutWin = knockoutEntry?.win && !knockoutEntry.win.closed ? knockoutEntry.win : null;
+      if (!groupsWin || !knockoutWin) {
         combinedPopupCycleEnabled = false;
         clearCombinedPopupCycleTimer();
         clearCombinedPopupPositionLock();
         updateCombinedPopupCycleControls();
-        setCombinedPopupCycleError('יש לטעון את תצוגת בתים+נוקאאוט מתוך חלון משחקים הבאים כדי להפעיל מחזור.');
+        setCombinedPopupCycleError('יש לפתוח חלונות בתים ונוקאאוט מתוך תצוגה לפני הפעלת מחזור.');
         persistCombinedPopupCycleConfig();
         return;
       }
 
-      const nextDelay = combinedPopupCyclePhase === 'show' ? combinedPopupCycleShowMs : combinedPopupCycleHideMs;
-      if (combinedPopupCyclePhase === 'show') {
-        showCombinedPopupWindow(entry);
-        combinedPopupCyclePhase = 'hide';
+      let nextDelay = combinedPopupCycleShowMs;
+      if (combinedPopupCyclePhase === 'groups') {
+        showPopupWindowForCycle(groupsWin, groupsPopupCycleState);
+        hidePopupWindowForCycle(knockoutWin, knockoutPopupCycleState);
+        combinedPopupCyclePhase = 'knockout';
+        nextDelay = combinedPopupCycleShowMs;
       } else {
-        hideCombinedPopupWindow(entry);
-        combinedPopupCyclePhase = 'show';
+        hidePopupWindowForCycle(groupsWin, groupsPopupCycleState);
+        showPopupWindowForCycle(knockoutWin, knockoutPopupCycleState);
+        combinedPopupCyclePhase = 'groups';
+        nextDelay = combinedPopupCycleHideMs;
       }
+
       combinedPopupCycleDeadlineMs = Date.now() + Math.max(1000, nextDelay);
       startCombinedPopupCycleStatusTimer();
-
       clearCombinedPopupCycleTimer();
       combinedPopupCycleTimer = setTimeout(runCombinedPopupCycleStep, Math.max(1000, nextDelay));
     }
@@ -6882,12 +7047,12 @@
       clearCombinedPopupCycleStatusTimer();
       clearCombinedPopupPositionLock();
       if (restoreVisible) {
-        const entry = combinedPopupCycleEntry || getLatestCombinedPopupEntry();
-        if (entry?.embeddedInUpcoming) {
-          setUpcomingPopupDisplayMode('upcoming');
-          entry._cycleHidden = false;
-        } else if (entry && entry._cycleHidden) {
-          showCombinedPopupWindow(entry);
+        if (groupsPopupWindow && !groupsPopupWindow.closed && groupsPopupCycleState.hidden) {
+          showPopupWindowForCycle(groupsPopupWindow, groupsPopupCycleState);
+        }
+        const knockoutEntry = getLatestUpcomingKnockoutPopupEntry();
+        if (knockoutEntry?.win && !knockoutEntry.win.closed && knockoutPopupCycleState.hidden) {
+          showPopupWindowForCycle(knockoutEntry.win, knockoutPopupCycleState);
         }
       }
       updateCombinedPopupCycleControls();
@@ -6896,9 +7061,11 @@
     }
 
     function startCombinedPopupCycle() {
-      combinedPopupCycleEntry = getLatestCombinedPopupEntry();
-      if (!combinedPopupCycleEntry) {
-        setCombinedPopupCycleError('יש לפתוח חלון בתים+נוקאאוט מתוך חלון משחקים הבאים כדי להפעיל מחזור.');
+      const groupsWin = (groupsPopupWindow && !groupsPopupWindow.closed) ? groupsPopupWindow : null;
+      const knockoutEntry = getLatestUpcomingKnockoutPopupEntry();
+      const knockoutWin = knockoutEntry?.win && !knockoutEntry.win.closed ? knockoutEntry.win : null;
+      if (!groupsWin || !knockoutWin) {
+        setCombinedPopupCycleError('יש לפתוח חלונות בתים ונוקאאוט מתוך תצוגה לפני הפעלת מחזור.');
         refreshCombinedPopupCycleStatusLabel();
         return;
       }
@@ -6907,11 +7074,13 @@
       combinedPopupCycleShowMs = showSec * 1000;
       combinedPopupCycleHideMs = hideSec * 1000;
       combinedPopupCycleEnabled = true;
-      combinedPopupCyclePhase = 'show';
+      combinedPopupCyclePhase = 'groups';
+      groupsPopupCycleState.hidden = false;
+      knockoutPopupCycleState.hidden = false;
       combinedPopupCycleDeadlineMs = Date.now() + Math.max(1000, combinedPopupCycleShowMs);
       updateCombinedPopupCycleControls();
       persistCombinedPopupCycleConfig();
-      setCombinedPopupCycleMessage(`מחזור הופעל: הצגה ${showSec} שנ' / הסתרה ${hideSec} שנ'`);
+      setCombinedPopupCycleMessage(`מחזור הופעל: בתים ${showSec} שנ' / נוקאאוט ${hideSec} שנ'`);
       startCombinedPopupCycleStatusTimer();
       runCombinedPopupCycleStep();
     }
@@ -6919,7 +7088,7 @@
     function toggleCombinedPopupCycle() {
       if (combinedPopupCycleEnabled) {
         stopCombinedPopupCycle(true);
-        setCombinedPopupCycleMessage('מחזור חלון בתים+נוקאאוט הופסק.');
+        setCombinedPopupCycleMessage('מחזור חלונות בתים/נוקאאוט הופסק.');
       } else {
         startCombinedPopupCycle();
       }
@@ -6954,6 +7123,8 @@
       const list = document.getElementById('knockout-draw-selector-list');
       if (!overlay || !list) return Promise.resolve(names);
 
+      setDrawSelectorCopy('knockout');
+
       return new Promise(resolve => {
         knockoutDrawSelectionState = {
           names,
@@ -6968,6 +7139,65 @@
           </label>
         `).join('');
 
+        overlay.classList.add('show');
+      });
+    }
+
+    function setDrawSelectorCopy(mode) {
+      const titleEl = document.getElementById('draw-selector-title');
+      const subtitleEl = document.getElementById('draw-selector-subtitle');
+      const confirmBtn = document.getElementById('draw-selector-confirm-btn');
+      if (!titleEl || !subtitleEl || !confirmBtn) return;
+
+      if (mode === 'combined') {
+        titleEl.textContent = 'בחירת תצוגת בתים ונוקאאוט';
+        subtitleEl.textContent = 'בחר את הבתים וקטגוריות הנוקאאוט להצגה.';
+        confirmBtn.textContent = 'פתח חלון';
+        return;
+      }
+
+      if (mode === 'groups') {
+        titleEl.textContent = 'בחירת קטגוריות בתים להצגה';
+        subtitleEl.textContent = 'בחר קטגוריות, וכל הבתים של כל קטגוריה שנבחרה יוצגו.';
+        confirmBtn.textContent = 'הצג קטגוריות';
+        return;
+      }
+
+      titleEl.textContent = 'בחירת קטגוריות לנוקאאוט';
+      subtitleEl.textContent = 'בחר את הקטגוריות שייפתחו בחלון הנוקאאוט החדש.';
+      confirmBtn.textContent = 'פתח חלון';
+    }
+
+    function openGroupsSelector(standings, savedSelection = null) {
+      const groups = Array.isArray(standings) ? standings.slice() : [];
+      if (groups.length === 0) return Promise.resolve([]);
+      const drawNames = Array.from(new Set(groups.map(group => String(group.draw || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'he'));
+      if (drawNames.length <= 1) return Promise.resolve(drawNames);
+
+      const overlay = document.getElementById('knockout-draw-selector');
+      const list = document.getElementById('knockout-draw-selector-list');
+      if (!overlay || !list) return Promise.resolve(drawNames);
+
+      setDrawSelectorCopy('groups');
+      const hasSavedSelection = Array.isArray(savedSelection) && savedSelection.length > 0;
+      const selectedSet = new Set(hasSavedSelection ? savedSelection.map(String) : drawNames);
+
+      const optionsHtml = drawNames.map(drawName => {
+        return `
+          <label class="draw-selector-item">
+            <input type="checkbox" class="groups-popup-draw-option" value="${escapeHtml(drawName)}" ${selectedSet.has(drawName) ? 'checked' : ''}>
+            <span>${escapeHtml(drawName)}</span>
+          </label>
+        `;
+      }).join('');
+
+      return new Promise(resolve => {
+        knockoutDrawSelectionState = {
+          mode: 'groups',
+          resolve
+        };
+
+        list.innerHTML = optionsHtml;
         overlay.classList.add('show');
       });
     }
@@ -6988,6 +7218,8 @@
           knockoutDraws: koNames
         });
       }
+
+      setDrawSelectorCopy('combined');
 
       return new Promise(resolve => {
         knockoutDrawSelectionState = {
@@ -7039,7 +7271,9 @@
       const mode = knockoutDrawSelectionState?.mode || 'knockout';
       const selector = mode === 'combined'
         ? '#knockout-draw-selector input[type="checkbox"]'
-        : '#knockout-draw-selector .knockout-draw-option';
+        : (mode === 'groups'
+          ? '#knockout-draw-selector .groups-popup-draw-option'
+          : '#knockout-draw-selector .knockout-draw-option');
       document.querySelectorAll(selector).forEach(input => {
         input.checked = Boolean(checked);
       });
@@ -7055,6 +7289,27 @@
 
     function confirmKnockoutDrawSelection() {
       if (!knockoutDrawSelectionState) return;
+
+      if (knockoutDrawSelectionState.mode === 'groups') {
+        const selectedDrawNames = Array.from(document.querySelectorAll('#knockout-draw-selector .groups-popup-draw-option:checked'))
+          .map(input => String(input.value || '').trim())
+          .filter(Boolean);
+
+        if (selectedDrawNames.length === 0) {
+          const errorMsg = document.getElementById('error-message');
+          if (errorMsg) {
+            errorMsg.textContent = 'בחר לפחות קטגוריה אחת להצגה.';
+            errorMsg.classList.remove('hidden');
+          }
+          return;
+        }
+
+        const { resolve } = knockoutDrawSelectionState;
+        knockoutDrawSelectionState = null;
+        closeKnockoutDrawSelector();
+        resolve(selectedDrawNames);
+        return;
+      }
 
       if (knockoutDrawSelectionState.mode === 'combined') {
         const groupDraws = Array.from(document.querySelectorAll('#knockout-draw-selector .combined-group-option:checked'))
@@ -7953,7 +8208,7 @@
 
     async function openCombinedPopupForUpcomingCycle(sourceBounds = null) {
       if (!upcomingColumnPopupWindow || upcomingColumnPopupWindow.closed) {
-        setCombinedPopupCycleError('יש לפתוח קודם את חלון משחקים הבאים.');
+        setCombinedPopupCycleError('יש לפתוח קודם את תצוגה.');
         return;
       }
 
@@ -7969,7 +8224,7 @@
 
       const popupDoc = getUpcomingPopupDocument();
       if (!popupDoc) {
-        setCombinedPopupCycleError('לא ניתן לטעון תצוגת בתים+נוקאאוט בחלון משחקים הבאים.');
+        setCombinedPopupCycleError('לא ניתן לטעון תצוגת בתים+נוקאאוט בתצוגה.');
         return;
       }
 
@@ -8009,7 +8264,7 @@
       entry._cycleSourceBounds = sourceBounds || null;
 
       if (!ensureUpcomingEmbeddedCombinedEntry(entry)) {
-        setCombinedPopupCycleError('לא ניתן ליצור תצוגת בתים+נוקאאוט משולבת בחלון משחקים הבאים.');
+        setCombinedPopupCycleError('לא ניתן ליצור תצוגת בתים+נוקאאוט משולבת בתצוגה.');
         return;
       }
 
@@ -8022,30 +8277,51 @@
         combinedPopupCyclePhase = 'show';
         runCombinedPopupCycleStep();
       } else {
-        setCombinedPopupCycleMessage('תצוגת בתים+נוקאאוט נטענה עבור חלון משחקים הבאים.');
+        setCombinedPopupCycleMessage('תצוגת בתים+נוקאאוט נטענה עבור תצוגה.');
       }
     }
 
-    async function openKnockoutPopup() {
+    async function openKnockoutPopup(source = 'general', sourceBounds = null) {
       const nonGroupGamesByDraw = getNonGroupGamesByDraw(gamesData || []);
       const availableDrawNames = Array.from(nonGroupGamesByDraw.keys()).sort((a, b) => a.localeCompare(b, 'he'));
       const selectedDrawNames = await openKnockoutDrawSelector(availableDrawNames);
       if (selectedDrawNames == null) return;
 
-      const width = Math.max(1200, Math.floor(window.screen.availWidth * 0.93));
-      const height = Math.max(780, Math.floor(window.screen.availHeight * 0.96));
+      const preferredBounds = source === 'upcoming' ? (sourceBounds || getPreferredUpcomingPopupBounds()) : null;
+      const width = Math.max(760, Math.round(Number(preferredBounds?.width) || Math.max(1200, Math.floor(window.screen.availWidth * 0.93))));
+      const height = Math.max(520, Math.round(Number(preferredBounds?.height) || Math.max(780, Math.floor(window.screen.availHeight * 0.96))));
       const offsetIndex = getLiveKnockoutPopupWindows().length;
-      const left = Math.max(0, window.screenX + 4 + (offsetIndex * 10));
-      const top = Math.max(0, window.screenY + 4 + (offsetIndex * 10));
+      const left = Number.isFinite(Number(preferredBounds?.left))
+        ? Math.round(Number(preferredBounds.left))
+        : Math.max(0, window.screenX + 4 + (offsetIndex * 10));
+      const top = Number.isFinite(Number(preferredBounds?.top))
+        ? Math.round(Number(preferredBounds.top))
+        : Math.max(0, window.screenY + 4 + (offsetIndex * 10));
       const features = `popup=yes,resizable=yes,scrollbars=yes,width=${width},height=${height},left=${left},top=${top}`;
+      const popupHostWin = (source === 'upcoming' && upcomingColumnPopupWindow && !upcomingColumnPopupWindow.closed)
+        ? upcomingColumnPopupWindow
+        : null;
       const entry = {
         id: nextKnockoutPopupWindowId,
+        mode: 'knockout',
+        openedFrom: source === 'upcoming' ? 'upcoming' : 'general',
         drawNames: selectedDrawNames.slice(),
         knockoutSingleRow: true,
         zoomPercent: 100,
         zoomToolbarCollapsed: false,
         resizeTimer: null,
-        win: window.open('', `knockoutTreeWindow_${nextKnockoutPopupWindowId}`, features)
+        win: (() => {
+          let opened = null;
+          try {
+            if (popupHostWin && typeof popupHostWin.open === 'function') {
+              opened = popupHostWin.open('', `knockoutTreeWindow_${nextKnockoutPopupWindowId}`, features);
+            }
+          } catch {}
+          if (!opened) {
+            opened = window.open('', `knockoutTreeWindow_${nextKnockoutPopupWindowId}`, features);
+          }
+          return opened;
+        })()
       };
       nextKnockoutPopupWindowId += 1;
 
@@ -8070,7 +8346,19 @@
       });
 
       renderKnockoutPopupWindow(entry);
+      if (entry.openedFrom === 'upcoming') {
+        knockoutPopupCycleState.hidden = false;
+      }
       try { entry.win.focus(); } catch {}
+    }
+
+    async function openKnockoutPopupForUpcomingCycle(sourceBounds = null) {
+      if (!upcomingColumnPopupWindow || upcomingColumnPopupWindow.closed) {
+        setCombinedPopupCycleError('יש לפתוח קודם את תצוגה.');
+        return;
+      }
+      await openKnockoutPopup('upcoming', sourceBounds || getPreferredUpcomingPopupBounds());
+      refreshCombinedPopupCycleStatusLabel();
     }
 
     function closeKnockoutPopup() {
