@@ -1281,6 +1281,24 @@
     }
   </style>
   <style>body { box-sizing: border-box; }</style>
+  <style>
+    /* Main page groups view - override combined groups styles for better long player names handling */
+    .main-groups-view-custom .combined-groups-wrap .group-card {
+      overflow-x: hidden;
+      overflow-y: auto;
+      width: 380px;
+      min-height: 180px;
+    }
+    .main-groups-view-custom .combined-groups-wrap .group-table td.player-col {
+      white-space: normal !important;
+      overflow: visible !important;
+      text-overflow: clip !important;
+      word-break: break-word !important;
+      word-wrap: break-word !important;
+      max-width: none;
+      padding: 8px 6px !important;
+    }
+  </style>
   <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
  </head>
  <body class="h-full bg-gradient-to-br from-slate-100 to-slate-200 overflow-auto">
@@ -1439,8 +1457,9 @@
         <button id="dingdong-btn" type="button" onclick="playDingDongOnly()" class="px-3 py-2 text-sm whitespace-nowrap font-semibold rounded-lg transition-colors flex items-center justify-center" style="background:#0e7490;color:#ffffff;border:1px solid #0c4a6e;" onmouseover="this.style.background='#155e75'" onmouseout="this.style.background='#0e7490'" title="השמע DingDong" aria-label="השמע DingDong">&#128483;</button>
         <button id="upcoming-popup-btn" onclick="openUpcomingColumnPopup()" class="px-3 py-2 text-sm whitespace-nowrap bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">תצוגה</button>
         <button id="reset-game-numbers-btn" onclick="resetGameNumbers()" class="px-3 py-2 text-sm whitespace-nowrap font-semibold rounded-lg transition-colors flex items-center justify-center gap-2" style="background:#be123c;color:#ffffff;">איפוס מספרי משחקים</button>
-        <button id="groups-standings-btn" onclick="openGroupsPopup()" class="px-3 py-2 text-sm whitespace-nowrap bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">בתים</button>
-        <button id="knockout-standings-btn" onclick="openKnockoutPopup()" class="px-3 py-2 text-sm whitespace-nowrap bg-cyan-600 hover:bg-cyan-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2" style="background:#0891b2;color:#ffffff;border:1px solid #0e7490;" onmouseover="this.style.background='#0e7490'" onmouseout="this.style.background='#0891b2'">נוקאאוט</button>
+        <button id="games-view-btn" onclick="switchMainView('games')" class="px-3 py-2 text-sm whitespace-nowrap bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">משחקים</button>
+        <button id="groups-standings-btn" onclick="switchMainView('groups')" class="px-3 py-2 text-sm whitespace-nowrap bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">בתים</button>
+        <button id="knockout-standings-btn" onclick="switchMainView('knockout')" class="px-3 py-2 text-sm whitespace-nowrap bg-cyan-600 hover:bg-cyan-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2" style="background:#0891b2;color:#ffffff;border:1px solid #0e7490;" onmouseover="this.style.background='#0e7490'" onmouseout="this.style.background='#0891b2'">נוקאאוט</button>
       </div>
       <div class="print-selection-bar">
         <label for="enable-upcoming-print-selection">
@@ -1465,7 +1484,7 @@
      </div>
     </div>
    </div><!-- Games Columns -->
-   <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+   <div id="main-games-view" class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
     <!-- Right Column - Upcoming Games -->
     <div class="bg-white rounded-xl shadow-lg overflow-hidden">
      <div class="column-header p-4 text-white text-center" style="--header-from: #6366f1; --header-to: #8b5cf6;">
@@ -1545,6 +1564,10 @@
      </div>
     </div>
    </div>
+   <!-- Groups View Container -->
+   <div id="main-groups-view" style="display: none; padding: 16px; overflow-y: auto; max-height: calc(100vh - 180px); background: #f8fafc; border-radius: 0;" class="main-groups-view-custom"></div>
+   <!-- Knockout View Container -->
+   <div id="main-knockout-view" style="display: none; padding: 16px; overflow-y: auto; max-height: calc(100vh - 180px); background: #f8fafc; border-radius: 0;"></div>
   </div>
   <script>
         // Auto-reload logic
@@ -1626,6 +1649,216 @@
     };
 
     let gamesData = [];
+    let currentMainView = 'games'; // Track current view: 'games', 'groups', or 'knockout'
+    let mainGroupsSelectedDrawNames = null; // Store selected group draws for main page
+    let mainKnockoutSelectedDrawNames = null; // Store selected knockout draws for main page
+
+    // Switch main view between games, groups, and knockout
+    function switchMainView(viewName) {
+      currentMainView = viewName;
+      const gamesView = document.getElementById('main-games-view');
+      const groupsView = document.getElementById('main-groups-view');
+      const knockoutView = document.getElementById('main-knockout-view');
+      
+      // Hide all views
+      gamesView.style.display = 'none';
+      groupsView.style.display = 'none';
+      knockoutView.style.display = 'none';
+      
+      // Update button states
+      document.getElementById('games-view-btn').classList.remove('brightness-150', 'ring-2', 'ring-white');
+      document.getElementById('groups-standings-btn').classList.remove('brightness-150', 'ring-2', 'ring-white');
+      document.getElementById('knockout-standings-btn').classList.remove('brightness-150', 'ring-2', 'ring-white');
+      
+      if (viewName === 'games') {
+        gamesView.style.display = '';
+        document.getElementById('games-view-btn').classList.add('brightness-150', 'ring-2', 'ring-white');
+      } else if (viewName === 'groups') {
+        groupsView.style.display = 'block';
+        document.getElementById('groups-standings-btn').classList.add('brightness-150', 'ring-2', 'ring-white');
+        renderMainGroupsView();
+      } else if (viewName === 'knockout') {
+        knockoutView.style.display = 'block';
+        document.getElementById('knockout-standings-btn').classList.add('brightness-150', 'ring-2', 'ring-white');
+        renderMainKnockoutView();
+      }
+    }
+
+    // Open groups selector dialog for main page
+    async function openMainGroupsSelector() {
+      const allStandings = buildGroupStandings(gamesData || []);
+      const allDrawNames = Array.from(new Set(allStandings.map(g => g.draw || '').filter(Boolean)))
+        .filter(name => name !== 'ללא קטגוריה')
+        .sort((a, b) => a.localeCompare(b, 'he'));
+      
+      if (allDrawNames.length === 0) return;
+      if (allDrawNames.length === 1) {
+        mainGroupsSelectedDrawNames = allDrawNames;
+        renderMainGroupsView();
+        return;
+      }
+      
+      const overlay = document.getElementById('knockout-draw-selector');
+      const list = document.getElementById('knockout-draw-selector-list');
+      if (!overlay || !list) return;
+      
+      // Build options HTML with current selections
+      const savedSelection = mainGroupsSelectedDrawNames || [];
+      const optionsHtml = allDrawNames.map(name => {
+        const isChecked = savedSelection.includes(name) ? 'checked' : '';
+        return `<label class="draw-option-label"><input type="checkbox" class="groups-draw-option" value="${name}" ${isChecked}> ${name}</label>`;
+      }).join('');
+      
+      return new Promise(resolve => {
+        knockoutDrawSelectionState = {
+          names: allDrawNames,
+          mode: 'main-groups',
+          resolve
+        };
+        
+        const title = document.getElementById('draw-selector-title');
+        const subtitle = document.getElementById('draw-selector-subtitle');
+        const confirmBtn = document.getElementById('draw-selector-confirm-btn');
+        
+        if (title) title.textContent = 'בחירת קטגוריות';
+        if (subtitle) subtitle.textContent = 'בחר את הקטגוריות שתרצה להציג.';
+        if (confirmBtn) confirmBtn.textContent = 'הצג';
+        
+        list.innerHTML = optionsHtml;
+        overlay.classList.add('show');
+      });
+    }
+
+    // Open knockout selector dialog for main page
+    async function openMainKnockoutSelector() {
+      const nonGroupGamesByDraw = getNonGroupGamesByDraw(gamesData || []);
+      const allDrawNames = Array.from(nonGroupGamesByDraw.keys()).sort((a, b) => a.localeCompare(b, 'he'));
+      
+      if (allDrawNames.length === 0) return;
+      if (allDrawNames.length === 1) {
+        mainKnockoutSelectedDrawNames = allDrawNames;
+        renderMainKnockoutView();
+        return;
+      }
+      
+      const overlay = document.getElementById('knockout-draw-selector');
+      const list = document.getElementById('knockout-draw-selector-list');
+      if (!overlay || !list) return;
+      
+      // Build options HTML with current selections
+      const savedSelection = mainKnockoutSelectedDrawNames || [];
+      const optionsHtml = allDrawNames.map(name => {
+        const isChecked = savedSelection.includes(name) ? 'checked' : '';
+        return `<label class="draw-option-label"><input type="checkbox" class="knockout-draw-option" value="${name}" ${isChecked}> ${name}</label>`;
+      }).join('');
+      
+      return new Promise(resolve => {
+        knockoutDrawSelectionState = {
+          names: allDrawNames,
+          mode: 'main-knockout',
+          resolve
+        };
+        
+        const title = document.getElementById('draw-selector-title');
+        const subtitle = document.getElementById('draw-selector-subtitle');
+        const confirmBtn = document.getElementById('draw-selector-confirm-btn');
+        
+        if (title) title.textContent = 'בחירת קטגוריות נוקאאוט';
+        if (subtitle) subtitle.textContent = 'בחר את הקטגוריות שתרצה להציג.';
+        if (confirmBtn) confirmBtn.textContent = 'הצג';
+        
+        list.innerHTML = optionsHtml;
+        overlay.classList.add('show');
+      });
+    }
+
+    // Render groups view in main page
+    function renderMainGroupsView() {
+      const container = document.getElementById('main-groups-view');
+      if (!container) return;
+      
+      const allStandings = buildGroupStandings(gamesData || []);
+      
+      // Filter out "ללא קטגוריה" (no category) groups
+      let standings = allStandings.filter(group => (group.draw || '') !== 'ללא קטגוריה');
+      
+      // Filter by selected draws if any
+      if (Array.isArray(mainGroupsSelectedDrawNames) && mainGroupsSelectedDrawNames.length > 0) {
+        const selectedSet = new Set(mainGroupsSelectedDrawNames.map(String));
+        standings = standings.filter(group => selectedSet.has(String(group.draw || '')));
+      }
+      
+      // Use combined groups HTML (same as in popup view)
+      const groupsContentHtml = getCombinedGroupsCardsHtml(standings, 0, { showDrawHeaders: true, disableDrag: true });
+      
+      // Create full HTML with header similar to popup view
+      const fullHtml = `
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #cbd5e1; background: linear-gradient(135deg, #0f172a, #1e293b); color: #ffffff; margin: -16px -16px 0 -16px;">
+          <h2 style="margin: 0; font-size: 22px;">בתים</h2>
+          <button id="main-groups-select-btn" style="border: 1px solid #cbd5e1; background: #ffffff; color: #0f172a; border-radius: 8px; padding: 6px 12px; font-weight: 700; cursor: pointer; font-size: 13px;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#ffffff'" onclick="openMainGroupsSelector()">בחר קטגוריות</button>
+        </div>
+        <div style="padding: 16px 0;">
+          ${groupsContentHtml}
+        </div>
+      `;
+      
+      container.innerHTML = fullHtml;
+    }
+
+    // Render knockout view in main page
+    function renderMainKnockoutView() {
+      const container = document.getElementById('main-knockout-view');
+      if (!container) return;
+      
+      const nonGroupGamesByDraw = getNonGroupGamesByDraw(gamesData || []);
+      let allDrawNames = Array.from(nonGroupGamesByDraw.keys()).sort((a, b) => a.localeCompare(b, 'he'));
+      
+      // Filter by selected draws if any
+      let visibleDrawNames = allDrawNames;
+      if (Array.isArray(mainKnockoutSelectedDrawNames) && mainKnockoutSelectedDrawNames.length > 0) {
+        const selectedSet = new Set(mainKnockoutSelectedDrawNames.map(String));
+        visibleDrawNames = allDrawNames.filter(drawName => selectedSet.has(String(drawName)));
+      }
+      
+      // Build drawTrees from games
+      const filteredDrawMap = new Map(visibleDrawNames.map(drawName => {
+        const drawGames = nonGroupGamesByDraw.get(drawName) || [];
+        return [drawName, drawGames];
+      }));
+      
+      const drawTrees = Array.from(filteredDrawMap.entries()).map(([drawName, drawGames]) => ({
+        drawName,
+        rounds: buildKnockoutTreeFromGames(drawGames)
+      })).filter(item => item.rounds.length > 0).map(item => ({
+        ...item,
+        rounds: alignKnockoutRoundsByPlayerNames(applyKnockoutFirstStageOrder(item.drawName, item.rounds), filteredDrawMap.get(item.drawName) || [])
+      }));
+      
+      const estimatedBodyWidth = Math.max(600, window.innerWidth - 48);
+      const estimatedBodyHeight = Math.max(400, window.innerHeight - 200);
+      let drawColumns = chooseKnockoutDrawColumns(drawTrees, estimatedBodyWidth, estimatedBodyHeight);
+      
+      const bodyHtml = getKnockoutPopupBodyHtml(drawTrees, filteredDrawMap, drawColumns, {});
+      
+      // Create full HTML with header similar to groups view
+      const fullHtml = `
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #cbd5e1; background: linear-gradient(135deg, #0f172a, #1e293b); color: #ffffff; margin: -16px -16px 0 -16px;">
+          <h2 style="margin: 0; font-size: 22px;">נוקאאוטים</h2>
+          <button id="main-knockout-select-btn" style="border: 1px solid #cbd5e1; background: #ffffff; color: #0f172a; border-radius: 8px; padding: 6px 12px; font-weight: 700; cursor: pointer; font-size: 13px;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#ffffff'" onclick="openMainKnockoutSelector()">בחר קטגוריות</button>
+        </div>
+        <div style="padding: 16px 0;">
+          ${bodyHtml}
+        </div>
+      `;
+      
+      container.innerHTML = fullHtml;
+    }
+
+    // Initialize games view as active on page load
+    function initializeMainView() {
+      currentMainView = 'games';
+      document.getElementById('games-view-btn').classList.add('brightness-150', 'ring-2', 'ring-white');
+    }
 
     // Toggle URL section collapse/expand
     function toggleUrlSection() {
@@ -1912,6 +2145,8 @@
       saveDrawColorOverridesIfScoped();
       refreshGroupsPopupIfOpen();
       refreshKnockoutPopupIfOpen();
+      if (currentMainView === 'groups') renderMainGroupsView();
+      else if (currentMainView === 'knockout') renderMainKnockoutView();
     }
 
     function openDrawColorPickerForDraw(drawName) {
@@ -3263,6 +3498,7 @@
       }
       const showDrawHeaders = Boolean(options?.showDrawHeaders);
       const showDrawHeaderCount = options?.showDrawHeaderCount !== false;
+      const disableDrag = Boolean(options?.disableDrag);
 
       const groupsByDraw = new Map();
       standings.forEach(group => {
@@ -3280,7 +3516,7 @@
             const displayName = formatGroupsPlayerDisplayName(player.name);
             const playerKey = getGroupPlayerOrderKey(player);
             const playerToken = encodeURIComponent(playerKey);
-            const dragAttrs = group.canManualReorder && playerKey
+            const dragAttrs = !disableDrag && group.canManualReorder && playerKey
               ? ` class="player-order-draggable" data-group-key="${escapeHtml(groupKey)}" data-player-key="${escapeHtml(playerKey)}" draggable="true" ondragstart="startGroupPlayersDrag('combined', ${windowId}, decodeURIComponent('${groupToken}'), decodeURIComponent('${playerToken}'), event)" ondragend="endGroupPlayersDrag(event)" ondragover="allowGroupPlayersDrop(event)" ondragenter="onGroupPlayersDragEnter(event)" ondragleave="onGroupPlayersDragLeave(event)" ondrop="dropGroupPlayersSwap('combined', ${windowId}, decodeURIComponent('${groupToken}'), decodeURIComponent('${playerToken}'), event)"`
               : '';
             return `
@@ -5546,7 +5782,12 @@
       order[targetIndex] = tmp;
       setKnockoutFirstStageOrder(drawName, order);
       clearKnockoutFirstStageDragState();
+      
+      // Refresh both popup windows and main page view
       refreshKnockoutPopupIfOpen();
+      if (currentMainView === 'knockout') {
+        renderMainKnockoutView();
+      }
     }
 
     function startCombinedSectionDrag(windowId, sectionKey, event) {
@@ -5721,6 +5962,10 @@
         if (isGroupStage) return;
 
         const drawName = String(game.draw || 'ללא קטגוריה').trim();
+        
+        // Filter out 'ללא קטגוריה' (no category)
+        if (drawName === 'ללא קטגוריה') return;
+        
         if (!drawGames.has(drawName)) {
           drawGames.set(drawName, []);
         }
@@ -7054,7 +7299,7 @@
     function getGroupsDrawNamesFromStandings(standings) {
       const groups = Array.isArray(standings) ? standings.slice() : [];
       if (groups.length === 0) return [];
-      return Array.from(new Set(groups.map(group => String(group.draw || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'he'));
+      return Array.from(new Set(groups.map(group => String(group.draw || '').trim()).filter(Boolean).filter(name => name !== 'ללא קטגוריה'))).sort((a, b) => a.localeCompare(b, 'he'));
     }
 
     function buildGroupsSelectorData(drawNames, savedSelection = null) {
@@ -7435,13 +7680,21 @@
       const overlay = document.getElementById('knockout-draw-selector');
       if (overlay) {
         overlay.classList.remove('show');
+        // Restore default texts for next opening
+        const title = document.getElementById('draw-selector-title');
+        const subtitle = document.getElementById('draw-selector-subtitle');
+        const confirmBtn = document.getElementById('draw-selector-confirm-btn');
+        
+        if (title) title.textContent = 'בחירת קטגוריות לנוקאאוט';
+        if (subtitle) subtitle.textContent = 'בחר את הקטגוריות שייפתחו בחלון הנוקאאוט החדש.';
+        if (confirmBtn) confirmBtn.textContent = 'פתח חלון';
       }
     }
 
     function setAllKnockoutDrawSelections(checked) {
       const mode = knockoutDrawSelectionState?.mode || 'knockout';
-      const selector = mode === 'groups'
-        ? '#knockout-draw-selector .groups-popup-draw-option'
+      const selector = (mode === 'groups' || mode === 'main-groups')
+        ? '#knockout-draw-selector .groups-popup-draw-option, #knockout-draw-selector .groups-draw-option'
         : '#knockout-draw-selector .knockout-draw-option';
       document.querySelectorAll(selector).forEach(input => {
         input.checked = Boolean(checked);
@@ -7453,7 +7706,7 @@
       const { resolve } = knockoutDrawSelectionState;
       knockoutDrawSelectionState = null;
       closeKnockoutDrawSelector();
-      resolve(null);
+      if (resolve) resolve(null);
     }
 
     function confirmKnockoutDrawSelection() {
@@ -7477,6 +7730,44 @@
         knockoutDrawSelectionState = null;
         closeKnockoutDrawSelector();
         resolve(selectedDrawNames);
+        return;
+      }
+
+      if (knockoutDrawSelectionState.mode === 'main-groups') {
+        const selectedDrawNames = Array.from(document.querySelectorAll('#knockout-draw-selector .groups-draw-option:checked'))
+          .map(input => String(input.value || '').trim())
+          .filter(Boolean);
+
+        if (selectedDrawNames.length === 0) {
+          mainGroupsSelectedDrawNames = null;
+        } else {
+          mainGroupsSelectedDrawNames = selectedDrawNames;
+        }
+        
+        renderMainGroupsView();
+        const { resolve } = knockoutDrawSelectionState;
+        knockoutDrawSelectionState = null;
+        closeKnockoutDrawSelector();
+        resolve();
+        return;
+      }
+
+      if (knockoutDrawSelectionState.mode === 'main-knockout') {
+        const selectedDrawNames = Array.from(document.querySelectorAll('#knockout-draw-selector .knockout-draw-option:checked'))
+          .map(input => String(input.value || '').trim())
+          .filter(Boolean);
+
+        if (selectedDrawNames.length === 0) {
+          mainKnockoutSelectedDrawNames = null;
+        } else {
+          mainKnockoutSelectedDrawNames = selectedDrawNames;
+        }
+        
+        renderMainKnockoutView();
+        const { resolve } = knockoutDrawSelectionState;
+        knockoutDrawSelectionState = null;
+        closeKnockoutDrawSelector();
+        resolve();
         return;
       }
 
@@ -9406,6 +9697,9 @@
         renderGames(games);
         refreshGroupsPopupIfOpen();
         refreshKnockoutPopupIfOpen();
+        // Re-render main view if it's not games view
+        if (currentMainView === 'groups') renderMainGroupsView();
+        else if (currentMainView === 'knockout') renderMainKnockoutView();
         // Attach filter listeners (once)
         setTimeout(() => {
           // Populate category selects with unique categories from only the presented games in each column
@@ -9600,6 +9894,7 @@
       applyUpcomingOnlyViewMode();
       // Auto-load games from prod
       setTimeout(() => { fetchGames(); }, 0);
+      setTimeout(() => { initializeMainView(); }, 50);
       setTimeout(() => { initCombinedPopupCycleControls(); }, 0);
     } else {
       // Restore on load
@@ -9625,6 +9920,7 @@
         }
       });
       initCombinedPopupCycleControls();
+      initializeMainView();
       applyUpcomingOnlyViewMode();
     }
   </script>
