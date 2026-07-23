@@ -1440,7 +1440,7 @@
    <div class="mb-6">
       <div class="flex items-end justify-center gap-2 mb-4">
         <h1 id="page-title" class="text-2xl md:text-3xl font-bold text-slate-800 text-center m-0">לוח משחקים</h1>
-        <span class="text-xs md:text-sm text-slate-500 font-semibold leading-none" style="position:relative;top:4px;">V1.0.0.3</span>
+        <span class="text-xs md:text-sm text-slate-500 font-semibold leading-none" style="position:relative;top:4px;">V1.0.0.4</span>
       </div><!-- URL Input Section - Collapsible -->
       <div class="bg-white rounded-xl shadow-lg max-w-7xl mx-auto overflow-hidden"><button id="toggle-url-section" onclick="toggleUrlSection()" class="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors border-b border-slate-200"> <span class="text-slate-700 font-semibold">⚙️ הגדרות</span> <span id="toggle-icon" class="text-slate-500">▼</span> </button>
      <div id="url-section" class="p-4">
@@ -2595,7 +2595,7 @@
       const currentTable = Object.prototype.hasOwnProperty.call(tableNumberByKey, stableKey)
         ? String(tableNumberByKey[stableKey] || '')
         : String(game.table || '');
-      const nextValue = window.prompt('הכנס מספר שולחן (ריק לניקוי):', currentTable);
+      const nextValue = window.prompt('הכנס מספר שולחן ("0" לניקוי):', currentTable);
       if (nextValue === null) return;
 
       const normalized = String(nextValue || '').trim();
@@ -4255,6 +4255,7 @@
       color: #0f172a;
       border-radius: 8px;
       padding: 6px 12px;
+      font-size: 13px;
       font-weight: 700;
       cursor: pointer;
     }
@@ -4992,13 +4993,10 @@
   <div class="popup-shell">
     <div class="popup-header">
       <div class="popup-header-left">
-        <button id="popup-copy-link-btn" type="button" class="popup-share-btn" onclick="copyUpcomingShareLink()">העתק קישור</button>
-        <button type="button" class="popup-share-btn" onclick="toggleUpcomingQrPanel()">QR</button>
         <button id="popup-view-games-btn" type="button" class="popup-share-btn active" onclick="switchToGamesInPopup()">משחקים</button>
         <button id="popup-view-groups-btn" type="button" class="popup-share-btn" onclick="openGroupsPopupFromUpcoming()">בתים</button>
         <button id="popup-view-knockout-btn" type="button" class="popup-share-btn" onclick="openKnockoutPopupFromUpcoming()">נוקאאוט</button>
-        <h2>משחקים הבאים</h2>
-        <span id="popup-combined-cycle-status" class="popup-cycle-status">בתים/נוקאאוט: כבוי</span>
+        <span id="popup-combined-cycle-status" class="popup-cycle-status">הרצה כבויה</span>
       </div>
       <div class="popup-header-right">
         <div class="popup-scroll-controls" title="בתים ונוקאאוט במחזור">
@@ -6854,7 +6852,7 @@
 
     function refreshCombinedPopupCycleStatusLabel() {
       if (!combinedPopupCycleEnabled) {
-        updateUpcomingPopupCycleStatusLabel('בתים/נוקאאוט: כבוי');
+        updateUpcomingPopupCycleStatusLabel('הרצה כבויה');
         return;
       }
       const remainingMs = Math.max(0, combinedPopupCycleDeadlineMs - Date.now());
@@ -6862,7 +6860,7 @@
       const phaseLabel = combinedPopupCyclePhase === 'games'
         ? 'משחקים'
         : (combinedPopupCyclePhase === 'groups' ? 'בתים' : 'נוקאאוט');
-      updateUpcomingPopupCycleStatusLabel(`מחזור: ${phaseLabel} (${remainingSec}ש')`);
+      updateUpcomingPopupCycleStatusLabel(`התצוגה הבאה: ${phaseLabel} (${remainingSec}ש')`);
     }
 
     function startCombinedPopupCycleStatusTimer() {
