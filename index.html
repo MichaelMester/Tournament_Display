@@ -1788,6 +1788,21 @@
         standings = standings.filter(group => selectedSet.has(String(group.draw || '')));
       }
       
+      // Log currently playing players
+      const playingPlayers = [];
+      standings.forEach(group => {
+        group.players.forEach(player => {
+          if (player.isPlaying) {
+            playingPlayers.push(`${player.name} (${group.draw}, Group ${group.groupNo})`);
+          }
+        });
+      });
+      if (playingPlayers.length > 0) {
+        console.log('🎾 Players currently playing:', playingPlayers);
+      } else {
+        console.log('🎾 No players currently playing');
+      }
+      
       // Use combined groups HTML (same as in popup view)
       const groupsContentHtml = getCombinedGroupsCardsHtml(standings, 0, { showDrawHeaders: true, disableDrag: true });
       
@@ -2685,10 +2700,29 @@
       renderGames(gamesData);
     }
 
-    function startGameByStableKey(encodedKey) {
+    async function startGameByStableKey(encodedKey) {
       if (!encodedKey) return;
       const stableKey = decodeStableGameKey(encodedKey);
       if (!stableKey) return;
+
+      const game = (gamesData || []).find(g => getStableGameKey(g) === stableKey);
+      const gameId = String(game?.id || '').trim();
+
+      if (gameId) {
+        try {
+          await sendStartGameRequest(gameId);
+          const manageResponse = await sendGameManageRequest(gameId);
+          applyManagedGameStateToLocalGame(gameId, manageResponse);
+        } catch (error) {
+          const errorMsg = document.getElementById('error-message');
+          if (errorMsg) {
+            errorMsg.textContent = `שגיאה בבקשות התחלת/ניהול משחק (${String(error?.message || 'unknown error')}).`;
+            errorMsg.classList.remove('hidden');
+          }
+          return;
+        }
+      }
+
       if (Object.prototype.hasOwnProperty.call(manualFinishedByKey, stableKey)) {
         delete manualFinishedByKey[stableKey];
         saveManualFinishedIfScoped();
@@ -2716,10 +2750,29 @@
       renderGames(gamesData);
     }
 
-    function stopGameByStableKey(encodedKey) {
+    async function stopGameByStableKey(encodedKey) {
       if (!encodedKey) return;
       const stableKey = decodeStableGameKey(encodedKey);
       if (!stableKey) return;
+
+      const game = (gamesData || []).find(g => getStableGameKey(g) === stableKey);
+      const gameId = String(game?.id || '').trim();
+
+      if (gameId) {
+        try {
+          await sendResetGameRequest(gameId);
+          const manageResponse = await sendGameManageRequest(gameId);
+          applyManagedGameStateToLocalGame(gameId, manageResponse);
+        } catch (error) {
+          const errorMsg = document.getElementById('error-message');
+          if (errorMsg) {
+            errorMsg.textContent = `שגיאה בבקשות איפוס/ניהול משחק (${String(error?.message || 'unknown error')}).`;
+            errorMsg.classList.remove('hidden');
+          }
+          return;
+        }
+      }
+
       if (Object.prototype.hasOwnProperty.call(manualInProgressByKey, stableKey)) {
         delete manualInProgressByKey[stableKey];
         saveManualInProgressIfScoped();
@@ -3069,6 +3122,92 @@
     function getScoreApiBaseUrl() {
       const env = String(document.getElementById('env-select')?.value || 'prod').trim();
       return env === 'dev' ? 'https://dev.tttm.co.il' : 'https://tttm.co.il';
+    }
+
+    function getGameControlApiBaseUrl() {
+      const env = String(document.getElementById('env-select')?.value || 'prod').trim();
+      if (env === 'prod') return 'https://dev.tttm.co.il';
+      return env === 'dev' ? 'https://dev.tttm.co.il' : 'https://tttm.co.il';
+    }
+
+    function getStartGameApiBaseUrl() {
+      return getGameControlApiBaseUrl();
+    }
+
+    function getResetGameApiBaseUrl() {
+      return getGameControlApiBaseUrl();
+    }
+
+    async function sendStartGameRequest(gameId) {
+      const normalizedGameId = String(gameId || '').trim();
+      if (!normalizedGameId) return;
+      const baseUrl = getStartGameApiBaseUrl();
+      const response = await fetch(`${baseUrl}/api.1.0/game/${encodeURIComponent(normalizedGameId)}/start`, {
+        method: 'GET'
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      await response.text().catch(() => '');
+    }
+
+    async function sendResetGameRequest(gameId) {
+      const normalizedGameId = String(gameId || '').trim();
+      if (!normalizedGameId) return;
+      const baseUrl = getResetGameApiBaseUrl();
+      const response = await fetch(`${baseUrl}/api.1.0/game/${encodeURIComponent(normalizedGameId)}/reset`, {
+        method: 'GET'
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      await response.text().catch(() => '');
+    }
+
+    async function sendGameManageRequest(gameId) {
+      const normalizedGameId = String(gameId || '').trim();
+      if (!normalizedGameId) return null;
+      const baseUrl = getGameControlApiBaseUrl();
+      const response = await fetch(`${baseUrl}/api.1.0/game/${encodeURIComponent(normalizedGameId)}/manage`, {
+        method: 'GET'
+      });
+      if (!response.ok) {
+        throw new Error(`manage: HTTP ${response.status}`);
+      }
+      return await response.json().catch(() => null);
+    }
+
+    function applyManagedGameStateToLocalGame(gameId, manageResponse) {
+      const normalizedGameId = String(gameId || '').trim();
+      if (!normalizedGameId || !Array.isArray(gamesData) || gamesData.length === 0) return;
+
+      const managedGame = (manageResponse && typeof manageResponse === 'object' && manageResponse.resp && typeof manageResponse.resp === 'object')
+        ? manageResponse.resp
+        : null;
+
+      const targetIndex = gamesData.findIndex(game => String(game?.id || '').trim() === normalizedGameId);
+      if (targetIndex < 0) return;
+
+      const currentGame = gamesData[targetIndex] || {};
+      const nextGame = { ...currentGame };
+
+      if (managedGame) {
+        Object.assign(nextGame, managedGame);
+        if (!nextGame.playerFullNameA && managedGame.playerA) nextGame.playerFullNameA = managedGame.playerA;
+        if (!nextGame.playerFullNameX && managedGame.playerX) nextGame.playerFullNameX = managedGame.playerX;
+        if (!nextGame.playerAid && managedGame.playerA_ID) nextGame.playerAid = managedGame.playerA_ID;
+        if (!nextGame.playerXid && managedGame.playerX_ID) nextGame.playerXid = managedGame.playerX_ID;
+        if (!nextGame.startTime && managedGame.time) nextGame.startTime = managedGame.time;
+
+        const managedStatus = String(managedGame.status || '').trim();
+        if (managedStatus) {
+          nextGame.status = managedStatus.toUpperCase();
+        } else if (typeof managedGame.started === 'boolean' && String(nextGame.status || '').toUpperCase() !== 'FINISHED') {
+          nextGame.status = managedGame.started ? 'IN_PROGRESS' : 'UPCOMING';
+        }
+      }
+
+      gamesData[targetIndex] = nextGame;
     }
 
     function buildScoreApiSetPayloads() {
@@ -3430,6 +3569,8 @@
         return '<div class="group-card"><div class="group-card-title">אין בתים להצגה</div><div class="p-3 text-slate-600">לא נמצאו משחקים עם בית ושחקנים.</div></div>';
       }
 
+      const inProgressPlayers = getApiInProgressPlayers(gamesData || []);
+
       const groupsByDraw = new Map();
       standings.forEach(group => {
         if (!groupsByDraw.has(group.draw)) {
@@ -3444,6 +3585,7 @@
           const drawToken = encodeURIComponent(String(group.draw || ''));
           const rowsWithDrag = group.players.map((player, index) => {
             const displayName = formatGroupsPlayerDisplayName(player.name);
+            const playerNameHtml = getGroupPlayerNameHtml(player.name, displayName, inProgressPlayers);
             const groupToken = encodeURIComponent(String(group.groupKey || ''));
             const playerKey = getGroupPlayerOrderKey(player);
             const playerToken = encodeURIComponent(playerKey);
@@ -3453,7 +3595,7 @@
             return `
               <tr${dragAttrs}>
                 <td>${index + 1}</td>
-                <td class="player-col" title="${escapeHtml(player.name)}">${escapeHtml(displayName)}</td>
+                <td class="player-col" title="${escapeHtml(player.name)}">${playerNameHtml}</td>
                 <td>${player.gamesPlayed}/${group.gamesPerPlayer}</td>
                 <td class="font-bold">${player.points}</td>
               </tr>
@@ -3496,6 +3638,7 @@
       if (!Array.isArray(standings) || standings.length === 0) {
         return '<div class="p-3 text-slate-600">לא נבחרו בתים להצגה.</div>';
       }
+      const inProgressPlayers = getApiInProgressPlayers(gamesData || []);
       const showDrawHeaders = Boolean(options?.showDrawHeaders);
       const showDrawHeaderCount = options?.showDrawHeaderCount !== false;
       const disableDrag = Boolean(options?.disableDrag);
@@ -3514,6 +3657,7 @@
           const drawToken = encodeURIComponent(String(group.draw || ''));
           const rowsWithDrag = group.players.map((player, index) => {
             const displayName = formatGroupsPlayerDisplayName(player.name);
+            const playerNameHtml = getGroupPlayerNameHtml(player.name, displayName, inProgressPlayers);
             const playerKey = getGroupPlayerOrderKey(player);
             const playerToken = encodeURIComponent(playerKey);
             const dragAttrs = !disableDrag && group.canManualReorder && playerKey
@@ -3522,7 +3666,7 @@
             return `
               <tr${dragAttrs}>
                 <td>${index + 1}</td>
-                <td class="player-col" title="${escapeHtml(player.name)}">${escapeHtml(displayName)}</td>
+                <td class="player-col" title="${escapeHtml(player.name)}">${playerNameHtml}</td>
                 <td>${player.gamesPlayed}/${group.gamesPerPlayer}</td>
                 <td class="font-bold">${player.points}</td>
               </tr>
@@ -8838,6 +8982,28 @@
       return playersInProgress.has(playerFullNameA) || playersInProgress.has(playerFullNameX);
     }
 
+    function getApiInProgressPlayers(games) {
+      const activePlayers = new Set();
+      (games || []).forEach(game => {
+        if (String(game?.status || '').toUpperCase() !== 'IN_PROGRESS') return;
+        const playerA = String(game?.playerFullNameA || game?.playerA || '').trim();
+        const playerX = String(game?.playerFullNameX || game?.playerX || '').trim();
+        if (playerA) activePlayers.add(playerA);
+        if (playerX) activePlayers.add(playerX);
+      });
+      return activePlayers;
+    }
+
+    function getGroupPlayerNameHtml(playerName, displayName, inProgressPlayers) {
+      const normalizedName = String(playerName || '').trim();
+      const normalizedDisplay = String(displayName || '').trim();
+      if (!normalizedName || !inProgressPlayers || !inProgressPlayers.has(normalizedName)) {
+        return escapeHtml(normalizedDisplay || normalizedName);
+      }
+
+      return `<span style="display:inline-flex;align-items:center;gap:6px;font-weight:800;color:#166534;"><span aria-hidden="true" title="משחק עכשיו" style="width:8px;height:8px;border-radius:9999px;background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,0.22);display:inline-block;flex:0 0 auto;"></span><span>${escapeHtml(normalizedDisplay || normalizedName)}</span></span>`;
+    }
+
     // Create game card HTML
     function createGameCard(game, type, isGrayed = false, gameNumberMap = null, isPrimaryUpcoming = false) {
       // Timer for in-progress games
@@ -8902,10 +9068,7 @@
         }
       }
       if (type === 'inprogress') {
-        const isApiInProgress = String(game.status || '').toUpperCase() === 'IN_PROGRESS';
-        const stopButtonHtml = isManuallyInProgressGame(game)
-          ? `<button type="button" class="manual-progress-btn stop" aria-label="עצירת משחק" title="${isApiInProgress ? 'לא ניתן לעצור משחק שבסטטוס משחק כעת מהמערכת' : 'בטל התחלה ידנית'}" ${isApiInProgress ? 'disabled' : ''} onclick="if (typeof event !== 'undefined' && event && event.stopPropagation) event.stopPropagation(); ${isApiInProgress ? '' : `stopGameByStableKey('${encodedStableKey}')`}">עצור</button>`
-          : '';
+        const stopButtonHtml = `<button type="button" class="manual-progress-btn stop" aria-label="עצירת משחק" title="שלח איפוס משחק" onclick="if (typeof event !== 'undefined' && event && event.stopPropagation) event.stopPropagation(); stopGameByStableKey('${encodedStableKey}')">עצור</button>`;
         const finishButtonHtml = `<button type="button" class="manual-progress-btn finish" aria-label="סיום משחק" title="העבר למשחקים שהסתיימו" onclick="if (typeof event !== 'undefined' && event && event.stopPropagation) event.stopPropagation(); finishGameByStableKey('${encodedStableKey}')">סיים</button>`;
         manualProgressButtonsHtml = `${finishButtonHtml}${stopButtonHtml}`;
         cardOnClickAttr = `ondblclick="handleInProgressCardDoubleClick('${encodedStableKey}', event)"`;
@@ -9485,6 +9648,13 @@
       document.getElementById('inprogress-count').textContent = `${filteredInProgress.length} משחקים`;
       updateAllGameTimers();
       refreshUpcomingColumnPopupIfOpen();
+      refreshGroupsPopupIfOpen();
+      refreshKnockoutPopupIfOpen();
+      if (currentMainView === 'groups') {
+        renderMainGroupsView();
+      } else if (currentMainView === 'knockout') {
+        renderMainKnockoutView();
+      }
     }
 
     // --- FILTER DROPDOWNS DYNAMIC UPDATE ---
