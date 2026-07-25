@@ -4711,14 +4711,6 @@
       combinedView.classList.add('is-hidden');
       updatePopupViewToggleButton();
     }
-    function showCombinedViewInPopup() {
-      const upcomingView = document.getElementById('popup-upcoming-view');
-      const combinedView = document.getElementById('popup-combined-cycle-view');
-      if (!upcomingView || !combinedView) return;
-      upcomingView.classList.add('is-hidden');
-      combinedView.classList.remove('is-hidden');
-      updatePopupViewToggleButton();
-    }
     function toggleCombinedPopupCycleFromUpcoming() {
       const host = getUpcomingPopupHostWindow();
       if (!host) return;
@@ -5273,19 +5265,6 @@
       if (upcomingColumnPopupWindow && !upcomingColumnPopupWindow.closed) {
         renderUpcomingColumnPopupWindow();
       }
-    }
-
-    function nextPowerOfTwo(value) {
-      let n = 1;
-      while (n < value) n *= 2;
-      return n;
-    }
-
-    function getKnockoutRoundTitle(matchCount) {
-      if (matchCount <= 1) return 'גמר';
-      if (matchCount === 2) return 'חצי גמר';
-      if (matchCount === 4) return 'רבע גמר';
-      return `סיבוב ${matchCount * 2}`;
     }
 
     const KNOCKOUT_TURN_ORDER = {
@@ -6137,13 +6116,6 @@
 
     function normalizePlayerName(name) {
       return String(name || '').trim().replace(/\s+/g, ' ').toLowerCase();
-    }
-
-    function getPlayerLookupKey(name, playerId) {
-      const normalizedId = normalizePlayerId(playerId);
-      if (normalizedId) return `id:${normalizedId}`;
-      const normalizedName = normalizePlayerName(name);
-      return normalizedName ? `name:${normalizedName}` : '';
     }
 
     function getKnockoutDisplayName(name) {
