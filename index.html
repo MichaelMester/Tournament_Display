@@ -1788,21 +1788,6 @@
         standings = standings.filter(group => selectedSet.has(String(group.draw || '')));
       }
       
-      // Log currently playing players
-      const playingPlayers = [];
-      standings.forEach(group => {
-        group.players.forEach(player => {
-          if (player.isPlaying) {
-            playingPlayers.push(`${player.name} (${group.draw}, Group ${group.groupNo})`);
-          }
-        });
-      });
-      if (playingPlayers.length > 0) {
-        console.log('🎾 Players currently playing:', playingPlayers);
-      } else {
-        console.log('🎾 No players currently playing');
-      }
-      
       // Use combined groups HTML (same as in popup view)
       const groupsContentHtml = getCombinedGroupsCardsHtml(standings, 0, {
         showDrawHeaders: true,
@@ -1990,7 +1975,6 @@
     let drawColorOverrides = {};
     let drawColorStorageScope = '';
     let drawColorStorageKey = '';
-    let drawColorInputEl = null;
     let scoreEntryByGameKey = {};
     let scoreEntryStorageScope = '';
     let scoreEntryStorageKey = '';
@@ -2139,23 +2123,6 @@
       const key = String(drawName || '').trim();
       if (!key) return '';
       return normalizeHexColor(drawColorOverrides[key]);
-    }
-
-    function ensureDrawColorInput() {
-      if (drawColorInputEl && drawColorInputEl.isConnected) return drawColorInputEl;
-      const input = document.createElement('input');
-      input.type = 'color';
-      input.style.position = 'fixed';
-      input.style.opacity = '0';
-      input.style.pointerEvents = 'none';
-      input.style.width = '1px';
-      input.style.height = '1px';
-      input.style.left = '-1000px';
-      input.style.top = '-1000px';
-      input.setAttribute('aria-hidden', 'true');
-      document.body.appendChild(input);
-      drawColorInputEl = input;
-      return drawColorInputEl;
     }
 
     function setDrawDisplayColor(drawName, color) {
@@ -2697,22 +2664,6 @@
       ));
     }
 
-    function startGameFromCard(cardEl) {
-      if (!cardEl) return;
-      const encodedKey = cardEl.getAttribute('data-stable-game-key') || '';
-      if (!encodedKey) return;
-      let stableKey = '';
-      try {
-        stableKey = decodeURIComponent(encodedKey);
-      } catch {
-        stableKey = encodedKey;
-      }
-      if (!stableKey) return;
-      manualInProgressByKey[stableKey] = true;
-      saveManualInProgressIfScoped();
-      renderGames(gamesData);
-    }
-
     async function startGameByStableKey(encodedKey) {
       if (!encodedKey) return;
       const stableKey = decodeStableGameKey(encodedKey);
@@ -2742,24 +2693,6 @@
       }
       manualInProgressByKey[stableKey] = true;
       saveManualInProgressIfScoped();
-      renderGames(gamesData);
-    }
-
-    function stopGameFromCard(cardEl) {
-      if (!cardEl) return;
-      const encodedKey = cardEl.getAttribute('data-stable-game-key') || '';
-      if (!encodedKey) return;
-      let stableKey = '';
-      try {
-        stableKey = decodeURIComponent(encodedKey);
-      } catch {
-        stableKey = encodedKey;
-      }
-      if (!stableKey) return;
-      if (Object.prototype.hasOwnProperty.call(manualInProgressByKey, stableKey)) {
-        delete manualInProgressByKey[stableKey];
-        saveManualInProgressIfScoped();
-      }
       renderGames(gamesData);
     }
 
@@ -2885,28 +2818,6 @@
       if (action === 'stop') {
         await stopGameByStableKey(encodedStableKey);
       }
-    }
-
-    function finishGameByStableKey(encodedKey) {
-      if (!encodedKey) return;
-      const stableKey = decodeStableGameKey(encodedKey);
-      if (!stableKey) return;
-
-      const game = (gamesData || []).find(g => getStableGameKey(g) === stableKey);
-      if (isApiFinishedStatus(game?.status)) return;
-
-      if (Object.prototype.hasOwnProperty.call(manualInProgressByKey, stableKey)) {
-        delete manualInProgressByKey[stableKey];
-        saveManualInProgressIfScoped();
-      }
-      manualFinishedByKey[stableKey] = true;
-      saveManualFinishedIfScoped();
-
-      if (game?.id) {
-        stopGameTimer(game.id);
-        setGameFinishedAt(game.id, new Date());
-      }
-      renderGames(gamesData);
     }
 
     function reopenFinishedGameByStableKey(encodedKey) {
@@ -4808,16 +4719,6 @@
       combinedView.classList.remove('is-hidden');
       updatePopupViewToggleButton();
     }
-    function togglePopupMainCombinedView() {
-      const combinedView = document.getElementById('popup-combined-cycle-view');
-      if (!combinedView) return;
-      const showingCombined = !combinedView.classList.contains('is-hidden');
-      if (showingCombined) {
-        showUpcomingViewInPopup();
-      } else {
-        showCombinedViewInPopup();
-      }
-    }
     function toggleCombinedPopupCycleFromUpcoming() {
       const host = getUpcomingPopupHostWindow();
       if (!host) return;
@@ -5210,17 +5111,6 @@
           setTimeout(() => { btn.textContent = original; }, 1100);
         }
       } catch {}
-    }
-    function toggleUpcomingQrPanel() {
-      const panel = document.getElementById('popup-qr-panel');
-      const img = document.getElementById('popup-qr-image');
-      if (!panel || !img) return;
-      const willShow = !panel.classList.contains('show');
-      if (willShow) {
-        const url = getUpcomingShareUrl();
-        img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=156x156&data=' + encodeURIComponent(url);
-      }
-      panel.classList.toggle('show', willShow);
     }
     window.addEventListener('DOMContentLoaded', () => {
       initPopupColumnRatio();
@@ -6241,25 +6131,6 @@
       return drawGames;
     }
 
-    function getNonGroupPlayersByDraw(drawGamesByDraw) {
-      const drawsPlayers = new Map();
-      drawGamesByDraw.forEach((games, drawName) => {
-        const players = new Set();
-        games.forEach(game => {
-          const playerAid = String(game.playerAid || '').trim();
-          const playerXid = String(game.playerXid || '').trim();
-          const playerA = (game.playerFullNameA || game.playerA || '').trim();
-          const playerX = (game.playerFullNameX || game.playerX || '').trim();
-          const keyA = getPlayerLookupKey(playerA, playerAid);
-          const keyX = getPlayerLookupKey(playerX, playerXid);
-          if (keyA) players.add(keyA);
-          if (keyX) players.add(keyX);
-        });
-        drawsPlayers.set(drawName, players);
-      });
-      return drawsPlayers;
-    }
-
     function normalizePlayerId(id) {
       return String(id || '').trim();
     }
@@ -6335,54 +6206,6 @@
       }) || null;
 
       return matchedGame;
-    }
-
-    function buildKnockoutTreeForDraw(groupsInDraw, upcomingNonGroupPlayers) {
-      const seeds = [];
-      groupsInDraw.forEach(group => {
-        const first = group.players[0];
-        const second = group.players[1];
-
-        if (first && upcomingNonGroupPlayers.has(getPlayerLookupKey(first.name, first.playerId))) {
-          seeds.push({ name: first.name, playerId: first.playerId || '' });
-        }
-        if (second && upcomingNonGroupPlayers.has(getPlayerLookupKey(second.name, second.playerId))) {
-          seeds.push({ name: second.name, playerId: second.playerId || '' });
-        }
-      });
-
-      if (seeds.length === 0) return [];
-      const bracketSize = nextPowerOfTwo(Math.max(seeds.length, 2));
-      while (seeds.length < bracketSize) {
-        seeds.push({ name: 'BYE', playerId: '' });
-      }
-
-      const firstRoundMatches = [];
-      for (let i = 0; i < bracketSize / 2; i += 1) {
-        firstRoundMatches.push({
-          playerA: seeds[i],
-          playerX: seeds[bracketSize - 1 - i]
-        });
-      }
-
-      const rounds = [{
-        title: getKnockoutRoundTitle(firstRoundMatches.length),
-        matches: firstRoundMatches
-      }];
-
-      let currentMatchCount = firstRoundMatches.length;
-      while (currentMatchCount > 1) {
-        currentMatchCount = Math.ceil(currentMatchCount / 2);
-        rounds.push({
-          title: getKnockoutRoundTitle(currentMatchCount),
-          matches: Array.from({ length: currentMatchCount }, () => ({
-            playerA: 'TBD',
-            playerX: 'TBD'
-          }))
-        });
-      }
-
-      return rounds;
     }
 
     function buildKnockoutTreeFromGames(drawGames) {
@@ -7050,26 +6873,6 @@
       }
       refreshCombinedPopupCycleStatusLabel();
       return true;
-    }
-
-    function attachKnockoutPopupLifecycle(entry) {
-      if (!entry?.win || entry.win.closed) return;
-      entry.win.addEventListener('beforeunload', () => {
-        const intentionalCycleClose = Boolean(entry._cycleClosingIntentional);
-        entry._cycleClosingIntentional = false;
-        if (intentionalCycleClose) return;
-
-        knockoutPopupWindows = knockoutPopupWindows.filter(item => item !== entry);
-        if (combinedPopupCycleEntry === entry) {
-          combinedPopupCycleEntry = null;
-        }
-      });
-      entry.win.addEventListener('resize', () => {
-        if (entry.resizeTimer) clearTimeout(entry.resizeTimer);
-        entry.resizeTimer = setTimeout(() => {
-          renderKnockoutPopupWindow(entry);
-        }, 120);
-      });
     }
 
     function clearCombinedPopupCycleTimer() {
@@ -7857,31 +7660,6 @@
       groupsPopupSelectedDrawNames = Array.isArray(selectedDrawNames) ? selectedDrawNames.slice() : [];
       saveGroupsSelection(groupsPopupSelectedDrawNames);
       renderGroupsPopupWindow();
-    }
-
-    function applyPopupGroupsDrawSelection(windowId, selectedDrawNames) {
-      const parsedWindowId = Number.parseInt(String(windowId), 10);
-      if (Number.isNaN(parsedWindowId)) return;
-
-      const entry = getLiveKnockoutPopupWindows().find(item => item.id === parsedWindowId);
-      if (!entry || !entry.win || entry.win.closed) return;
-
-      const standings = buildGroupStandings(gamesData || []);
-      const allDraws = Array.from(new Set(standings.map(group => String(group.draw || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'he'));
-      let selected = Array.isArray(selectedDrawNames)
-        ? selectedDrawNames.map(name => String(name || '').trim()).filter(name => allDraws.includes(name))
-        : [];
-      if (selected.length === 0) {
-        selected = allDraws.slice();
-      }
-
-      entry.groupDraws = selected.slice();
-      groupsPopupSelectedDrawNames = selected.slice();
-      saveGroupsSelection(selected);
-      if (entry.embeddedInUpcoming) {
-        upcomingEmbeddedGroupsDraws = selected.slice();
-      }
-      renderKnockoutPopupWindow(entry);
     }
 
     async function promptPopupWindowDrawSelection(windowId) {
