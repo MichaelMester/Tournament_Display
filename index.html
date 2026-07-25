@@ -118,7 +118,7 @@
     }
     .manual-progress-btn.stop {
       top: 10px;
-      left: 55px;
+      left: 65px;
       border-color: #dc2626;
       color: #991b1b;
       background: #fef2f2;
@@ -1804,7 +1804,11 @@
       }
       
       // Use combined groups HTML (same as in popup view)
-      const groupsContentHtml = getCombinedGroupsCardsHtml(standings, 0, { showDrawHeaders: true, disableDrag: true });
+      const groupsContentHtml = getCombinedGroupsCardsHtml(standings, 0, {
+        showDrawHeaders: true,
+        disableDrag: true,
+        enableMainGroupsInProgressPlayerActions: true
+      });
       
       // Create full HTML with header similar to popup view
       const fullHtml = `
@@ -1853,7 +1857,7 @@
       const estimatedBodyHeight = Math.max(400, window.innerHeight - 200);
       let drawColumns = chooseKnockoutDrawColumns(drawTrees, estimatedBodyWidth, estimatedBodyHeight);
       
-      const bodyHtml = getKnockoutPopupBodyHtml(drawTrees, filteredDrawMap, drawColumns, {});
+      const bodyHtml = getKnockoutPopupBodyHtml(drawTrees, filteredDrawMap, drawColumns, { enableMainActions: true });
       
       // Create full HTML with header similar to groups view
       const fullHtml = `
@@ -1991,6 +1995,8 @@
     let scoreEntryStorageScope = '';
     let scoreEntryStorageKey = '';
     let currentScoreEntryState = null;
+    let mainKnockoutActionStableKey = '';
+    let mainKnockoutActionAllowEmptySubmission = false;
 
     function clampGroupsPopupZoomPercent(value) {
       const n = Number(value);
@@ -2499,6 +2505,13 @@
       return Boolean(manualInProgressByKey[stableKey]);
     }
 
+    function isKnockoutGameInProgress(game) {
+      if (!game) return false;
+      if (isManuallyFinishedGame(game)) return false;
+      if (String(game.status || '').toUpperCase() === 'IN_PROGRESS') return true;
+      return isManuallyInProgressGame(game);
+    }
+
     function isManuallyFinishedGame(game) {
       const stableKey = getStableGameKey(game);
       if (!stableKey) return false;
@@ -2780,6 +2793,100 @@
       renderGames(gamesData);
     }
 
+    function ensureMainKnockoutActionOverlay() {
+      let overlay = document.getElementById('main-knockout-action-overlay');
+      if (overlay) return overlay;
+
+      overlay = document.createElement('div');
+      overlay.id = 'main-knockout-action-overlay';
+      overlay.style.position = 'fixed';
+      overlay.style.inset = '0';
+      overlay.style.zIndex = '10040';
+      overlay.style.display = 'none';
+      overlay.style.alignItems = 'center';
+      overlay.style.justifyContent = 'center';
+      overlay.style.background = 'rgba(15, 23, 42, 0.65)';
+      overlay.style.padding = '16px';
+      overlay.innerHTML = `
+        <div role="dialog" aria-modal="true" aria-label="פעולות משחק" style="width:min(360px,94vw);background:#ffffff;border:1px solid #cbd5e1;border-radius:14px;box-shadow:0 20px 60px rgba(2,6,23,0.35);padding:14px;display:grid;gap:10px;">
+          <h3 id="main-knockout-action-title" style="margin:0;font-size:19px;font-weight:800;color:#0f172a;">פעולות משחק</h3>
+          <p id="main-knockout-action-subtitle" style="margin:0;font-size:13px;color:#475569;">בחר פעולה</p>
+          <div style="display:grid;gap:8px;">
+            <button type="button" onclick="runMainKnockoutGameAction('start')" style="border:1px solid #15803d;background:#22c55e;color:#052e16;border-radius:10px;padding:9px 12px;font-size:14px;font-weight:800;cursor:pointer;">התחל משחק</button>
+            <button type="button" onclick="runMainKnockoutGameAction('stop')" style="border:1px solid #b91c1c;background:#ef4444;color:#ffffff;border-radius:10px;padding:9px 12px;font-size:14px;font-weight:800;cursor:pointer;">עצור משחק</button>
+            <button type="button" onclick="runMainKnockoutGameAction('score')" style="border:1px solid #0369a1;background:#0ea5e9;color:#ffffff;border-radius:10px;padding:9px 12px;font-size:14px;font-weight:800;cursor:pointer;">הזן תוצאה</button>
+          </div>
+          <button type="button" onclick="closeMainKnockoutActionOverlay()" style="border:1px solid #cbd5e1;background:#e2e8f0;color:#0f172a;border-radius:10px;padding:8px 12px;font-size:13px;font-weight:700;cursor:pointer;">ביטול</button>
+        </div>
+      `;
+
+      overlay.addEventListener('click', (event) => {
+        if (event.target === overlay) {
+          closeMainKnockoutActionOverlay();
+        }
+      });
+
+      document.body.appendChild(overlay);
+      return overlay;
+    }
+
+    function closeMainKnockoutActionOverlay() {
+      const overlay = document.getElementById('main-knockout-action-overlay');
+      if (overlay) overlay.style.display = 'none';
+      mainKnockoutActionStableKey = '';
+      mainKnockoutActionAllowEmptySubmission = false;
+    }
+
+    function openMainKnockoutGameActionMenuById(encodedGameId, allowEmptySubmission = false) {
+      const gameId = decodeURIComponent(String(encodedGameId || '')).trim();
+      if (!gameId) return;
+
+      const game = (gamesData || []).find(g => String(g?.id || '').trim() === gameId);
+      if (!game) return;
+
+      const stableKey = getStableGameKey(game);
+      if (!stableKey) return;
+      mainKnockoutActionStableKey = stableKey;
+      mainKnockoutActionAllowEmptySubmission = Boolean(allowEmptySubmission);
+
+      const overlay = ensureMainKnockoutActionOverlay();
+      const title = document.getElementById('main-knockout-action-title');
+      const subtitle = document.getElementById('main-knockout-action-subtitle');
+      const playerA = String(game.playerFullNameA || game.playerA || 'שחקן א').trim();
+      const playerX = String(game.playerFullNameX || game.playerX || 'שחקן ב').trim();
+      if (title) title.textContent = `${playerA} נגד ${playerX}`;
+      if (subtitle) subtitle.textContent = 'בחר פעולה למשחק';
+      overlay.style.display = 'flex';
+    }
+
+    async function runMainKnockoutGameAction(action) {
+      const stableKey = String(mainKnockoutActionStableKey || '').trim();
+      const allowEmptySubmission = Boolean(mainKnockoutActionAllowEmptySubmission);
+      if (!stableKey) {
+        closeMainKnockoutActionOverlay();
+        return;
+      }
+
+      const encodedStableKey = encodeURIComponent(stableKey);
+
+      if (action === 'score') {
+        closeMainKnockoutActionOverlay();
+        openScoreEntryModal(encodedStableKey, {
+          allowEmptySubmission
+        });
+        return;
+      }
+
+      closeMainKnockoutActionOverlay();
+      if (action === 'start') {
+        await startGameByStableKey(encodedStableKey);
+        return;
+      }
+      if (action === 'stop') {
+        await stopGameByStableKey(encodedStableKey);
+      }
+    }
+
     function finishGameByStableKey(encodedKey) {
       if (!encodedKey) return;
       const stableKey = decodeStableGameKey(encodedKey);
@@ -2939,7 +3046,8 @@
       if (changed) {
         progress = calculateScoreEntryProgress();
       }
-      setScoreEntrySaveEnabled(Boolean(progress.winnerSide));
+      const allowEmptySubmission = Boolean(currentScoreEntryState?.allowEmptySubmission);
+      setScoreEntrySaveEnabled(Boolean(progress.winnerSide) || allowEmptySubmission);
       return progress;
     }
 
@@ -3081,15 +3189,18 @@
       }
     }
 
-    function openScoreEntryModal(encodedKey) {
+    function openScoreEntryModal(encodedKey, options = {}) {
       const stableKey = decodeStableGameKey(encodedKey);
       if (!stableKey) return;
       const game = (gamesData || []).find(g => getStableGameKey(g) === stableKey);
       if (!game) return;
 
+      const allowEmptySubmission = Boolean(options?.allowEmptySubmission);
+
       currentScoreEntryState = {
         stableKey,
-        gameId: String(game.id || '').trim()
+        gameId: String(game.id || '').trim(),
+        allowEmptySubmission
       };
       const overlay = document.getElementById('score-entry-overlay');
       const title = document.getElementById('score-entry-game-title');
@@ -3126,8 +3237,8 @@
 
     function getGameControlApiBaseUrl() {
       const env = String(document.getElementById('env-select')?.value || 'prod').trim();
-      if (env === 'prod') return 'https://dev.tttm.co.il';
-      return env === 'dev' ? 'https://dev.tttm.co.il' : 'https://tttm.co.il';
+      if (env === 'dev') return 'https://dev.tttm.co.il';
+      return 'https://tttm.co.il';
     }
 
     function getStartGameApiBaseUrl() {
@@ -3267,7 +3378,8 @@
       if (successMsg) successMsg.classList.add('hidden');
 
       const setPayloads = buildScoreApiSetPayloads();
-      if (!setPayloads.length) {
+      const allowEmptySubmission = Boolean(currentScoreEntryState?.allowEmptySubmission);
+      if (!setPayloads.length && !allowEmptySubmission) {
         if (errorMsg) {
           errorMsg.textContent = 'לא נמצאו סטים חוקיים לשליחה.';
           errorMsg.classList.remove('hidden');
@@ -3284,7 +3396,14 @@
       }
 
       try {
-        await sendScoreToServer(gameId, setPayloads);
+        if (setPayloads.length) {
+          await sendScoreToServer(gameId, setPayloads);
+        } else {
+          const controlBaseUrl = getGameControlApiBaseUrl();
+          await sendGamePostScoreMessage(controlBaseUrl, gameId, 'confirmation');
+          const manageResponse = await sendGameManageRequest(gameId);
+          applyManagedGameStateToLocalGame(gameId, manageResponse);
+        }
         if (stableKey) {
           const sets = collectScoreEntrySetsFromInputs();
           setStoredScoreEntry(stableKey, sets);
@@ -3308,7 +3427,8 @@
         const isModalOpen = Boolean(overlay && overlay.classList.contains('show'));
         if (isModalOpen) {
           const progress = calculateScoreEntryProgress();
-          setScoreEntrySaveEnabled(Boolean(progress.winnerSide));
+          const allowEmpty = Boolean(currentScoreEntryState?.allowEmptySubmission);
+          setScoreEntrySaveEnabled(Boolean(progress.winnerSide) || allowEmpty);
         }
       }
     }
@@ -3639,9 +3759,11 @@
         return '<div class="p-3 text-slate-600">לא נבחרו בתים להצגה.</div>';
       }
       const inProgressPlayers = getApiInProgressPlayers(gamesData || []);
+      const inProgressGameKeyByPlayer = getApiInProgressGroupGameKeyByPlayer(gamesData || []);
       const showDrawHeaders = Boolean(options?.showDrawHeaders);
       const showDrawHeaderCount = options?.showDrawHeaderCount !== false;
       const disableDrag = Boolean(options?.disableDrag);
+      const enableMainGroupsInProgressPlayerActions = Boolean(options?.enableMainGroupsInProgressPlayerActions);
 
       const groupsByDraw = new Map();
       standings.forEach(group => {
@@ -3657,7 +3779,10 @@
           const drawToken = encodeURIComponent(String(group.draw || ''));
           const rowsWithDrag = group.players.map((player, index) => {
             const displayName = formatGroupsPlayerDisplayName(player.name);
-            const playerNameHtml = getGroupPlayerNameHtml(player.name, displayName, inProgressPlayers);
+            const clickableStableKey = enableMainGroupsInProgressPlayerActions
+              ? String(inProgressGameKeyByPlayer.get(String(player.name || '').trim()) || '').trim()
+              : '';
+            const playerNameHtml = getGroupPlayerNameHtml(player.name, displayName, inProgressPlayers, clickableStableKey);
             const playerKey = getGroupPlayerOrderKey(player);
             const playerToken = encodeURIComponent(playerKey);
             const dragAttrs = !disableDrag && group.canManualReorder && playerKey
@@ -6586,6 +6711,7 @@
       }
 
       const enableDrawDrag = Boolean(options.enableDrawDrag);
+      const enableMainActions = Boolean(options.enableMainActions);
       const drawDragWindowId = Number.parseInt(String(options.windowId), 10);
 
       const drawCardsHtml = drawTrees.map(tree => {
@@ -6679,11 +6805,21 @@
             const playerXNameHtml = playerXIsWinner ? `<strong>${escapeHtml(displayPlayerXName)}</strong>` : escapeHtml(displayPlayerXName);
             const playerASetsHtml = displayPlayerASets == null ? '' : ` <span class="text-slate-600">(${displayPlayerASets})</span>`;
             const playerXSetsHtml = displayPlayerXSets == null ? '' : ` <span class="text-slate-600">(${displayPlayerXSets})</span>`;
+            const isInProgressMatch = isKnockoutGameInProgress(matchedGame);
+            const inProgressMatchBadgeHtml = isInProgressMatch
+              ? '<div style="position:absolute;top:4px;left:6px;display:inline-flex;align-items:center;gap:5px;padding:1px 7px;border-radius:9999px;background:#ecfdf5;border:1px solid #86efac;color:#166534;font-size:10px;font-weight:800;line-height:1.2;z-index:2;"><span aria-hidden="true" style="width:7px;height:7px;border-radius:9999px;background:#22c55e;display:inline-block;box-shadow:0 0 0 3px rgba(34,197,94,0.18);"></span>משחק כעת</div>'
+              : '';
+            const isTbdMatch = displayPlayerAName === 'TBD' || displayPlayerXName === 'TBD';
             const dragAttrs = roundIndex === 0 && firstStageCount > 1
               ? ` draggable="true" ondragstart="startKnockoutFirstStageDrag('${drawToken}', ${matchIndex}, event)" ondragend="endKnockoutFirstStageDrag(event)" ondragover="allowKnockoutFirstStageDrop(event)" ondragenter="onKnockoutFirstStageDragEnter(event)" ondragleave="onKnockoutFirstStageDragLeave(event)" ondrop="dropKnockoutFirstStageSwap('${drawToken}', ${matchIndex}, ${firstStageCount}, event)" class="knockout-match draggable"`
               : ' class="knockout-match"';
+            const clickableMainActionAttrs = (enableMainActions && matchedGame?.id)
+              ? ` data-game-id="${escapeHtml(String(matchedGame.id))}" onclick="openMainKnockoutGameActionMenuById('${encodeURIComponent(String(matchedGame.id))}', ${isTbdMatch ? 'true' : 'false'})"`
+              : '';
+            const clickCursor = (enableMainActions && matchedGame?.id) ? 'cursor:pointer;' : '';
             return `
-            <div${dragAttrs} style="top:calc(${exactRow} * var(--knockout-unit)); --km-from:${roundPalette.from}; --km-to:${roundPalette.to}; --km-border:${roundPalette.border};">
+            <div${dragAttrs}${clickableMainActionAttrs} style="top:calc(${exactRow} * var(--knockout-unit)); --km-from:${roundPalette.from}; --km-to:${roundPalette.to}; --km-border:${roundPalette.border};${clickCursor}${isInProgressMatch ? 'border-color:#16a34a;box-shadow:0 0 0 2px rgba(34,197,94,0.28);' : ''}">
+              ${inProgressMatchBadgeHtml}
               <div class="knockout-player-row" title="${escapeHtml(displayPlayerAName)}">${playerANameHtml}${playerASetsHtml}</div>
               <div class="knockout-player-row" title="${escapeHtml(displayPlayerXName)}">${playerXNameHtml}${playerXSetsHtml}</div>
               ${scoreHtml}
@@ -8986,6 +9122,8 @@
       const activePlayers = new Set();
       (games || []).forEach(game => {
         if (String(game?.status || '').toUpperCase() !== 'IN_PROGRESS') return;
+        const groupNo = String(game?.groupNo ?? '').trim();
+        if (!groupNo) return;
         const playerA = String(game?.playerFullNameA || game?.playerA || '').trim();
         const playerX = String(game?.playerFullNameX || game?.playerX || '').trim();
         if (playerA) activePlayers.add(playerA);
@@ -8994,14 +9132,37 @@
       return activePlayers;
     }
 
-    function getGroupPlayerNameHtml(playerName, displayName, inProgressPlayers) {
+    function getApiInProgressGroupGameKeyByPlayer(games) {
+      const map = new Map();
+      (games || []).forEach(game => {
+        if (String(game?.status || '').toUpperCase() !== 'IN_PROGRESS') return;
+        const groupNo = String(game?.groupNo ?? '').trim();
+        if (!groupNo) return;
+        const stableKey = getStableGameKey(game);
+        if (!stableKey) return;
+        const encodedStableKey = encodeURIComponent(stableKey);
+
+        const playerA = String(game?.playerFullNameA || game?.playerA || '').trim();
+        const playerX = String(game?.playerFullNameX || game?.playerX || '').trim();
+        if (playerA && !map.has(playerA)) map.set(playerA, encodedStableKey);
+        if (playerX && !map.has(playerX)) map.set(playerX, encodedStableKey);
+      });
+      return map;
+    }
+
+    function getGroupPlayerNameHtml(playerName, displayName, inProgressPlayers, clickableStableKey = '') {
       const normalizedName = String(playerName || '').trim();
       const normalizedDisplay = String(displayName || '').trim();
       if (!normalizedName || !inProgressPlayers || !inProgressPlayers.has(normalizedName)) {
         return escapeHtml(normalizedDisplay || normalizedName);
       }
 
-      return `<span style="display:inline-flex;align-items:center;gap:6px;font-weight:800;color:#166534;"><span aria-hidden="true" title="משחק עכשיו" style="width:8px;height:8px;border-radius:9999px;background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,0.22);display:inline-block;flex:0 0 auto;"></span><span>${escapeHtml(normalizedDisplay || normalizedName)}</span></span>`;
+      const canClick = String(clickableStableKey || '').trim().length > 0;
+      if (!canClick) {
+        return `<span style="display:inline-flex;align-items:center;gap:6px;font-weight:800;color:#166534;"><span aria-hidden="true" title="משחק עכשיו" style="width:8px;height:8px;border-radius:9999px;background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,0.22);display:inline-block;flex:0 0 auto;"></span><span>${escapeHtml(normalizedDisplay || normalizedName)}</span></span>`;
+      }
+
+      return `<button type="button" aria-label="הזן תוצאה לשחקן במשחק פעיל" title="הזן תוצאה למשחק פעיל" onclick="event.stopPropagation(); openScoreEntryModal('${clickableStableKey}')" style="display:inline-flex;align-items:center;gap:6px;font-weight:800;color:#166534;background:transparent;border:0;padding:0;cursor:pointer;"><span aria-hidden="true" title="משחק עכשיו" style="width:8px;height:8px;border-radius:9999px;background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,0.22);display:inline-block;flex:0 0 auto;"></span><span style="text-decoration:underline;">${escapeHtml(normalizedDisplay || normalizedName)}</span></button>`;
     }
 
     // Create game card HTML
@@ -9044,8 +9205,8 @@
         && Array.isArray(storedScoreEntry.sets)
         && storedScoreEntry.sets.some(set => String(set?.a || '').trim() !== '' || String(set?.x || '').trim() !== '')
       );
-      const scoreButtonLabel = hasStoredScoreEntry ? 'הסתיים' : 'הזן תוצאה';
-      const scoreButtonTitle = hasStoredScoreEntry ? 'תוצאה הוזנה (לחץ לעריכה)' : 'הזן תוצאה';
+      const scoreButtonLabel = hasStoredScoreEntry ? 'הסתיים' : 'תוצאה';
+      const scoreButtonTitle = hasStoredScoreEntry ? 'תוצאה הוזנה (לחץ לעריכה)' : 'תוצאה';
       const scoreButtonDoneClass = hasStoredScoreEntry ? ' score-done' : '';
       const stableGameNumber = gameNumberMap && gameNumberMap.has(stableKey) ? gameNumberMap.get(stableKey) : null;
       if (type === 'upcoming') {
@@ -9069,8 +9230,8 @@
       }
       if (type === 'inprogress') {
         const stopButtonHtml = `<button type="button" class="manual-progress-btn stop" aria-label="עצירת משחק" title="שלח איפוס משחק" onclick="if (typeof event !== 'undefined' && event && event.stopPropagation) event.stopPropagation(); stopGameByStableKey('${encodedStableKey}')">עצור</button>`;
-        const finishButtonHtml = `<button type="button" class="manual-progress-btn finish" aria-label="סיום משחק" title="העבר למשחקים שהסתיימו" onclick="if (typeof event !== 'undefined' && event && event.stopPropagation) event.stopPropagation(); finishGameByStableKey('${encodedStableKey}')">סיים</button>`;
-        manualProgressButtonsHtml = `${finishButtonHtml}${stopButtonHtml}`;
+        const scoreEntryButtonHtml = `<button type="button" class="manual-progress-btn finish" aria-label="הזנת תוצאת משחק" title="תוצאה" onclick="if (typeof event !== 'undefined' && event && event.stopPropagation) event.stopPropagation(); openScoreEntryModal('${encodedStableKey}')">תוצאה</button>`;
+        manualProgressButtonsHtml = `${scoreEntryButtonHtml}${stopButtonHtml}`;
         cardOnClickAttr = `ondblclick="handleInProgressCardDoubleClick('${encodedStableKey}', event)"`;
         cardExtraClass = ' cursor-pointer';
         cardTitleAttr = 'title="לחיצה כפולה לעדכון מספר שולחן"';
