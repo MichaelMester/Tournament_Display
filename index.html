@@ -1081,61 +1081,6 @@
       color: #0f766e;
       text-align: center;
     }
-    .announcement-overlay {
-      position: fixed;
-      inset: 0;
-      z-index: 9999;
-      background: rgba(2, 6, 23, 0.9);
-      color: #ffffff;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 24px;
-    }
-    .announcement-overlay.show {
-      display: flex;
-    }
-    .announcement-content {
-      width: 100%;
-      max-width: 1600px;
-    }
-    .announcement-grid {
-      display: grid;
-      grid-template-columns: 1fr auto 1fr;
-      align-items: center;
-      gap: 20px;
-    }
-    .announcement-player {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 16px;
-    }
-    .announcement-photo {
-      width: clamp(180px, 26vw, 420px);
-      height: clamp(180px, 26vw, 420px);
-      object-fit: cover;
-      border-radius: 20px;
-      border: 4px solid rgba(255, 255, 255, 0.75);
-      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
-      background: rgba(255, 255, 255, 0.08);
-    }
-    .announcement-name {
-      font-size: clamp(44px, 7vw, 140px);
-      font-weight: 700;
-      line-height: 1.05;
-      text-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
-      word-break: break-word;
-    }
-    .announcement-vs {
-      font-size: clamp(40px, 6vw, 110px);
-      font-weight: 700;
-      line-height: 1.1;
-      margin: 10px 0;
-      color: #facc15;
-      text-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
-    }
     .print-container {
       display: none;
     }
@@ -1251,12 +1196,6 @@
       font-weight: 700;
     }
     @media (max-width: 900px) {
-      .announcement-grid {
-        grid-template-columns: 1fr;
-      }
-      .announcement-vs {
-        order: 2;
-      }
     }
     @media print {
       @page {
@@ -1314,21 +1253,6 @@
     </div>
   </div>
   <div id="auto-reload-timer" class="fixed top-2 left-2 z-50 bg-white bg-opacity-80 rounded-lg px-4 py-2 shadow text-blue-700 font-bold text-lg hidden" style="direction:ltr;"></div>
-    <div id="announcement-overlay" class="announcement-overlay" aria-live="polite" aria-atomic="true">
-      <div class="announcement-content">
-        <div class="announcement-grid">
-          <div class="announcement-player">
-            <img id="announcement-photo-a" class="announcement-photo" alt="תמונת שחקן א" />
-            <div id="announcement-player-a" class="announcement-name">--</div>
-          </div>
-          <div class="announcement-vs">נגד</div>
-          <div class="announcement-player">
-            <img id="announcement-photo-x" class="announcement-photo" alt="תמונת שחקן ב" />
-            <div id="announcement-player-x" class="announcement-name">--</div>
-          </div>
-        </div>
-      </div>
-    </div>
     <div id="groups-overlay" class="groups-overlay" onclick="if (event.target === this) closeGroupsPopup()">
       <div class="groups-modal" role="dialog" aria-modal="true" aria-label="בתים">
         <div class="groups-modal-header">
@@ -1454,7 +1378,6 @@
           <div id="btn-spinner" class="loading-spinner hidden"></div></button>
         <button id="auto-reload-btn" onclick="toggleAutoReload()" class="px-3 py-2 text-sm whitespace-nowrap bg-gray-300 hover:bg-gray-400 text-slate-700 font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">הפעל רענון</button>
         <button id="print-upcoming-btn" onclick="printUpcomingGames()" class="px-3 py-2 text-sm whitespace-nowrap bg-slate-700 hover:bg-slate-800 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">הדפס משחקים</button>
-        <button id="dingdong-btn" type="button" onclick="playDingDongOnly()" class="px-3 py-2 text-sm whitespace-nowrap font-semibold rounded-lg transition-colors flex items-center justify-center" style="background:#0e7490;color:#ffffff;border:1px solid #0c4a6e;" onmouseover="this.style.background='#155e75'" onmouseout="this.style.background='#0e7490'" title="השמע DingDong" aria-label="השמע DingDong">&#128483;</button>
         <button id="upcoming-popup-btn" onclick="openUpcomingColumnPopup()" class="px-3 py-2 text-sm whitespace-nowrap bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">תצוגה</button>
         <button id="reset-game-numbers-btn" onclick="resetGameNumbers()" class="px-3 py-2 text-sm whitespace-nowrap font-semibold rounded-lg transition-colors flex items-center justify-center gap-2" style="background:#be123c;color:#ffffff;">איפוס מספרי משחקים</button>
         <button id="games-view-btn" onclick="switchMainView('games')" class="px-3 py-2 text-sm whitespace-nowrap bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">משחקים</button>
@@ -1924,10 +1847,6 @@
       return name && name.trim().length > 0;
     }
 
-    // Announce upcoming game players in Hebrew using an mp3 cue then speech synthesis.
-    let announcementSound = null;
-    let announcementSequence = 0;
-    let announcementOverlayTimer = null;
     let isUpcomingPrintSelectionEnabled = false;
     let selectedUpcomingGameKeys = new Set();
     let groupsPopupWindow = null;
@@ -4734,13 +4653,6 @@
       if (typeof updateFn === 'function') {
         updateFn.call(host);
       }
-    }
-    function announcePlayersFromCard(cardEl) {
-      const host = getUpcomingPopupHostWindow();
-      if (!host) return;
-      let fn = null;
-      try { fn = host.announcePlayersFromCard; } catch { fn = null; }
-      if (typeof fn === 'function') fn.call(host, cardEl);
     }
     function startGameByStableKey(encodedKey) {
       const host = getUpcomingPopupHostWindow();
@@ -8691,160 +8603,8 @@
       getLiveKnockoutPopupWindows().forEach(entry => renderKnockoutPopupWindow(entry));
     }
 
-    function getPlayerPhotoUrl(playerId) {
-      const id = String(playerId || '').trim();
-      if (!id) return '';
-      return `https://www.tttm.co.il/playerPict/${id}/${id}.jpg`;
-    }
-
     function formatGroupsPlayerDisplayName(name) {
       return String(name || '').trim();
-    }
-
-    function setAnnouncementPhoto(imgEl, primaryUrl) {
-      const fallbackUrl = 'player.png';
-      if (!imgEl) return;
-
-      imgEl.style.display = '';
-      imgEl.onerror = () => {
-        if (imgEl.src && imgEl.src.includes('player.png')) {
-          imgEl.style.display = 'none';
-          return;
-        }
-        imgEl.src = fallbackUrl;
-      };
-      imgEl.src = primaryUrl || fallbackUrl;
-    }
-
-    function showAnnouncementOverlay(playerA, playerX, playerAid, playerXid) {
-      const overlay = document.getElementById('announcement-overlay');
-      const playerAEl = document.getElementById('announcement-player-a');
-      const playerXEl = document.getElementById('announcement-player-x');
-      const photoAEl = document.getElementById('announcement-photo-a');
-      const photoXEl = document.getElementById('announcement-photo-x');
-      if (!overlay || !playerAEl || !playerXEl || !photoAEl || !photoXEl) return;
-
-      const photoAUrl = getPlayerPhotoUrl(playerAid);
-      const photoXUrl = getPlayerPhotoUrl(playerXid);
-
-      setAnnouncementPhoto(photoAEl, photoAUrl);
-      setAnnouncementPhoto(photoXEl, photoXUrl);
-
-      playerAEl.textContent = playerA;
-      playerXEl.textContent = playerX;
-      overlay.classList.add('show');
-
-      if (announcementOverlayTimer) {
-        clearTimeout(announcementOverlayTimer);
-      }
-      announcementOverlayTimer = setTimeout(() => {
-        overlay.classList.remove('show');
-        announcementOverlayTimer = null;
-      }, 10000);
-    }
-
-    function playAnnouncementSound() {
-      return new Promise((resolve) => {
-        try {
-          if (!announcementSound) {
-            announcementSound = new Audio('DingDong.mp3');
-            announcementSound.preload = 'auto';
-          }
-
-          let settled = false;
-          const finish = () => {
-            if (settled) return;
-            settled = true;
-            announcementSound.removeEventListener('ended', finish);
-            announcementSound.removeEventListener('error', finish);
-            resolve();
-          };
-
-          announcementSound.pause();
-          announcementSound.currentTime = 0;
-          announcementSound.addEventListener('ended', finish);
-          announcementSound.addEventListener('error', finish);
-
-          const playPromise = announcementSound.play();
-          if (playPromise && typeof playPromise.catch === 'function') {
-            playPromise.catch(finish);
-          }
-
-          // Safety timeout in case ended is not fired.
-          setTimeout(finish, 2000);
-        } catch {
-          resolve();
-        }
-      });
-    }
-
-    function playDingDongOnly() {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
-      playAnnouncementSound();
-    }
-
-    function speakAnnouncement(utterance) {
-      return new Promise((resolve) => {
-        utterance.onend = () => resolve();
-        utterance.onerror = () => resolve();
-        window.speechSynthesis.speak(utterance);
-      });
-    }
-
-    async function announceUpcomingPlayers(playerA, playerX, playerAid, playerXid) {
-      const seq = ++announcementSequence;
-      const safePlayerA = (playerA || '').trim() || 'שחקן לא ידוע';
-      const safePlayerX = (playerX || '').trim() || 'שחקן לא ידוע';
-      showAnnouncementOverlay(safePlayerA, safePlayerX, playerAid, playerXid);
-
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
-
-      await playAnnouncementSound();
-      if (seq !== announcementSequence) return;
-      if (!('speechSynthesis' in window)) return;
-
-      const utterance = new SpeechSynthesisUtterance(`${safePlayerA} נגד ${safePlayerX}`);
-      utterance.lang = 'he-IL';
-      utterance.rate = 0.7;
-      utterance.pitch = 1;
-
-      const heVoice = window.speechSynthesis
-        .getVoices()
-        .find(v => v.lang && v.lang.toLowerCase().startsWith('he'));
-      if (heVoice) utterance.voice = heVoice;
-
-      await speakAnnouncement(utterance);
-      if (seq !== announcementSequence) return;
-
-      const repeatedUtterance = new SpeechSynthesisUtterance(`${safePlayerA} נגד ${safePlayerX}`);
-      repeatedUtterance.lang = 'he-IL';
-      repeatedUtterance.rate = 0.7;
-      repeatedUtterance.pitch = 1;
-      if (heVoice) repeatedUtterance.voice = heVoice;
-
-      await speakAnnouncement(repeatedUtterance);
-    }
-
-    function announcePlayersFromCard(cardEl) {
-      if (!cardEl) return;
-      const encodedA = cardEl.getAttribute('data-player-a') || '';
-      const encodedX = cardEl.getAttribute('data-player-x') || '';
-      const playerAid = cardEl.getAttribute('data-player-aid') || '';
-      const playerXid = cardEl.getAttribute('data-player-xid') || '';
-      let playerA = '';
-      let playerX = '';
-      try {
-        playerA = decodeURIComponent(encodedA);
-        playerX = decodeURIComponent(encodedX);
-      } catch {
-        playerA = encodedA;
-        playerX = encodedX;
-      }
-      announceUpcomingPlayers(playerA, playerX, playerAid, playerXid);
     }
 
     // Get all players currently in progress
@@ -8941,7 +8701,6 @@
             };
       const grayClass = isGrayed ? 'grayed-out' : '';
       let upcomingDataAttrs = '';
-      let announceButtonHtml = '';
       let selectionButtonHtml = '';
       let manualProgressButtonsHtml = '';
       let gameNumberHtml = '';
@@ -8966,15 +8725,10 @@
           nextGameBadgeHtml = '<span style="display:inline-flex;align-items:center;padding:2px 9px;margin-left:6px;border-radius:9999px;background:linear-gradient(135deg,#f59e0b,#f97316);color:#ffffff;font-weight:800;font-size:11px;box-shadow:0 1px 4px rgba(0,0,0,0.2);">המשחק הבא</span>';
         }
         const gameKey = getUpcomingGameKey(game);
-        const playerAEncoded = encodeURIComponent(game.playerFullNameA || '');
-        const playerXEncoded = encodeURIComponent(game.playerFullNameX || '');
-        const playerAid = encodeURIComponent(game.playerAid || '');
-        const playerXid = encodeURIComponent(game.playerXid || '');
         const encodedGameKey = encodeURIComponent(gameKey);
         const isSelected = selectedUpcomingGameKeys.has(gameKey);
         const canManualStart = !isGrayed;
-        upcomingDataAttrs = `data-player-a="${playerAEncoded}" data-player-x="${playerXEncoded}" data-player-aid="${playerAid}" data-player-xid="${playerXid}" data-game-key="${encodedGameKey}"`;
-        announceButtonHtml = `<button type="button" class="announce-btn" aria-label="הכרזת משחק" title="השמע הכרזה" onclick="event.stopPropagation(); announcePlayersFromCard(this.closest('.game-card'))">&#128483;</button>`;
+        upcomingDataAttrs = `data-game-key="${encodedGameKey}"`;
         manualProgressButtonsHtml = `<button type="button" class="manual-progress-btn start" aria-label="התחלת משחק" title="${canManualStart ? 'העבר למשחקים עכשיו' : 'לא ניתן להתחיל משחק אפור'}" ${canManualStart ? '' : 'disabled'} onclick="if (typeof event !== 'undefined' && event && event.stopPropagation) event.stopPropagation(); ${canManualStart ? `startGameByStableKey('${encodedStableKey}')` : ''}">התחל</button>`;
         if (isUpcomingPrintSelectionEnabled) {
           selectionButtonHtml = `<button type="button" class="selection-btn ${isSelected ? 'selected' : ''}" aria-label="בחירת משחק להדפסה" title="בחר להדפסה" onclick="event.stopPropagation(); toggleUpcomingSelection(decodeURIComponent(this.closest('.game-card').getAttribute('data-game-key') || ''))">${isSelected ? '✓' : ''}</button>`;
@@ -9081,7 +8835,6 @@
       }
       return `
         <div class="game-card bg-slate-50 rounded-lg p-2 border border-slate-200 text-sm ${grayClass}${cardExtraClass} relative" data-stable-game-key="${encodedStableKey}" ${upcomingDataAttrs} ${cardOnClickAttr} ${cardTitleAttr}>
-          ${announceButtonHtml}
           ${selectionButtonHtml}
           ${manualProgressButtonsHtml}
           <div class="flex justify-between items-center mb-1">
