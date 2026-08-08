@@ -9369,6 +9369,11 @@
       updateAllGameTimers();
     }
 
+    function shouldHideFinishedNoCategoryGame(game) {
+      const normalizedDraw = String(game?.draw || '').trim();
+      return normalizedDraw === '' || normalizedDraw === 'ללא קטגוריה';
+    }
+
     // Render games to columns
     function renderGames(games) {
       syncManualInProgressOverrides(games);
@@ -9386,7 +9391,7 @@
       const prevInProgressIds = (window._prevInProgressIds || []);
       const prevFinishedIds = (window._prevFinishedIds || []);
       let inProgressGames = validGames.filter(g => g.status === 'IN_PROGRESS' && !isManuallyFinishedGame(g));
-      let finishedGames = validGames.filter(g => g.status === 'FINISHED');
+      let finishedGames = validGames.filter(g => g.status === 'FINISHED' && !shouldHideFinishedNoCategoryGame(g));
       const manuallyStartedGames = allUpcomingByStatus.filter(game => isManuallyInProgressGame(game) && !isManuallyFinishedGame(game));
       const inProgressStableKeys = new Set(inProgressGames.map(getStableGameKey).filter(Boolean));
       manuallyStartedGames.forEach(game => {
@@ -9398,6 +9403,7 @@
       const finishedStableKeys = new Set(finishedGames.map(getStableGameKey).filter(Boolean));
       validGames.forEach(game => {
         if (!isManuallyFinishedGame(game) || isApiFinishedStatus(game.status)) return;
+        if (shouldHideFinishedNoCategoryGame(game)) return;
         const stableKey = getStableGameKey(game);
         if (!stableKey || finishedStableKeys.has(stableKey)) return;
         finishedGames.push(game);
@@ -9580,7 +9586,7 @@
         } else if (col === 'inprogress') {
           games = gamesData.filter(g => g.status === 'IN_PROGRESS');
         } else if (col === 'finished') {
-          games = gamesData.filter(g => g.status === 'FINISHED');
+          games = gamesData.filter(g => g.status === 'FINISHED' && !shouldHideFinishedNoCategoryGame(g));
         } else {
           games = [];
         }
@@ -9659,7 +9665,7 @@
             } else if (col === 'inprogress') {
               gamesForOptions = gamesData.filter(g => g.status === 'IN_PROGRESS' && isValidGame(g));
             } else if (col === 'finished') {
-              gamesForOptions = gamesData.filter(g => g.status === 'FINISHED' && isValidGame(g));
+              gamesForOptions = gamesData.filter(g => g.status === 'FINISHED' && isValidGame(g) && !shouldHideFinishedNoCategoryGame(g));
             } else {
               gamesForOptions = [];
             }
@@ -9841,7 +9847,7 @@
           }
           const upGames = gamesData.filter(g => g.status !== 'FINISHED' && g.status !== 'IN_PROGRESS' && isValidGame(g));
           const inGames = gamesData.filter(g => g.status === 'IN_PROGRESS' && isValidGame(g));
-          const finGames = gamesData.filter(g => g.status === 'FINISHED' && isValidGame(g));
+          const finGames = gamesData.filter(g => g.status === 'FINISHED' && isValidGame(g) && !shouldHideFinishedNoCategoryGame(g));
           populateSelect('upcoming-category-filter', upGames, 'draw', 'כל הקטגוריות');
           populateSelect('inprogress-category-filter', inGames, 'draw', 'כל הקטגוריות');
           populateSelect('finished-category-filter', finGames, 'draw', 'כל הקטגוריות');
