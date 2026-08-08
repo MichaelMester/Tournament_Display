@@ -112,6 +112,7 @@
       pointer-events: none;
     }
     .manual-progress-btn.start {
+      left: 8px;
       border-color: #16a34a;
       color: #166534;
       background: #f0fdf4;
@@ -8722,7 +8723,7 @@
       const stableGameNumber = gameNumberMap && gameNumberMap.has(stableKey) ? gameNumberMap.get(stableKey) : null;
       if (type === 'upcoming') {
         if (isPrimaryUpcoming) {
-          nextGameBadgeHtml = '<span style="display:inline-flex;align-items:center;padding:2px 9px;margin-left:6px;border-radius:9999px;background:linear-gradient(135deg,#f59e0b,#f97316);color:#ffffff;font-weight:800;font-size:11px;box-shadow:0 1px 4px rgba(0,0,0,0.2);">המשחק הבא</span>';
+          nextGameBadgeHtml = '<span style="display:inline-flex;align-items:center;padding:1px 7px;margin-left:4px;border-radius:9999px;background:linear-gradient(135deg,#f59e0b,#f97316);color:#ffffff;font-weight:800;font-size:10px;box-shadow:0 1px 4px rgba(0,0,0,0.2);">המשחק הבא</span>';
         }
         const gameKey = getUpcomingGameKey(game);
         const encodedGameKey = encodeURIComponent(gameKey);
@@ -8839,7 +8840,6 @@
           ${manualProgressButtonsHtml}
           <div class="flex justify-between items-center mb-1">
             <span class="text-slate-500 text-xs w-full text-right block">
-              ${nextGameBadgeHtml}
               ${gameNumberHtml}
               ${(game.draw || 'ללא קטגוריה')} | 
               ${
@@ -8857,6 +8857,7 @@
               <span class="font-medium text-slate-700 text-lg flex-1 text-right pr-2 truncate">${game.playerFullNameA || 'לא ידוע'}</span>
               <span class="absolute left-1/2 -translate-x-1/2 flex flex-col items-center gap-0 min-w-[64px] justify-center">
                 <span class="text-slate-600 text-xl font-bold">VS</span>
+                ${nextGameBadgeHtml}
                 ${type === 'inprogress' ? timerHtml : ''}
               </span>
               <span class="font-medium text-slate-700 text-lg flex-1 text-left pl-2 truncate">${game.playerFullNameX || 'לא ידוע'}</span>
