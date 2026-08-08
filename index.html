@@ -9087,15 +9087,26 @@
       window.print();
     }
     function updateAllGameTimers() {
-      document.querySelectorAll('.game-timer[data-game-id]').forEach(div => {
-        const gameId = div.getAttribute('data-game-id');
-        const elapsed = getGameElapsed(gameId);
-        const timerSpan = div.querySelector('.timer-value');
-        if (timerSpan) {
-          timerSpan.textContent = formatMMSS(elapsed);
-        } else {
-          div.textContent = formatMMSS(elapsed);
-        }
+      const docs = [document];
+      if (upcomingColumnPopupWindow && !upcomingColumnPopupWindow.closed) {
+        try {
+          if (upcomingColumnPopupWindow.document) {
+            docs.push(upcomingColumnPopupWindow.document);
+          }
+        } catch {}
+      }
+
+      docs.forEach(docRef => {
+        docRef.querySelectorAll('.game-timer[data-game-id]').forEach(div => {
+          const gameId = div.getAttribute('data-game-id');
+          const elapsed = getGameElapsed(gameId);
+          const timerSpan = div.querySelector('.timer-value');
+          if (timerSpan) {
+            timerSpan.textContent = formatMMSS(elapsed);
+          } else {
+            div.textContent = formatMMSS(elapsed);
+          }
+        });
       });
     }
     function setupGameTimersForInProgress(games, allGames = []) {
