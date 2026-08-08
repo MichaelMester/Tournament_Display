@@ -4162,11 +4162,12 @@
     }
 
     function openUpcomingColumnPopup() {
+      const width = Math.max(1200, Math.floor(window.screen.availWidth * 0.96));
+      const height = Math.max(780, Math.floor(window.screen.availHeight * 0.94));
+      const left = Math.max(0, window.screenX + Math.floor((window.outerWidth - width) / 2));
+      const top = Math.max(0, window.screenY + Math.floor((window.outerHeight - height) / 2));
+
       if (!upcomingColumnPopupWindow || upcomingColumnPopupWindow.closed) {
-        const width = Math.max(640, Math.floor(window.screen.availWidth * 0.45));
-        const height = Math.max(760, Math.floor(window.screen.availHeight * 0.9));
-        const left = Math.max(0, window.screenX + window.outerWidth - width - 20);
-        const top = Math.max(0, window.screenY + 20);
         const features = `popup=yes,resizable=yes,scrollbars=yes,width=${width},height=${height},left=${left},top=${top}`;
         upcomingColumnPopupWindow = window.open('', 'upcomingGamesWindow', features);
         if (!upcomingColumnPopupWindow) {
@@ -4360,7 +4361,7 @@
       font-weight: 700;
       cursor: pointer;
     }
-    .popup-body { padding: 8px; overflow: auto; }
+    .popup-body { padding: 8px; overflow: hidden; }
     .popup-view { min-height: 0; height: 100%; }
     .popup-view.is-hidden { display: none !important; }
     .popup-combined-view { overflow: hidden; }
@@ -4373,10 +4374,11 @@
     }
     .popup-columns {
       display: grid;
-      grid-template-columns: 520px 520px 520px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 12px;
       align-items: start;
-      min-width: 1080px;
+      width: 100%;
+      min-width: 0;
     }
     .popup-column {
       background: #ffffff;
@@ -4459,7 +4461,7 @@
     }
     .popup-columns.zoomed {
       transform-origin: top right;
-      width: max-content;
+      width: 100%;
     }
     .game-card {
       transition: transform 0.2s ease, box-shadow 0.2s ease;
@@ -4715,12 +4717,12 @@
     function applyPopupColumnWidths() {
       const cols = getPopupColumnsEl();
       if (!cols) return;
-      cols.style.gridTemplateColumns = Math.round(popupUpcomingWidthPx) + 'px ' + Math.round(popupInProgressWidthPx) + 'px ' + Math.round(popupFinishedWidthPx) + 'px';
+      cols.style.gridTemplateColumns = 'repeat(3, minmax(0, 1fr))';
       updatePopupColumnRatioLabel();
       try {
-        localStorage.setItem(POPUP_UPCOMING_WIDTH_KEY, String(Math.round(popupUpcomingWidthPx)));
-        localStorage.setItem(POPUP_INPROGRESS_WIDTH_KEY, String(Math.round(popupInProgressWidthPx)));
-        localStorage.setItem(POPUP_FINISHED_WIDTH_KEY, String(Math.round(popupFinishedWidthPx)));
+        localStorage.removeItem(POPUP_UPCOMING_WIDTH_KEY);
+        localStorage.removeItem(POPUP_INPROGRESS_WIDTH_KEY);
+        localStorage.removeItem(POPUP_FINISHED_WIDTH_KEY);
       } catch {}
     }
     function ensurePopupColumnWidthsFromDom() {
@@ -4816,56 +4818,12 @@
       changePopupColumnWidth(targetKey, delta);
     }
     function bindPopupColumnWheelControl() {
-      const upcomingCol = document.getElementById('upcoming-popup-column');
-      const inProgressCol = document.getElementById('inprogress-popup-column');
-      const finishedCol = document.getElementById('finished-popup-column');
-      const upcomingHandle = document.getElementById('upcoming-column-handle');
-      const inProgressHandle = document.getElementById('inprogress-column-handle');
-      const finishedHandle = document.getElementById('finished-column-handle');
-      if (upcomingCol && upcomingCol.dataset.wheelBound !== '1') {
-        upcomingCol.dataset.wheelBound = '1';
-        upcomingCol.dataset.column = 'upcoming';
-        upcomingCol.addEventListener('wheel', handlePopupColumnWheel, { passive: false });
-      }
-      if (inProgressCol && inProgressCol.dataset.wheelBound !== '1') {
-        inProgressCol.dataset.wheelBound = '1';
-        inProgressCol.dataset.column = 'inprogress';
-        inProgressCol.addEventListener('wheel', handlePopupColumnWheel, { passive: false });
-      }
-      if (finishedCol && finishedCol.dataset.wheelBound !== '1') {
-        finishedCol.dataset.wheelBound = '1';
-        finishedCol.dataset.column = 'finished';
-        finishedCol.addEventListener('wheel', handlePopupColumnWheel, { passive: false });
-      }
-      if (upcomingHandle && upcomingHandle.dataset.dragBound !== '1') {
-        upcomingHandle.dataset.dragBound = '1';
-        upcomingHandle.addEventListener('mousedown', startPopupSingleColumnDrag);
-      }
-      if (inProgressHandle && inProgressHandle.dataset.dragBound !== '1') {
-        inProgressHandle.dataset.dragBound = '1';
-        inProgressHandle.addEventListener('mousedown', startPopupSingleColumnDrag);
-      }
-      if (finishedHandle && finishedHandle.dataset.dragBound !== '1') {
-        finishedHandle.dataset.dragBound = '1';
-        finishedHandle.addEventListener('mousedown', startPopupSingleColumnDrag);
-      }
-      if (!popupColumnDragDocBound) {
-        popupColumnDragDocBound = true;
-        document.addEventListener('mousemove', handlePopupSingleColumnDragMove);
-        document.addEventListener('mouseup', stopPopupSingleColumnDrag);
-        window.addEventListener('blur', stopPopupSingleColumnDrag);
-      }
+      return;
     }
     function initPopupColumnRatio() {
-      // Start each popup session with balanced, logical defaults.
-      const columnGap = 24;
-      const bodyPaddingAllowance = 40;
-      const calculatedThird = Math.floor((window.innerWidth - bodyPaddingAllowance - columnGap) / 3);
-      const defaultColumnWidth = Math.max(280, calculatedThird + 200);
-
-      popupUpcomingWidthPx = clampPopupColumnWidth(defaultColumnWidth);
-      popupInProgressWidthPx = clampPopupColumnWidth(defaultColumnWidth);
-      popupFinishedWidthPx = clampPopupColumnWidth(defaultColumnWidth);
+      popupUpcomingWidthPx = 0;
+      popupInProgressWidthPx = 0;
+      popupFinishedWidthPx = 0;
       applyPopupColumnWidths();
       bindPopupColumnWheelControl();
     }
@@ -5027,9 +4985,6 @@
       updatePopupViewToggleButton();
     });
     window.addEventListener('resize', () => {
-      popupUpcomingWidthPx = clampPopupColumnWidth(popupUpcomingWidthPx);
-      popupInProgressWidthPx = clampPopupColumnWidth(popupInProgressWidthPx);
-      popupFinishedWidthPx = clampPopupColumnWidth(popupFinishedWidthPx);
       applyPopupColumnWidths();
       reportUpcomingPopupBoundsToOpener();
     });
@@ -5095,7 +5050,6 @@
     <div id="popup-upcoming-view" class="popup-body popup-view">
       <div class="popup-columns">
         <section id="upcoming-popup-column" class="popup-column" aria-label="משחקים הבאים">
-          <div id="upcoming-column-handle" class="popup-column-resize-handle upcoming-handle" data-column="upcoming" data-dir="-1" title="גרור לשינוי רוחב עמודת המשחקים הבאים"></div>
           <div class="popup-column-header upcoming">
             <h3 class="popup-column-title">משחקים הבאים</h3>
             <span id="upcoming-popup-count" class="popup-column-count"></span>
@@ -5103,7 +5057,6 @@
           <div id="upcoming-popup-root" class="popup-column-body"></div>
         </section>
         <section id="inprogress-popup-column" class="popup-column" aria-label="משחקים עכשיו">
-          <div id="inprogress-column-handle" class="popup-column-resize-handle inprogress-handle" data-column="inprogress" data-dir="-1" title="גרור לשינוי רוחב עמודת המשחקים שבמהלך"></div>
           <div class="popup-column-header inprogress">
             <h3 class="popup-column-title">משחקים עכשיו</h3>
             <span id="inprogress-popup-count" class="popup-column-count"></span>
@@ -5111,7 +5064,6 @@
           <div id="inprogress-popup-root" class="popup-column-body"></div>
         </section>
         <section id="finished-popup-column" class="popup-column" aria-label="משחקים שנגמרו">
-          <div id="finished-column-handle" class="popup-column-resize-handle inprogress-handle" data-column="finished" data-dir="-1" title="גרור לשינוי רוחב עמודת המשחקים שנגמרו"></div>
           <div class="popup-column-header finished">
             <h3 class="popup-column-title">משחקים שנגמרו</h3>
             <span id="finished-popup-count" class="popup-column-count"></span>
@@ -5170,6 +5122,11 @@
           }
         }, 0);
       }
+
+      try {
+        upcomingColumnPopupWindow.resizeTo(width, height);
+        upcomingColumnPopupWindow.moveTo(left, top);
+      } catch {}
 
       renderUpcomingColumnPopupWindow();
       try { upcomingColumnPopupWindow.focus(); } catch {}
