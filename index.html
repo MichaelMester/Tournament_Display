@@ -2611,6 +2611,9 @@
         delete manualFinishedByKey[stableKey];
         saveManualFinishedIfScoped();
       }
+      if (game?.id) {
+        clearGameTimer(game.id);
+      }
       manualInProgressByKey[stableKey] = true;
       saveManualInProgressIfScoped();
       renderGames(gamesData);
