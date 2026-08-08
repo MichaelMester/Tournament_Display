@@ -4113,6 +4113,35 @@
         }
       }
 
+      function splitUpcomingCardsForPinned(sourceHtml) {
+        const temp = popupDoc.createElement('div');
+        temp.innerHTML = String(sourceHtml || '');
+        const firstCard = temp.querySelector('.game-card');
+        const fixedHtml = firstCard ? firstCard.outerHTML : '';
+        if (firstCard) firstCard.remove();
+        return {
+          fixedHtml,
+          scrollHtml: temp.innerHTML
+        };
+      }
+
+      function ensurePopupFixedNextSlot() {
+        const upcomingColumn = popupRoot?.closest?.('.popup-column');
+        if (!upcomingColumn) return null;
+        let fixedSlot = popupDoc.getElementById('upcoming-popup-fixed-next');
+        if (!fixedSlot) {
+          fixedSlot = popupDoc.createElement('div');
+          fixedSlot.id = 'upcoming-popup-fixed-next';
+          fixedSlot.style.padding = '8px 8px 0 8px';
+          fixedSlot.style.background = '#f8fafc';
+          fixedSlot.style.borderBottom = '1px solid #e2e8f0';
+          fixedSlot.style.position = 'relative';
+          fixedSlot.style.zIndex = '5';
+          upcomingColumn.insertBefore(fixedSlot, popupRoot);
+        }
+        return fixedSlot;
+      }
+
       const popupDoc = upcomingColumnPopupWindow.document;
       const popupRoot = popupDoc.getElementById('upcoming-popup-root');
       const popupCount = popupDoc.getElementById('upcoming-popup-count');
@@ -4136,13 +4165,20 @@
         return;
       }
 
-      syncPopupColumnContent(popupRoot, sourceContainer.innerHTML);
+      const fixedNextSlot = ensurePopupFixedNextSlot();
+      const upcomingSplit = splitUpcomingCardsForPinned(sourceContainer.innerHTML);
+      if (fixedNextSlot) {
+        fixedNextSlot.innerHTML = upcomingSplit.fixedHtml;
+        fixedNextSlot.style.display = upcomingSplit.fixedHtml ? 'block' : 'none';
+      }
+      syncPopupColumnContent(popupRoot, upcomingSplit.scrollHtml);
       popupCount.textContent = sourceCount.textContent || '';
       syncPopupColumnContent(popupInProgressRoot, sourceInProgressContainer.innerHTML);
       popupInProgressCount.textContent = sourceInProgressCount.textContent || '';
       syncPopupColumnContent(popupFinishedRoot, sourceFinishedContainer.innerHTML);
       popupFinishedCount.textContent = sourceFinishedCount.textContent || '';
 
+      enforceDisplayOnly(fixedNextSlot);
       enforceDisplayOnly(popupRoot);
       enforceDisplayOnly(popupInProgressRoot);
       enforceDisplayOnly(popupFinishedRoot);
@@ -4194,7 +4230,7 @@
   <style>
     * { box-sizing: border-box; font-family: 'Heebo', sans-serif; }
     html, body { margin: 0; width: 100%; height: 100%; background: #f1f5f9; color: #1e293b; }
-    .popup-shell { display: grid; grid-template-rows: auto 1fr; width: 100%; height: 100%; }
+    .popup-shell { display: grid; grid-template-rows: auto 1fr; width: 100%; height: 100%; min-height: 0; }
     .popup-header {
       display: flex;
       align-items: center;
@@ -4361,7 +4397,7 @@
       font-weight: 700;
       cursor: pointer;
     }
-    .popup-body { padding: 8px; overflow: hidden; }
+    .popup-body { padding: 8px; overflow: hidden; min-height: 0; height: 100%; }
     .popup-view { min-height: 0; height: 100%; }
     .popup-view.is-hidden { display: none !important; }
     .popup-combined-view { overflow: hidden; }
@@ -4376,17 +4412,23 @@
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 12px;
-      align-items: start;
+      align-items: stretch;
       width: 100%;
       min-width: 0;
+      height: 100%;
+      min-height: 0;
     }
     .popup-column {
+      display: flex;
+      flex-direction: column;
       background: #ffffff;
       border: 1px solid #cbd5e1;
       border-radius: 12px;
       overflow: hidden;
       box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
       position: relative;
+      min-height: 0;
+      height: 100%;
     }
     .popup-column.dragging-column {
       box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.28), 0 8px 20px rgba(15, 23, 42, 0.18);
@@ -4455,8 +4497,10 @@
     }
     .popup-column-body {
       padding: 8px;
-      min-height: 140px;
-      max-height: calc(100vh - 170px);
+      min-height: 0;
+      height: 100%;
+      flex: 1 1 auto;
+      max-height: none;
       overflow: auto;
     }
     .popup-columns.zoomed {
@@ -4859,7 +4903,7 @@
       applyPopupZoom();
     }
     function getPopupScrollContainers() {
-      return Array.from(document.querySelectorAll('.popup-column-body'));
+      return Array.from(document.querySelectorAll('.popup-column-body')).filter(el => String(el.id || '') !== 'finished-popup-root');
     }
     function updateAutoScrollControls() {
       const btn = document.getElementById('popup-scroll-toggle-btn');
