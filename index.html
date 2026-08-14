@@ -549,6 +549,59 @@
       font-weight: 800;
       color: #334155;
     }
+    .main-view-btn {
+      background: #ffffff;
+      color: #0f172a;
+      border: 1px solid #cbd5e1;
+    }
+    .main-view-btn:hover {
+      background: #f1f5f9;
+    }
+    .main-view-btn.active {
+      background: #16a34a;
+      border-color: #15803d;
+      color: #ffffff;
+      box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.22);
+    }
+    .main-view-btn.active:hover {
+      background: #15803d;
+    }
+    #upcoming-popup-btn.active {
+      background: #0ea5e9;
+      border-color: #0284c7;
+      color: #ffffff;
+      box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.24);
+    }
+    #settings-view-btn.active {
+      background: #0ea5e9;
+      border-color: #0284c7;
+      color: #ffffff;
+      box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.24);
+    }
+    #upcoming-popup-btn.active:hover,
+    #settings-view-btn.active:hover {
+      background: #0284c7;
+    }
+    #games-config-panel button {
+      height: 36px !important;
+      min-height: 36px !important;
+      max-height: 36px !important;
+      padding: 0 1rem !important;
+      font-size: 0.875rem;
+      line-height: 1.25rem !important;
+      font-weight: 600;
+      align-items: center !important;
+    }
+    #games-config-panel input,
+    #games-config-panel select {
+      height: 36px !important;
+      min-height: 36px !important;
+      max-height: 36px !important;
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+      font-size: 0.875rem;
+      line-height: 1.25rem !important;
+    }
     .draw-selector-overlay {
       position: fixed;
       inset: 0;
@@ -1464,11 +1517,11 @@
   <div id="app-container" class="h-full w-full p-4 md:p-6"><!-- Header -->
    <div class="mb-6">
       <div id="main-view-switcher" class="bg-white rounded-xl shadow-lg max-w-7xl mx-auto mb-3 p-3 flex flex-col md:flex-row md:flex-wrap items-stretch md:items-center justify-end gap-3">
-        <button id="settings-view-btn" onclick="toggleGamesSettingsPanel()" class="px-4 py-2 text-sm whitespace-nowrap bg-slate-700 hover:bg-slate-800 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">⚙️ הגדרות</button>
-        <button id="games-view-btn" onclick="switchMainView('games')" class="px-4 py-2 text-sm whitespace-nowrap bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">משחקים</button>
-        <button id="groups-standings-btn" onclick="switchMainView('groups')" class="px-4 py-2 text-sm whitespace-nowrap bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">בתים</button>
-        <button id="knockout-standings-btn" onclick="switchMainView('knockout')" class="px-4 py-2 text-sm whitespace-nowrap bg-cyan-600 hover:bg-cyan-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2" style="background:#0891b2;color:#ffffff;border:1px solid #0e7490;" onmouseover="this.style.background='#0e7490'" onmouseout="this.style.background='#0891b2'">נוקאאוט</button>
-        <button id="upcoming-popup-btn" onclick="toggleDisplayConfigPanel()" class="px-4 py-2 text-sm whitespace-nowrap bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">תצוגה</button>
+        <button id="settings-view-btn" onclick="toggleGamesSettingsPanel()" class="main-view-btn px-4 py-2 text-sm whitespace-nowrap font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">⚙️ הגדרות</button>
+        <button id="games-view-btn" onclick="switchMainView('games')" class="main-view-btn px-4 py-2 text-sm whitespace-nowrap font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">משחקים</button>
+        <button id="groups-standings-btn" onclick="switchMainView('groups')" class="main-view-btn px-4 py-2 text-sm whitespace-nowrap font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">בתים</button>
+        <button id="knockout-standings-btn" onclick="switchMainView('knockout')" class="main-view-btn px-4 py-2 text-sm whitespace-nowrap font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">נוקאאוט</button>
+        <button id="upcoming-popup-btn" onclick="toggleDisplayConfigPanel()" class="main-view-btn px-4 py-2 text-sm whitespace-nowrap font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">תצוגה</button>
       </div><!-- URL Input Section - Collapsible -->
       <div id="display-config-panel" class="display-config-panel hidden max-w-7xl mx-auto mb-3">
         <div class="display-config-row">
@@ -1755,20 +1808,20 @@
       knockoutView.style.display = 'none';
       
       // Update button states
-      document.getElementById('games-view-btn').classList.remove('brightness-150', 'ring-2', 'ring-white');
-      document.getElementById('groups-standings-btn').classList.remove('brightness-150', 'ring-2', 'ring-white');
-      document.getElementById('knockout-standings-btn').classList.remove('brightness-150', 'ring-2', 'ring-white');
+      document.getElementById('games-view-btn').classList.remove('active');
+      document.getElementById('groups-standings-btn').classList.remove('active');
+      document.getElementById('knockout-standings-btn').classList.remove('active');
       
       if (viewName === 'games') {
         gamesView.style.display = '';
-        document.getElementById('games-view-btn').classList.add('brightness-150', 'ring-2', 'ring-white');
+        document.getElementById('games-view-btn').classList.add('active');
       } else if (viewName === 'groups') {
         groupsView.style.display = 'block';
-        document.getElementById('groups-standings-btn').classList.add('brightness-150', 'ring-2', 'ring-white');
+        document.getElementById('groups-standings-btn').classList.add('active');
         renderMainGroupsView();
       } else if (viewName === 'knockout') {
         knockoutView.style.display = 'block';
-        document.getElementById('knockout-standings-btn').classList.add('brightness-150', 'ring-2', 'ring-white');
+        document.getElementById('knockout-standings-btn').classList.add('active');
         renderMainKnockoutView();
       }
       updateGamesConfigPanelVisibility();
@@ -1951,7 +2004,7 @@
     // Initialize games view as active on page load
     function initializeMainView() {
       currentMainView = 'games';
-      document.getElementById('games-view-btn').classList.add('brightness-150', 'ring-2', 'ring-white');
+      document.getElementById('games-view-btn').classList.add('active');
       updateGamesConfigPanelVisibility();
     }
 
@@ -2075,6 +2128,10 @@
       if (!panel) return;
       const shouldShow = currentMainView === 'games' && gamesConfigPanelOpen;
       panel.style.display = shouldShow ? '' : 'none';
+      const settingsBtn = document.getElementById('settings-view-btn');
+      if (settingsBtn) {
+        settingsBtn.classList.toggle('active', shouldShow);
+      }
       if (!shouldShow) {
         closePrintOptionsPanel();
       }
@@ -2113,6 +2170,10 @@
       const panel = document.getElementById('display-config-panel');
       if (!panel) return;
       panel.classList.toggle('hidden', !displayConfigPanelOpen);
+      const topDisplayBtn = document.getElementById('upcoming-popup-btn');
+      if (topDisplayBtn) {
+        topDisplayBtn.classList.toggle('active', displayConfigPanelOpen);
+      }
       if (displayConfigPanelOpen) {
         updateCombinedPopupCycleControls();
         syncDisplayPopupControlsFromWindow();
@@ -2130,11 +2191,12 @@
 
     function updateDisplayPopupToggleButton() {
       const btn = document.getElementById('display-popup-toggle-btn');
-      if (!btn) return;
       const isOpen = isDisplayPopupOpen();
-      btn.textContent = isOpen ? 'סגור' : 'פתח תצוגה';
-      btn.classList.toggle('display-config-primary', !isOpen);
-      btn.classList.toggle('display-config-danger', isOpen);
+      if (btn) {
+        btn.textContent = isOpen ? 'סגור' : 'פתח תצוגה';
+        btn.classList.toggle('display-config-primary', !isOpen);
+        btn.classList.toggle('display-config-danger', isOpen);
+      }
     }
 
     function openDisplayPopupFromConfig() {
@@ -3498,7 +3560,10 @@
       const nameA = game.playerFullNameA || 'שחקן א';
       const nameX = game.playerFullNameX || 'שחקן ב';
       const draw = game.draw || 'ללא קטגוריה';
-      if (title) title.textContent = `${draw} | ${nameA} נגד ${nameX}`;
+      const tableText = game.table && String(game.table).trim() !== '0'
+        ? ` | שולחן ${String(game.table).trim()}`
+        : '';
+      if (title) title.textContent = `${draw}${tableText}`;
 
       const summaryAName = document.getElementById('score-entry-player-a-name');
       const summaryXName = document.getElementById('score-entry-player-x-name');
