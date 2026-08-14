@@ -449,6 +449,15 @@
     .print-selection-tools.hidden {
       display: none;
     }
+    .print-options-panel.hidden {
+      display: none;
+    }
+    .print-mode-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
     .draw-selector-overlay {
       position: fixed;
       inset: 0;
@@ -1366,8 +1375,14 @@
       <div class="flex flex-col items-center justify-center gap-1 mb-4">
         <h1 id="page-title" class="text-2xl md:text-3xl font-bold text-slate-800 text-center m-0">לוח משחקים</h1>
         <span class="text-xs md:text-sm text-slate-500 font-semibold leading-none">גרסה 1.0.0.4</span>
+      </div>
+      <div id="main-view-switcher" class="bg-white rounded-xl shadow-lg max-w-7xl mx-auto mb-3 p-3 flex flex-col md:flex-row md:flex-wrap items-stretch md:items-center justify-end gap-3">
+        <button id="settings-view-btn" onclick="toggleGamesSettingsPanel()" class="px-4 py-2 text-sm whitespace-nowrap bg-slate-700 hover:bg-slate-800 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">⚙️ הגדרות</button>
+        <button id="games-view-btn" onclick="switchMainView('games')" class="px-4 py-2 text-sm whitespace-nowrap bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">משחקים</button>
+        <button id="groups-standings-btn" onclick="switchMainView('groups')" class="px-4 py-2 text-sm whitespace-nowrap bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">בתים</button>
+        <button id="knockout-standings-btn" onclick="switchMainView('knockout')" class="px-4 py-2 text-sm whitespace-nowrap bg-cyan-600 hover:bg-cyan-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2" style="background:#0891b2;color:#ffffff;border:1px solid #0e7490;" onmouseover="this.style.background='#0e7490'" onmouseout="this.style.background='#0891b2'">נוקאאוט</button>
       </div><!-- URL Input Section - Collapsible -->
-      <div class="bg-white rounded-xl shadow-lg max-w-7xl mx-auto overflow-hidden"><button id="toggle-url-section" onclick="toggleUrlSection()" class="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors border-b border-slate-200"> <span class="text-slate-700 font-semibold">⚙️ הגדרות</span> <span id="toggle-icon" class="text-slate-500">▼</span> </button>
+      <div id="games-config-panel" class="bg-white rounded-xl shadow-lg max-w-7xl mx-auto overflow-hidden"><button id="toggle-url-section" onclick="toggleUrlSection()" class="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors border-b border-slate-200"> <span class="text-slate-700 font-semibold">⚙️ הגדרות משחקים</span> <span id="toggle-icon" class="text-slate-500">▼</span> </button>
      <div id="url-section" class="p-4">
       <div class="flex flex-col md:flex-row md:flex-wrap gap-3">
         <input type="text" id="event-id-input" placeholder="מזהה אירוע" class="w-28 md:w-32 px-3 py-2 border-2 border-slate-200 rounded-lg focus:border-blue-500 focus:outline-none text-right transition-colors">
@@ -1378,22 +1393,25 @@
         <button id="reload-btn" onclick="fetchGames()" class="px-3 py-2 text-sm whitespace-nowrap bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"> <span id="btn-text">טען מחדש</span>
           <div id="btn-spinner" class="loading-spinner hidden"></div></button>
         <button id="auto-reload-btn" onclick="toggleAutoReload()" class="px-3 py-2 text-sm whitespace-nowrap bg-gray-300 hover:bg-gray-400 text-slate-700 font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">הפעל רענון</button>
-        <button id="print-upcoming-btn" onclick="printUpcomingGames()" class="px-3 py-2 text-sm whitespace-nowrap bg-slate-700 hover:bg-slate-800 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">הדפס משחקים</button>
+        <button id="print-upcoming-btn" onclick="togglePrintOptionsPanel()" class="px-3 py-2 text-sm whitespace-nowrap bg-slate-700 hover:bg-slate-800 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">הדפס משחקים</button>
         <button id="upcoming-popup-btn" onclick="openUpcomingColumnPopup()" class="px-3 py-2 text-sm whitespace-nowrap bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">תצוגה</button>
         <button id="reset-game-numbers-btn" onclick="resetGameNumbers()" class="px-3 py-2 text-sm whitespace-nowrap font-semibold rounded-lg transition-colors flex items-center justify-center gap-2" style="background:#be123c;color:#ffffff;">איפוס מספרי משחקים</button>
-        <button id="games-view-btn" onclick="switchMainView('games')" class="px-3 py-2 text-sm whitespace-nowrap bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">משחקים</button>
-        <button id="groups-standings-btn" onclick="switchMainView('groups')" class="px-3 py-2 text-sm whitespace-nowrap bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">בתים</button>
-        <button id="knockout-standings-btn" onclick="switchMainView('knockout')" class="px-3 py-2 text-sm whitespace-nowrap bg-cyan-600 hover:bg-cyan-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2" style="background:#0891b2;color:#ffffff;border:1px solid #0e7490;" onmouseover="this.style.background='#0e7490'" onmouseout="this.style.background='#0891b2'">נוקאאוט</button>
       </div>
-      <div class="print-selection-bar">
-        <label for="enable-upcoming-print-selection">
-          <input id="enable-upcoming-print-selection" type="checkbox" onchange="setUpcomingPrintSelectionEnabled(this.checked)">
-          אפשר בחירת משחקים להדפסה
+      <div id="print-options-panel" class="print-selection-bar print-options-panel hidden">
+        <label for="print-mode-all">
+          <input id="print-mode-all" name="print-games-mode" type="radio" value="all" checked onchange="setPrintGamesMode(this.value)">
+          הדפס את כל המשחקים
         </label>
-        <label for="print-empty-games">
-          <input id="print-empty-games" type="checkbox">
-          הדפס משחקים ריקים (ללא שמות)
+        <label for="print-mode-selected">
+          <input id="print-mode-selected" name="print-games-mode" type="radio" value="selected" onchange="setPrintGamesMode(this.value)">
+          בחר משחקים להדפסה
         </label>
+        <label for="print-mode-empty">
+          <input id="print-mode-empty" name="print-games-mode" type="radio" value="empty" onchange="setPrintGamesMode(this.value)">
+          הדפס דף משחקים ריקים
+        </label>
+        <input id="enable-upcoming-print-selection" type="checkbox" class="hidden" onchange="setUpcomingPrintSelectionEnabled(this.checked)">
+        <input id="print-empty-games" type="checkbox" class="hidden">
         <div id="upcoming-print-selection-tools" class="print-selection-tools hidden">
           <label for="select-all-upcoming-print">
             <input id="select-all-upcoming-print" type="checkbox" onchange="toggleSelectAllUpcoming(this.checked)">
@@ -1401,6 +1419,10 @@
           </label>
           <button type="button" onclick="clearUpcomingSelection()" class="px-3 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded border border-slate-300">נקה בחירה</button>
           <span id="selected-upcoming-count">0 משחקים נבחרו להדפסה</span>
+        </div>
+        <div class="print-mode-actions">
+          <button type="button" onclick="printUpcomingGames()" class="px-3 py-1 bg-slate-700 hover:bg-slate-800 text-white rounded border border-slate-800 font-semibold">הדפס</button>
+          <button type="button" onclick="closePrintOptionsPanel()" class="px-3 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded border border-slate-300">סגור</button>
         </div>
       </div>
       <p id="error-message" class="text-red-500 text-sm mt-2 hidden"></p>
@@ -1606,6 +1628,7 @@
         document.getElementById('knockout-standings-btn').classList.add('brightness-150', 'ring-2', 'ring-white');
         renderMainKnockoutView();
       }
+      updateGamesConfigPanelVisibility();
     }
 
     // Open groups selector dialog for main page
@@ -1786,6 +1809,7 @@
     function initializeMainView() {
       currentMainView = 'games';
       document.getElementById('games-view-btn').classList.add('brightness-150', 'ring-2', 'ring-white');
+      updateGamesConfigPanelVisibility();
     }
 
     // Toggle URL section collapse/expand
@@ -1901,6 +1925,50 @@
     let currentScoreEntryState = null;
     let mainKnockoutActionStableKey = '';
     let mainKnockoutActionAllowEmptySubmission = false;
+    let gamesConfigPanelOpen = false;
+
+    function updateGamesConfigPanelVisibility() {
+      const panel = document.getElementById('games-config-panel');
+      if (!panel) return;
+      const shouldShow = currentMainView === 'games' && gamesConfigPanelOpen;
+      panel.style.display = shouldShow ? '' : 'none';
+      if (!shouldShow) {
+        closePrintOptionsPanel();
+      }
+    }
+
+    function openGamesSettingsPanel() {
+      if (currentMainView !== 'games') {
+        switchMainView('games');
+      }
+      gamesConfigPanelOpen = true;
+      updateGamesConfigPanelVisibility();
+      const urlSection = document.getElementById('url-section');
+      const toggleIcon = document.getElementById('toggle-icon');
+      if (urlSection) {
+        urlSection.classList.remove('hidden');
+        urlSection.style.display = '';
+      }
+      if (toggleIcon) toggleIcon.textContent = '▼';
+    }
+
+    function toggleGamesSettingsPanel() {
+      if (currentMainView !== 'games') {
+        openGamesSettingsPanel();
+        return;
+      }
+      gamesConfigPanelOpen = !gamesConfigPanelOpen;
+      updateGamesConfigPanelVisibility();
+      if (gamesConfigPanelOpen) {
+        const urlSection = document.getElementById('url-section');
+        const toggleIcon = document.getElementById('toggle-icon');
+        if (urlSection) {
+          urlSection.classList.remove('hidden');
+          urlSection.style.display = '';
+        }
+        if (toggleIcon) toggleIcon.textContent = '▼';
+      }
+    }
 
     function clampGroupsPopupZoomPercent(value) {
       const n = Number(value);
@@ -3363,6 +3431,39 @@
       const validKeys = new Set(games.map(getUpcomingGameKey).filter(Boolean));
       selectedUpcomingGameKeys = new Set(Array.from(selectedUpcomingGameKeys).filter(key => validKeys.has(key)));
       updateUpcomingSelectionUI();
+    }
+
+    function getPrintGamesMode() {
+      const selectedMode = document.querySelector('input[name="print-games-mode"]:checked');
+      return String(selectedMode?.value || 'all');
+    }
+
+    function setPrintGamesMode(mode) {
+      const normalizedMode = mode === 'selected' || mode === 'empty' ? mode : 'all';
+      const selectionInput = document.getElementById('enable-upcoming-print-selection');
+      const emptyInput = document.getElementById('print-empty-games');
+
+      if (selectionInput) selectionInput.checked = normalizedMode === 'selected';
+      if (emptyInput) emptyInput.checked = normalizedMode === 'empty';
+      setUpcomingPrintSelectionEnabled(normalizedMode === 'selected');
+    }
+
+    function togglePrintOptionsPanel() {
+      const panel = document.getElementById('print-options-panel');
+      if (!panel) return;
+      const isHidden = panel.classList.contains('hidden');
+      panel.classList.toggle('hidden', !isHidden);
+      if (isHidden) {
+        setPrintGamesMode(getPrintGamesMode());
+      }
+    }
+
+    function closePrintOptionsPanel() {
+      const panel = document.getElementById('print-options-panel');
+      if (panel) panel.classList.add('hidden');
+      setPrintGamesMode('all');
+      const allMode = document.getElementById('print-mode-all');
+      if (allMode) allMode.checked = true;
     }
 
     function buildGroupStandings(games) {
@@ -9048,14 +9149,15 @@
     }
     function printUpcomingGames() {
       const printContainer = document.getElementById('print-container');
-      const printEmptyGames = Boolean(document.getElementById('print-empty-games')?.checked);
+      const printMode = getPrintGamesMode();
+      const printEmptyGames = printMode === 'empty';
       const allUpcomingGames = getDisplayUpcomingGames(gamesData);
       const gameNumberMap = buildUpcomingGameNumberMap(allUpcomingGames);
-      let upcomingGames = selectedUpcomingGameKeys.size > 0
+      let upcomingGames = printMode === 'selected'
         ? allUpcomingGames.filter(game => selectedUpcomingGameKeys.has(getUpcomingGameKey(game)))
         : allUpcomingGames;
 
-      if (printEmptyGames && upcomingGames.length === 0) {
+      if (printEmptyGames) {
         upcomingGames = Array.from({ length: 6 }, () => ({
           table: '',
           startTime: ''
@@ -9065,7 +9167,7 @@
       if (!printContainer || upcomingGames.length === 0) {
         const errorMsg = document.getElementById('error-message');
         if (errorMsg) {
-          errorMsg.textContent = selectedUpcomingGameKeys.size > 0 ? 'אין משחקים נבחרים להדפסה' : 'אין משחקים הבאים להדפסה';
+          errorMsg.textContent = printMode === 'selected' ? 'אין משחקים נבחרים להדפסה' : 'אין משחקים הבאים להדפסה';
           errorMsg.classList.remove('hidden');
         }
         return;
@@ -9742,7 +9844,7 @@
       // Hide event ID input section and settings section
       if (urlSection) urlSection.style.display = 'none';
       // Hide the settings container (the parent of urlSection)
-      var urlSettingsContainer = urlSection ? urlSection.closest('.bg-white.rounded-xl.shadow-lg.mx-auto.overflow-hidden') : null;
+      var urlSettingsContainer = document.getElementById('games-config-panel') || (urlSection ? urlSection.closest('.bg-white.rounded-xl.shadow-lg.mx-auto.overflow-hidden') : null);
       if (urlSettingsContainer) urlSettingsContainer.style.display = 'none';
       // Set eventId and env to prod, then auto-load
       if (eventIdInput) eventIdInput.value = eventIdFromUrl;
