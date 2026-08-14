@@ -461,6 +461,9 @@
     .display-config-panel.hidden {
       display: none;
     }
+    .display-config-row.hidden {
+      display: none;
+    }
     .display-config-panel {
       background: #ffffff;
       border-radius: 12px;
@@ -1493,12 +1496,33 @@
           <input id="display-scroll-speed" type="range" min="10" max="140" step="1" value="40" class="display-config-range" oninput="handleDisplayPopupAutoScrollSpeedChange(this.value)" aria-label="מהירות גלילה">
           <span id="display-scroll-speed-value" class="display-config-value">40</span>
         </div>
-        <div class="display-config-row">
+        <div id="display-games-zoom-controls" class="display-config-row hidden">
           <span class="display-config-row-title">זום</span>
           <button type="button" onclick="changeDisplayPopupZoom(0.1)">+</button>
           <span id="display-zoom-value" class="display-config-value">100%</span>
           <button type="button" onclick="changeDisplayPopupZoom(-0.1)">-</button>
           <button type="button" onclick="resetDisplayPopupZoom()">איפוס</button>
+        </div>
+        <div id="display-groups-controls" class="display-config-row hidden">
+          <span class="display-config-row-title">בתים</span>
+          <button type="button" onclick="chooseDisplayGroupsDraws()">בחר בתים</button>
+          <span>זום</span>
+          <button type="button" onclick="adjustDisplayGroupsZoom(-5)">-</button>
+          <input id="display-groups-zoom-slider" type="range" min="25" max="300" step="1" value="100" class="display-config-range" oninput="setDisplayGroupsZoom(this.value)" aria-label="זום בתים">
+          <button type="button" onclick="adjustDisplayGroupsZoom(5)">+</button>
+          <button type="button" onclick="resetDisplayGroupsZoom()">איפוס</button>
+          <span id="display-groups-zoom-value" class="display-config-value">100%</span>
+        </div>
+        <div id="display-knockout-controls" class="display-config-row hidden">
+          <span class="display-config-row-title">נוקאאוט</span>
+          <button type="button" onclick="chooseDisplayKnockoutDraws()">בחר נוקאאוט</button>
+          <span>זום</span>
+          <button type="button" onclick="adjustDisplayKnockoutZoom(-5)">-</button>
+          <input id="display-knockout-zoom-slider" type="range" min="25" max="300" step="1" value="100" class="display-config-range" oninput="setDisplayKnockoutZoom(this.value)" aria-label="זום נוקאאוט">
+          <button type="button" onclick="adjustDisplayKnockoutZoom(5)">+</button>
+          <button type="button" onclick="resetDisplayKnockoutZoom()">איפוס</button>
+          <button id="display-knockout-row-toggle" type="button" onclick="toggleDisplayKnockoutRowMode()">KO Auto</button>
+          <span id="display-knockout-zoom-value" class="display-config-value">100%</span>
         </div>
       </div>
       <div id="games-config-panel" class="bg-white rounded-xl shadow-lg max-w-7xl mx-auto overflow-hidden">
@@ -2190,6 +2214,103 @@
       } catch {}
     }
 
+    function getDisplayEmbeddedEntry() {
+      const entry = upcomingEmbeddedCombinedEntry;
+      if (!entry || !entry.embeddedInUpcoming) return null;
+      if (!ensureUpcomingEmbeddedCombinedEntry(entry)) return null;
+      return entry;
+    }
+
+    function syncDisplayEmbeddedControls() {
+      const entry = getDisplayEmbeddedEntry();
+      const activeView = isDisplayPopupOpen() ? (upcomingPopupEmbeddedViewType || 'games') : '';
+      const gamesZoomControls = document.getElementById('display-games-zoom-controls');
+      const groupsControls = document.getElementById('display-groups-controls');
+      const knockoutControls = document.getElementById('display-knockout-controls');
+
+      if (gamesZoomControls) gamesZoomControls.classList.toggle('hidden', activeView !== 'games');
+      if (groupsControls) groupsControls.classList.toggle('hidden', activeView !== 'groups');
+      if (knockoutControls) knockoutControls.classList.toggle('hidden', activeView !== 'knockout');
+      if (!entry) return;
+
+      const groupsZoom = clampCombinedGroupsZoomPercent(entry.groupsZoomPercent || 100);
+      const groupsSlider = document.getElementById('display-groups-zoom-slider');
+      const groupsValue = document.getElementById('display-groups-zoom-value');
+      if (groupsSlider) groupsSlider.value = String(groupsZoom);
+      if (groupsValue) groupsValue.textContent = `${groupsZoom}%`;
+
+      const knockoutZoom = clampKnockoutZoomPercent(entry.zoomPercent || 100);
+      const knockoutSlider = document.getElementById('display-knockout-zoom-slider');
+      const knockoutValue = document.getElementById('display-knockout-zoom-value');
+      const knockoutRowToggle = document.getElementById('display-knockout-row-toggle');
+      if (knockoutSlider) knockoutSlider.value = String(knockoutZoom);
+      if (knockoutValue) knockoutValue.textContent = `${knockoutZoom}%`;
+      if (knockoutRowToggle) knockoutRowToggle.textContent = entry.knockoutSingleRow ? 'KO Auto' : 'KO Row';
+    }
+
+    function setDisplayGroupsZoom(value) {
+      const entry = getDisplayEmbeddedEntry();
+      if (!entry) return;
+      updateCombinedGroupsPopupZoom(entry.id, value);
+      syncDisplayEmbeddedControls();
+    }
+
+    function adjustDisplayGroupsZoom(delta) {
+      const entry = getDisplayEmbeddedEntry();
+      if (!entry) return;
+      adjustCombinedGroupsPopupZoom(entry.id, delta);
+      syncDisplayEmbeddedControls();
+    }
+
+    function resetDisplayGroupsZoom() {
+      const entry = getDisplayEmbeddedEntry();
+      if (!entry) return;
+      resetCombinedGroupsPopupZoom(entry.id);
+      syncDisplayEmbeddedControls();
+    }
+
+    async function chooseDisplayGroupsDraws() {
+      const entry = getDisplayEmbeddedEntry();
+      if (!entry) return;
+      await promptPopupWindowDrawSelection(entry.id);
+      syncDisplayEmbeddedControls();
+    }
+
+    function setDisplayKnockoutZoom(value) {
+      const entry = getDisplayEmbeddedEntry();
+      if (!entry) return;
+      updateKnockoutPopupZoom(entry.id, value);
+      syncDisplayEmbeddedControls();
+    }
+
+    function adjustDisplayKnockoutZoom(delta) {
+      const entry = getDisplayEmbeddedEntry();
+      if (!entry) return;
+      adjustKnockoutPopupZoom(entry.id, delta);
+      syncDisplayEmbeddedControls();
+    }
+
+    function resetDisplayKnockoutZoom() {
+      const entry = getDisplayEmbeddedEntry();
+      if (!entry) return;
+      resetKnockoutPopupZoom(entry.id);
+      syncDisplayEmbeddedControls();
+    }
+
+    function toggleDisplayKnockoutRowMode() {
+      const entry = getDisplayEmbeddedEntry();
+      if (!entry) return;
+      setKnockoutSingleRow(entry.id, !entry.knockoutSingleRow);
+      syncDisplayEmbeddedControls();
+    }
+
+    async function chooseDisplayKnockoutDraws() {
+      const entry = getDisplayEmbeddedEntry();
+      if (!entry) return;
+      await promptPopupWindowDrawSelection(entry.id);
+      syncDisplayEmbeddedControls();
+    }
+
     function updateDisplayViewActiveButtons() {
       const activeView = isDisplayPopupOpen()
         ? (upcomingPopupEmbeddedViewType || 'games')
@@ -2200,6 +2321,7 @@
       if (gamesBtn) gamesBtn.classList.toggle('display-config-active-view', activeView === 'games');
       if (groupsBtn) groupsBtn.classList.toggle('display-config-active-view', activeView === 'groups');
       if (knockoutBtn) knockoutBtn.classList.toggle('display-config-active-view', activeView === 'knockout');
+      syncDisplayEmbeddedControls();
     }
 
     function toggleDisplayPopupAutoScroll() {
@@ -7922,10 +8044,15 @@
           : (Array.isArray(upcomingEmbeddedGroupsDraws) && upcomingEmbeddedGroupsDraws.length > 0
             ? upcomingEmbeddedGroupsDraws.slice()
             : (loadGroupsSelection() || allDraws.slice()));
-        const entryDoc = getWindowDocumentSafe(entry.win);
-        let selectedDraws = entryDoc
-          ? await openGroupsSelectorInWindowDocument(entryDoc, allDraws, baseSelection)
-          : null;
+        let selectedDraws = null;
+        if (entry.embeddedInUpcoming) {
+          selectedDraws = await openGroupsSelector(standings, baseSelection);
+        } else {
+          const entryDoc = getWindowDocumentSafe(entry.win);
+          selectedDraws = entryDoc
+            ? await openGroupsSelectorInWindowDocument(entryDoc, allDraws, baseSelection)
+            : null;
+        }
         if (selectedDraws == null && !entry.embeddedInUpcoming) {
           selectedDraws = await openGroupsSelector(standings, baseSelection);
         }
@@ -7946,10 +8073,15 @@
       if (entry.mode === 'knockout' || isKnockoutOnlyCombined) {
         const nonGroupGamesByDraw = getNonGroupGamesByDraw(gamesData || []);
         const availableDrawNames = Array.from(nonGroupGamesByDraw.keys()).sort((a, b) => a.localeCompare(b, 'he'));
-        const entryDoc = getWindowDocumentSafe(entry.win);
-        let selectedDraws = entryDoc
-          ? await openKnockoutDrawSelectorInWindowDocument(entryDoc, availableDrawNames, Array.isArray(entry.drawNames) ? entry.drawNames : null)
-          : null;
+        let selectedDraws = null;
+        if (entry.embeddedInUpcoming) {
+          selectedDraws = await openKnockoutDrawSelector(availableDrawNames, Array.isArray(entry.drawNames) ? entry.drawNames : null);
+        } else {
+          const entryDoc = getWindowDocumentSafe(entry.win);
+          selectedDraws = entryDoc
+            ? await openKnockoutDrawSelectorInWindowDocument(entryDoc, availableDrawNames, Array.isArray(entry.drawNames) ? entry.drawNames : null)
+            : null;
+        }
         if (selectedDraws == null && !entry.embeddedInUpcoming) {
           selectedDraws = await openKnockoutDrawSelector(availableDrawNames, Array.isArray(entry.drawNames) ? entry.drawNames : null);
         }
@@ -8801,9 +8933,9 @@
 </head>
 <body>
   <div class="knockout-popup-shell">
-    <button id="knockout-zoom-open" class="knockout-zoom-toggle${entry.zoomToolbarCollapsed ? ' is-visible' : ''}" type="button" onclick="setKnockoutPopupToolbarCollapsed(${entry.id}, false)">Zoom</button>
+    ${entry.embeddedInUpcoming ? '' : `<button id="knockout-zoom-open" class="knockout-zoom-toggle${entry.zoomToolbarCollapsed ? ' is-visible' : ''}" type="button" onclick="setKnockoutPopupToolbarCollapsed(${entry.id}, false)">Zoom</button>`}
     ${entry.embeddedInUpcoming ? '' : '<button type="button" class="knockout-close-btn" onclick="closeKnockoutPopupWindow()">סגור</button>'}
-    <div class="knockout-zoom-tools${entry.zoomToolbarCollapsed ? ' is-hidden' : ''}">
+    ${entry.embeddedInUpcoming ? '' : `<div class="knockout-zoom-tools${entry.zoomToolbarCollapsed ? ' is-hidden' : ''}">
       ${(entry.mode !== 'combined' || entry._hasCombinedKnockoutSection) ? `
       <span class="zoom-section-label">KO</span>
       <button type="button" onclick="adjustKnockoutPopupZoom(${entry.id}, -5)">-</button>
@@ -8831,7 +8963,7 @@
       <span class="zoom-tools-separator"></span>
       <button type="button" onclick="openPopupDrawSelection(${entry.id})">${selectionButtonLabel}</button>
       <button type="button" onclick="setKnockoutPopupToolbarCollapsed(${entry.id}, true)">Hide</button>
-    </div>
+    </div>`}
     <div id="knockout-modal-body" class="knockout-modal-body">${bodyHtml}</div>
   </div>
 </body>
