@@ -458,6 +458,94 @@
       gap: 10px;
       align-items: center;
     }
+    .display-config-panel.hidden {
+      display: none;
+    }
+    .display-config-panel {
+      background: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 10px 26px rgba(15, 23, 42, 0.12);
+      border: 1px solid #e2e8f0;
+      padding: 12px;
+      display: grid;
+      gap: 12px;
+    }
+    .display-config-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: flex-start;
+    }
+    .display-config-row-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: #334155;
+      margin-inline-end: 4px;
+      white-space: nowrap;
+    }
+    .display-config-panel button {
+      border-radius: 8px;
+      padding: 7px 11px;
+      font-size: 13px;
+      font-weight: 700;
+      border: 1px solid #cbd5e1;
+      cursor: pointer;
+      background: #ffffff;
+      color: #0f172a;
+    }
+    .display-config-panel button:hover {
+      background: #f1f5f9;
+    }
+    .display-config-primary {
+      background: #2563eb !important;
+      border-color: #1d4ed8 !important;
+      color: #ffffff !important;
+    }
+    .display-config-danger {
+      background: #fee2e2 !important;
+      border-color: #fecaca !important;
+      color: #991b1b !important;
+    }
+    .display-config-active-view {
+      background: #16a34a !important;
+      border-color: #15803d !important;
+      color: #ffffff !important;
+      box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.18);
+    }
+    .display-config-status {
+      font-size: 12px;
+      font-weight: 700;
+      color: #334155;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 9999px;
+      padding: 5px 10px;
+      white-space: nowrap;
+    }
+    .display-config-number {
+      width: 58px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 5px 7px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 700;
+      color: #0f172a;
+      background: #ffffff;
+    }
+    .display-config-range {
+      width: 110px;
+      accent-color: #2563eb;
+    }
+    .display-config-value {
+      min-width: 42px;
+      text-align: center;
+      direction: ltr;
+      font-size: 12px;
+      font-weight: 800;
+      color: #334155;
+    }
     .draw-selector-overlay {
       position: fixed;
       inset: 0;
@@ -1377,8 +1465,42 @@
         <button id="games-view-btn" onclick="switchMainView('games')" class="px-4 py-2 text-sm whitespace-nowrap bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">משחקים</button>
         <button id="groups-standings-btn" onclick="switchMainView('groups')" class="px-4 py-2 text-sm whitespace-nowrap bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">בתים</button>
         <button id="knockout-standings-btn" onclick="switchMainView('knockout')" class="px-4 py-2 text-sm whitespace-nowrap bg-cyan-600 hover:bg-cyan-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2" style="background:#0891b2;color:#ffffff;border:1px solid #0e7490;" onmouseover="this.style.background='#0e7490'" onmouseout="this.style.background='#0891b2'">נוקאאוט</button>
-        <button id="upcoming-popup-btn" onclick="openUpcomingColumnPopup()" class="px-4 py-2 text-sm whitespace-nowrap bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">תצוגה</button>
+        <button id="upcoming-popup-btn" onclick="toggleDisplayConfigPanel()" class="px-4 py-2 text-sm whitespace-nowrap bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">תצוגה</button>
       </div><!-- URL Input Section - Collapsible -->
+      <div id="display-config-panel" class="display-config-panel hidden max-w-7xl mx-auto mb-3">
+        <div class="display-config-row">
+          <span class="display-config-row-title">חלון תצוגה</span>
+          <button id="display-popup-toggle-btn" type="button" class="display-config-primary" onclick="toggleDisplayPopupWindow()">פתח תצוגה</button>
+          <button id="display-view-games-btn" type="button" onclick="showDisplayPopupGames()">משחקים</button>
+          <button id="display-view-groups-btn" type="button" onclick="showDisplayPopupGroups()">בתים</button>
+          <button id="display-view-knockout-btn" type="button" onclick="showDisplayPopupKnockout()">נוקאאוט</button>
+          <span id="display-combined-cycle-status" class="display-config-status">הרצה כבויה</span>
+        </div>
+        <div class="display-config-row">
+          <span class="display-config-row-title">מחזור תצוגה</span>
+          <span>משחקים</span>
+          <input id="combined-cycle-games-seconds" type="number" min="0" max="600" step="1" value="7" class="display-config-number" oninput="updateCombinedPopupCycleDurationsFromControls()" aria-label="משך תצוגת משחקים בשניות">
+          <span>בתים</span>
+          <input id="combined-cycle-show-seconds" type="number" min="0" max="600" step="1" value="5" class="display-config-number" oninput="updateCombinedPopupCycleDurationsFromControls()" aria-label="משך תצוגת בתים בשניות">
+          <span>נוקאאוט</span>
+          <input id="combined-cycle-hide-seconds" type="number" min="0" max="600" step="1" value="10" class="display-config-number" oninput="updateCombinedPopupCycleDurationsFromControls()" aria-label="משך תצוגת נוקאאוט בשניות">
+          <button id="combined-cycle-toggle-btn" type="button" onclick="toggleCombinedPopupCycle()">הפעל מחזור</button>
+        </div>
+        <div class="display-config-row">
+          <span class="display-config-row-title">גלילה</span>
+          <button id="display-scroll-toggle-btn" type="button" onclick="toggleDisplayPopupAutoScroll()">הפעל גלילה</button>
+          <span>מהירות</span>
+          <input id="display-scroll-speed" type="range" min="10" max="140" step="1" value="40" class="display-config-range" oninput="handleDisplayPopupAutoScrollSpeedChange(this.value)" aria-label="מהירות גלילה">
+          <span id="display-scroll-speed-value" class="display-config-value">40</span>
+        </div>
+        <div class="display-config-row">
+          <span class="display-config-row-title">זום</span>
+          <button type="button" onclick="changeDisplayPopupZoom(0.1)">+</button>
+          <span id="display-zoom-value" class="display-config-value">100%</span>
+          <button type="button" onclick="changeDisplayPopupZoom(-0.1)">-</button>
+          <button type="button" onclick="resetDisplayPopupZoom()">איפוס</button>
+        </div>
+      </div>
       <div id="games-config-panel" class="bg-white rounded-xl shadow-lg max-w-7xl mx-auto overflow-hidden">
          <div id="url-section" class="p-4">
       <div class="mb-3 text-xs md:text-sm text-slate-500 font-semibold text-right">גרסה 1.0.0.5</div>
@@ -1922,6 +2044,7 @@
     let mainKnockoutActionStableKey = '';
     let mainKnockoutActionAllowEmptySubmission = false;
     let gamesConfigPanelOpen = false;
+    let displayConfigPanelOpen = false;
 
     function updateGamesConfigPanelVisibility() {
       const panel = document.getElementById('games-config-panel');
@@ -1960,6 +2083,158 @@
           urlSection.style.display = '';
         }
       }
+    }
+
+    function updateDisplayConfigPanelVisibility() {
+      const panel = document.getElementById('display-config-panel');
+      if (!panel) return;
+      panel.classList.toggle('hidden', !displayConfigPanelOpen);
+      if (displayConfigPanelOpen) {
+        updateCombinedPopupCycleControls();
+        syncDisplayPopupControlsFromWindow();
+      }
+    }
+
+    function toggleDisplayConfigPanel() {
+      displayConfigPanelOpen = !displayConfigPanelOpen;
+      updateDisplayConfigPanelVisibility();
+    }
+
+    function isDisplayPopupOpen() {
+      return Boolean(upcomingColumnPopupWindow && !upcomingColumnPopupWindow.closed);
+    }
+
+    function updateDisplayPopupToggleButton() {
+      const btn = document.getElementById('display-popup-toggle-btn');
+      if (!btn) return;
+      const isOpen = isDisplayPopupOpen();
+      btn.textContent = isOpen ? 'סגור' : 'פתח תצוגה';
+      btn.classList.toggle('display-config-primary', !isOpen);
+      btn.classList.toggle('display-config-danger', isOpen);
+    }
+
+    function openDisplayPopupFromConfig() {
+      openUpcomingColumnPopup();
+      syncDisplayPopupControlsFromWindow();
+      updateDisplayPopupToggleButton();
+    }
+
+    function toggleDisplayPopupWindow() {
+      if (isDisplayPopupOpen()) {
+        closeDisplayPopupWindow();
+        return;
+      }
+      openDisplayPopupFromConfig();
+    }
+
+    function ensureDisplayPopupOpen() {
+      if (!upcomingColumnPopupWindow || upcomingColumnPopupWindow.closed) {
+        openUpcomingColumnPopup();
+      }
+      updateDisplayPopupToggleButton();
+      return Boolean(upcomingColumnPopupWindow && !upcomingColumnPopupWindow.closed);
+    }
+
+    function showDisplayPopupGames() {
+      if (!ensureDisplayPopupOpen()) return;
+      setUpcomingPopupDisplayMode('upcoming', '');
+      refreshCombinedPopupCycleStatusLabel();
+    }
+
+    async function showDisplayPopupGroups() {
+      if (!ensureDisplayPopupOpen()) return;
+      await openUpcomingEmbeddedView('groups', false, true);
+      refreshCombinedPopupCycleStatusLabel();
+    }
+
+    async function showDisplayPopupKnockout() {
+      if (!ensureDisplayPopupOpen()) return;
+      await openUpcomingEmbeddedView('knockout', false, true);
+      refreshCombinedPopupCycleStatusLabel();
+    }
+
+    function closeDisplayPopupWindow() {
+      if (upcomingColumnPopupWindow && !upcomingColumnPopupWindow.closed) {
+        try { upcomingColumnPopupWindow.close(); } catch {}
+      }
+      upcomingColumnPopupWindow = null;
+      clearUpcomingPopupReportedBounds();
+      updateDisplayPopupToggleButton();
+      updateDisplayViewActiveButtons();
+    }
+
+    function syncDisplayPopupControlsFromWindow() {
+      updateDisplayPopupToggleButton();
+      updateDisplayViewActiveButtons();
+      const win = upcomingColumnPopupWindow && !upcomingColumnPopupWindow.closed ? upcomingColumnPopupWindow : null;
+      if (!win) return;
+      try {
+        const popupState = typeof win.getPopupDisplayControlState === 'function'
+          ? win.getPopupDisplayControlState()
+          : {};
+        const scrollSpeed = Number(popupState.autoScrollSpeed || 40);
+        const scrollSpeedInput = document.getElementById('display-scroll-speed');
+        const scrollSpeedValue = document.getElementById('display-scroll-speed-value');
+        const scrollToggle = document.getElementById('display-scroll-toggle-btn');
+        if (scrollSpeedInput) scrollSpeedInput.value = String(Math.round(scrollSpeed));
+        if (scrollSpeedValue) scrollSpeedValue.textContent = String(Math.round(scrollSpeed));
+        if (scrollToggle) {
+          const enabled = Boolean(popupState.autoScrollEnabled);
+          scrollToggle.textContent = enabled ? 'עצור גלילה' : 'הפעל גלילה';
+          scrollToggle.classList.toggle('display-config-primary', enabled);
+        }
+
+        const zoomLevel = Number(popupState.zoomLevel || 1);
+        const zoomValue = document.getElementById('display-zoom-value');
+        if (zoomValue) zoomValue.textContent = `${Math.round(zoomLevel * 100)}%`;
+      } catch {}
+    }
+
+    function updateDisplayViewActiveButtons() {
+      const activeView = isDisplayPopupOpen()
+        ? (upcomingPopupEmbeddedViewType || 'games')
+        : '';
+      const gamesBtn = document.getElementById('display-view-games-btn');
+      const groupsBtn = document.getElementById('display-view-groups-btn');
+      const knockoutBtn = document.getElementById('display-view-knockout-btn');
+      if (gamesBtn) gamesBtn.classList.toggle('display-config-active-view', activeView === 'games');
+      if (groupsBtn) groupsBtn.classList.toggle('display-config-active-view', activeView === 'groups');
+      if (knockoutBtn) knockoutBtn.classList.toggle('display-config-active-view', activeView === 'knockout');
+    }
+
+    function toggleDisplayPopupAutoScroll() {
+      if (!ensureDisplayPopupOpen()) return;
+      try {
+        upcomingColumnPopupWindow.togglePopupAutoScroll?.();
+      } catch {}
+      syncDisplayPopupControlsFromWindow();
+    }
+
+    function handleDisplayPopupAutoScrollSpeedChange(rawValue) {
+      const value = Number(rawValue);
+      const valueEl = document.getElementById('display-scroll-speed-value');
+      if (valueEl && Number.isFinite(value)) valueEl.textContent = String(Math.round(value));
+      if (!ensureDisplayPopupOpen()) return;
+      try {
+        upcomingColumnPopupWindow.handlePopupAutoScrollSpeedChange?.(rawValue);
+      } catch {}
+      syncDisplayPopupControlsFromWindow();
+    }
+
+    function changeDisplayPopupZoom(delta) {
+      if (!ensureDisplayPopupOpen()) return;
+      try {
+        upcomingColumnPopupWindow.changePopupZoom?.(delta);
+      } catch {}
+      syncDisplayPopupControlsFromWindow();
+    }
+
+    function resetDisplayPopupZoom() {
+      if (!ensureDisplayPopupOpen()) return;
+      try {
+        upcomingColumnPopupWindow.resetPopupZoom?.();
+      } catch {}
+      syncDisplayPopupControlsFromWindow();
     }
 
     function clampGroupsPopupZoomPercent(value) {
@@ -4323,7 +4598,7 @@
   <style>
     * { box-sizing: border-box; font-family: 'Heebo', sans-serif; }
     html, body { margin: 0; width: 100%; height: 100%; background: #f1f5f9; color: #1e293b; }
-    .popup-shell { display: grid; grid-template-rows: auto 1fr; width: 100%; height: 100%; min-height: 0; }
+    .popup-shell { display: grid; grid-template-rows: 1fr; width: 100%; height: 100%; min-height: 0; }
     .popup-header {
       display: flex;
       align-items: center;
@@ -5013,6 +5288,13 @@
         speedValue.textContent = String(Math.round(popupAutoScrollSpeed));
       }
     }
+    function getPopupDisplayControlState() {
+      return {
+        autoScrollEnabled: popupAutoScrollEnabled,
+        autoScrollSpeed: popupAutoScrollSpeed,
+        zoomLevel: popupZoomLevel
+      };
+    }
     function stepAutoScrollContainer(container, deltaPx) {
       if (!container) return;
       const now = Date.now();
@@ -5148,38 +5430,6 @@
 </head>
 <body>
   <div class="popup-shell">
-    <div class="popup-header">
-      <div class="popup-header-left">
-        <button id="popup-view-games-btn" type="button" class="popup-share-btn active" onclick="switchToGamesInPopup()">משחקים</button>
-        <button id="popup-view-groups-btn" type="button" class="popup-share-btn" onclick="openGroupsPopupFromUpcoming()">בתים</button>
-        <button id="popup-view-knockout-btn" type="button" class="popup-share-btn" onclick="openKnockoutPopupFromUpcoming()">נוקאאוט</button>
-        <span id="popup-combined-cycle-status" class="popup-cycle-status">הרצה כבויה</span>
-      </div>
-      <div class="popup-header-right">
-        <div class="popup-scroll-controls" title="בתים ונוקאאוט במחזור">
-          <span>משחקים</span>
-          <input id="combined-cycle-games-seconds" type="number" min="0" max="600" step="1" value="7" class="popup-cycle-seconds" oninput="updateCombinedPopupCycleDurationsFromUpcoming()" aria-label="משך תצוגת משחקים בשניות">
-          <span>בתים</span>
-          <input id="combined-cycle-show-seconds" type="number" min="0" max="600" step="1" value="5" class="popup-cycle-seconds" oninput="updateCombinedPopupCycleDurationsFromUpcoming()" aria-label="משך תצוגת בתים בשניות">
-          <span>נוקאאוט</span>
-          <input id="combined-cycle-hide-seconds" type="number" min="0" max="600" step="1" value="10" class="popup-cycle-seconds" oninput="updateCombinedPopupCycleDurationsFromUpcoming()" aria-label="משך תצוגת נוקאאוט בשניות">
-          <button id="combined-cycle-toggle-btn" type="button" class="popup-scroll-toggle" onclick="toggleCombinedPopupCycleFromUpcoming()">הפעל מחזור</button>
-        </div>
-        <div class="popup-scroll-controls" title="גלילה אוטומטית">
-          <button id="popup-scroll-toggle-btn" type="button" class="popup-scroll-toggle" onclick="togglePopupAutoScroll()">הפעל גלילה</button>
-          <span>מהירות</span>
-          <input id="popup-scroll-speed" type="range" min="10" max="140" step="1" value="40" class="popup-speed-range" oninput="handlePopupAutoScrollSpeedChange(this.value)" aria-label="מהירות גלילה">
-          <span id="popup-scroll-speed-value" class="popup-speed-value">40</span>
-        </div>
-        <div class="popup-zoom-controls" title="זום">
-          <button type="button" class="popup-zoom-btn" onclick="changePopupZoom(0.1)" aria-label="זום פנימה">+</button>
-          <span id="popup-zoom-value" class="popup-zoom-value">100%</span>
-          <button type="button" class="popup-zoom-btn" onclick="changePopupZoom(-0.1)" aria-label="זום החוצה">-</button>
-          <button type="button" class="popup-zoom-btn" onclick="resetPopupZoom()" aria-label="איפוס זום" title="איפוס">↺</button>
-        </div>
-        <button type="button" class="popup-close-btn" onclick="closePopupWindow()">סגור</button>
-      </div>
-    </div>
     <div id="popup-qr-panel" class="popup-qr-panel">
       <img id="popup-qr-image" class="popup-qr-image" alt="QR share">
       <div class="popup-qr-label">סרוק לצפייה</div>
@@ -5243,6 +5493,7 @@
         upcomingColumnPopupWindow.addEventListener('beforeunload', () => {
           upcomingColumnPopupWindow = null;
           clearUpcomingPopupReportedBounds();
+          updateDisplayPopupToggleButton();
           if (upcomingEmbeddedCombinedEntry) {
             knockoutPopupWindows = knockoutPopupWindows.filter(item => item !== upcomingEmbeddedCombinedEntry);
             if (combinedPopupCycleEntry === upcomingEmbeddedCombinedEntry) {
@@ -6710,6 +6961,7 @@
 
     function setUpcomingPopupEmbeddedViewType(viewType) {
       upcomingPopupEmbeddedViewType = String(viewType || '').toLowerCase();
+      updateDisplayViewActiveButtons();
       const popupDoc = getUpcomingPopupDocument();
       if (!popupDoc) return;
       try {
@@ -6908,6 +7160,8 @@
     }
 
     function updateUpcomingPopupCycleStatusLabel(text) {
+      const localStatus = document.getElementById('display-combined-cycle-status');
+      if (localStatus) localStatus.textContent = text || '';
       if (!upcomingColumnPopupWindow || upcomingColumnPopupWindow.closed) return;
       try {
         const el = upcomingColumnPopupWindow.document.getElementById('popup-combined-cycle-status');
@@ -7044,9 +7298,7 @@
       const hideInput = getCombinedCycleControlElement('combined-cycle-hide-seconds');
       if (toggleBtn) {
         toggleBtn.textContent = combinedPopupCycleEnabled ? 'עצור מחזור' : 'הפעל מחזור';
-        toggleBtn.className = combinedPopupCycleEnabled
-          ? 'popup-scroll-toggle active'
-          : 'popup-scroll-toggle';
+        toggleBtn.classList.toggle('display-config-primary', combinedPopupCycleEnabled);
       }
       if (gamesInput) gamesInput.value = String(Math.max(0, Math.round(combinedPopupCycleGamesMs / 1000)));
       if (showInput) showInput.value = String(Math.max(0, Math.round(combinedPopupCycleShowMs / 1000)));
